@@ -344,28 +344,31 @@ export function buildDocumentHtml(
   }
 
   if (kind === 'exam-memo') {
-    const title = `Exam Memo · ${row.name}`
-    const examLabel = String(row.exam || row.name || 'Assessment')
+    const studentName = String(row.name || 'Student')
+    const examLabel = String(row.exam || 'Assessment')
+    const title = `Exam Report · ${studentName}`
     const html = wrap(
       title,
-      `${letterhead('Examination / Assessment Memo', String(row.id))}
-      <h2>Exam memo</h2>
-      <p>To the Parent / Guardian of <strong>${esc(row.name)}</strong>,</p>
+      `${letterhead('Student Examination Report', String(row.id))}
+      <h2>Examination report</h2>
+      <p>To the Parent / Guardian of <strong>${esc(studentName)}</strong>,</p>
       <p class="block">
-        Please find below the assessment outcome for
+        Please find the assessment outcome for
         <strong>${esc(examLabel)}</strong>
         (${esc(schoolSetup.currentTerm)} ${esc(schoolSetup.academicYear)}).
       </p>
       ${fieldTable([
-        ['Student', row.name],
+        ['Student', studentName],
         ['Assessment', examLabel],
         ['Score', String(row.score ?? '—')],
         ['Grade', String(row.grade || '—')],
         ['Result', String(row.status || '—')],
-        ['Memo ref', row.id],
+        ['Report ref', row.id],
       ])}
       <p class="muted">
-        Discuss this memo with your child. For queries, contact the class teacher or the academic office.
+        Please discuss this report with your child. If you need clarification,
+        contact the class teacher or the academic office on
+        ${esc(schoolSetup.phone)}.
       </p>
       ${signatures('Subject / Class teacher', 'Head teacher')}`,
     )
@@ -416,7 +419,11 @@ export function buildDocumentHtml(
         <thead><tr><th>Assessment</th><th>Score</th><th>Grade</th><th>Result</th></tr></thead>
         <tbody>${resultRows}</tbody>
       </table>
-      <p class="muted">Class teacher comments: Continue supporting home reading and punctuality.</p>
+      <p class="muted">
+        Class teacher comments: Continue supporting home reading and punctuality.
+        For any clarification on this report, please contact the school on
+        ${esc(schoolSetup.phone)}.
+      </p>
       ${signatures('Class teacher', 'Head teacher')}`,
     )
     return { title, html }
