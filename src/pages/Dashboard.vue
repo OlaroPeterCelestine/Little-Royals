@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import {
-  Alert,
   Badge,
   Button,
   PageHeader,
@@ -26,9 +25,6 @@ import SchoolLogo from '../components/SchoolLogo.vue'
 
 const canAddStudent = computed(() => canCurrentUser('students', 'create'))
 const canExportDash = computed(() => canCurrentUser('students', 'export'))
-
-const showFeeWarning = ref(true)
-const showAdmissionWarning = ref(true)
 
 const studentCount = computed(() => schoolStore.students.rows.length)
 const activeStudents = computed(
@@ -124,28 +120,6 @@ const quickLinks = computed(() => [
   </PageHeader>
 
   <div class="school-page school-page--workspace">
-    <Alert
-      v-if="showFeeWarning && unpaidFeeCount > 0"
-      theme="amber"
-      :title="`${unpaidFeeCount} fee invoice${unpaidFeeCount === 1 ? '' : 's'} need attention`"
-      description="Unpaid, partial, or overdue balances are waiting."
-      icon="lucide-alert-triangle"
-      dismissible
-      :primary-action="{ label: 'Open fees', route: '/fees' }"
-      @dismiss="showFeeWarning = false"
-    />
-
-    <Alert
-      v-if="showAdmissionWarning && pendingApplicantCount > 0"
-      theme="red"
-      :title="`${pendingApplicantCount} admission${pendingApplicantCount === 1 ? '' : 's'} pending review`"
-      description="Applicants on Pending or Waitlist need a decision this week."
-      icon="lucide-alert-triangle"
-      dismissible
-      :primary-action="{ label: 'Review applicants', route: '/applicants' }"
-      @dismiss="showAdmissionWarning = false"
-    />
-
     <section class="school-hero">
       <div class="flex items-start gap-4">
         <div
