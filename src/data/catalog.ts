@@ -3865,7 +3865,7 @@ export const catalog: Record<string, CatalogModule> = {
     key: 'staff-leave',
     title: 'Staff Leave',
     singular: 'Leave request',
-    icon: 'lucide-palm-tree',
+    icon: 'lucide-calendar-off',
     description: 'Teacher and staff leave requests',
     group: 'System',
     columns: [

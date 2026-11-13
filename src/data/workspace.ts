@@ -330,7 +330,7 @@ export const educationNav: NavGroup[] = [
       },
       {
         label: 'Staff Leave',
-        icon: 'lucide-palm-tree',
+        icon: 'lucide-calendar-off',
         route: '/staff-leave',
       },
     ],
