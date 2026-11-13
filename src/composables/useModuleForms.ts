@@ -9,6 +9,10 @@ import type { CatalogModule, CatalogRow } from '../data/catalog'
 import { asOptionalNumber, type RecordValues } from '../types/records'
 import { canCurrentUser } from '../data/permissions'
 import { currentUser } from '../data/activity'
+import {
+  gradeSelectOptions,
+  sectionSelectOptions,
+} from '../data/grades'
 
 function deny(action: string) {
   toast.error(
@@ -76,6 +80,36 @@ function fieldForColumn(
         if (v.length < 2) return 'Name must be at least 2 characters'
         return null
       },
+    }
+  }
+
+  if (
+    (colKey === 'grade' || colKey === 'className') &&
+    ['students', 'applicants', 'admissions', 'classes'].includes(mod.key)
+  ) {
+    const current = String(row?.[colKey] || gradeSelectOptions[0].value)
+    return {
+      name: colKey,
+      label: col.label,
+      type: 'select',
+      required: true,
+      options: [...gradeSelectOptions],
+      defaultValue: current,
+    }
+  }
+
+  if (
+    colKey === 'program' &&
+    ['students', 'applicants', 'admissions', 'programs'].includes(mod.key)
+  ) {
+    const current = String(row?.[colKey] || 'Primary')
+    return {
+      name: colKey,
+      label: col.label,
+      type: 'select',
+      required: true,
+      options: [...sectionSelectOptions],
+      defaultValue: current,
     }
   }
 

@@ -134,7 +134,7 @@ function wrap(title: string, body: string) {
       <div>Tel: ${esc(schoolSetup.phone)}<br>Email: ${esc(schoolSetup.email)}</div>
     </div>
     ${body}
-    <p class="foot">Generated from Little Royals SchoolOS · Confidential school report</p>
+    <p class="foot">Generated from Little Royals Kindergarten & Primary desk · Confidential school report</p>
   </div>
 </body>
 </html>`
@@ -162,7 +162,9 @@ export function schoolReportStats() {
     ),
     unpaidFees: unpaidFeeCount.value,
     pendingAdmissions: pendingApplicantCount.value,
-    examPass: results.filter((r) => r.status === 'Pass').length,
+    examPass: results.filter((r) =>
+      ['Posted', 'Pass'].includes(String(r.status)),
+    ).length,
     examTotal: results.length,
   }
 }
@@ -181,7 +183,7 @@ function buildOverview() {
     <div class="kpi">
       <div><strong>${s.unpaidFees}</strong><span>Fee invoices open</span></div>
       <div><strong>${s.pendingAdmissions}</strong><span>Admissions pending</span></div>
-      <div><strong>${s.examPass}/${s.examTotal || 0}</strong><span>Exam passes</span></div>
+      <div><strong>${s.examPass}/${s.examTotal || 0}</strong><span>Results posted</span></div>
       <div><strong>${esc(schoolSetup.currency)}</strong><span>Billing currency</span></div>
     </div>
     <p class="muted">Summary for ${esc(schoolSetup.currentTerm)} ${esc(schoolSetup.academicYear)}.</p>`,
@@ -298,8 +300,8 @@ function buildAdmissions() {
 function buildAcademics() {
   const rows = schoolStore['exam-results']?.rows || []
   const title = 'Academic Results Report'
-  const pass = countBy(rows, ['Pass'])
-  const fail = countBy(rows, ['Fail'])
+  const pass = countBy(rows, ['Posted', 'Pass'])
+  const fail = countBy(rows, ['Remedial', 'Fail'])
   const bodyRows = rows
     .map(
       (r) =>

@@ -121,7 +121,7 @@ function printReportCard(row: CatalogRow, event?: Event) {
 
 <template>
   <PageHeader>
-    <PageHeaderTitle title="Students" />
+    <PageHeaderTitle title="Pupils" />
     <div class="flex items-center gap-2">
       <Button
         v-if="canDelete"
@@ -220,7 +220,7 @@ function printReportCard(row: CatalogRow, event?: Event) {
       >
         <ListHeader>
           <ListHeaderCellSort :direction="sortDir" @click="toggleSort">
-            Student
+            Pupil
           </ListHeaderCellSort>
           <ListHeaderCell class="hidden md:flex">ID</ListHeaderCell>
           <ListHeaderCell class="hidden md:flex">Class</ListHeaderCell>

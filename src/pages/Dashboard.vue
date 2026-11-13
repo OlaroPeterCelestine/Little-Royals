@@ -135,10 +135,11 @@ const quickLinks = computed(() => [
             {{ schoolSetup.name }} · {{ schoolSetup.city }}
           </p>
           <h1 class="text-2xl-semibold text-ink-gray-9">
-            Education Dashboard
+            School dashboard
           </h1>
           <p class="max-w-xl text-p-base text-ink-gray-6">
-            {{ schoolSetup.motto }} — enrollment, attendance, and fees ·
+            {{ schoolSetup.motto }} — Baby Class to P.7 nursery &amp; primary
+            desk · enrollment, attendance, fees ·
             {{ schoolSetup.currentTerm }} {{ schoolSetup.academicYear }}.
           </p>
         </div>

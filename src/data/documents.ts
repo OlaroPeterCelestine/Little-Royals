@@ -427,15 +427,15 @@ export function buildDocumentHtml(
             : '—',
         ],
       ])}
-      <h2>Assessment results</h2>
+      <h2>Term assessment (NCDC / UNEB)</h2>
       <table>
-        <thead><tr><th>Assessment</th><th>Score</th><th>Grade</th><th>Result</th></tr></thead>
+        <thead><tr><th>Subject / paper</th><th>Mark %</th><th>Agg / band</th><th>Status</th></tr></thead>
         <tbody>${resultRows}</tbody>
       </table>
       <p class="muted">
-        Class teacher comments: Continue supporting home reading and punctuality.
-        For any clarification on this report, please contact the school on
-        ${esc(schoolSetup.phone)}.
+        Nursery reports use readiness bands (Emerging–Exceeding). Primary uses
+        UNEB-style aggregates (D1–F9). Contact the school on
+        ${esc(schoolSetup.phone)} for clarification.
       </p>
       ${signatures('Class teacher', 'Head teacher')}`,
     )

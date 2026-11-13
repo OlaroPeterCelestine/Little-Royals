@@ -33,7 +33,7 @@ export function openCustomizeShortcuts(onSaved?: (labels: string[]) => void) {
   const current = getVisibleShortcutLabels()
   dialog.prompt({
     title: 'Customize shortcuts',
-    message: 'Choose which Education shortcuts appear on the workspace home.',
+    message: 'Choose which nursery & primary shortcuts appear on the home desk.',
     icon: 'lucide-pencil',
     theme: 'blue',
     confirmLabel: 'Save',
@@ -66,7 +66,7 @@ export function openNotifications(router: Router) {
 
 export function openDocumentation() {
   dialog.confirm({
-    title: 'Little Royals · Education help',
+    title: 'Little Royals · Nursery & primary help',
     message:
       'Little Royals Kindergarten and Primary School desk (NCDC / UNEB).\n\n' +
       '• Create, edit, and delete records from any list\n' +
@@ -120,7 +120,7 @@ export function exportDashboardCsv() {
   logActivity({
     action: 'Exported',
     module: 'reports',
-    moduleLabel: 'Education Reports',
+    moduleLabel: 'School Reports',
     recordName: 'Dashboard CSV',
     summary: 'Exported dashboard CSV',
     severity: 'info',

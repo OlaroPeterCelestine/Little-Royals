@@ -96,7 +96,7 @@ function seedPerms(): RoleDocPermission[] {
 
   for (const doc of DOC_TYPES) {
     out.push({
-      role: 'Education Manager',
+      role: 'Head Teacher',
       doctype: doc.key,
       doctypeLabel: doc.label,
       perms: full(),
@@ -220,7 +220,7 @@ function seedPerms(): RoleDocPermission[] {
 export const roles = reactive<RoleDef[]>([
   {
     id: 'ROLE-01',
-    name: 'Education Manager',
+    name: 'Head Teacher',
     description: 'Full desk access for Little Royals school operations',
     deskAccess: true,
     status: 'Active',
@@ -260,11 +260,11 @@ export const systemUsers = reactive<SystemUser[]>([
     id: 'USR-01',
     name: 'Sarah Nalwanga',
     email: 'admin@littleroyals.ug',
-    role: 'Education Manager',
+    role: 'Head Teacher',
     status: 'Active',
     lastLogin: new Date().toISOString(),
     department: 'Administration',
-    title: 'Head of Education Desk',
+    title: 'Head Teacher',
     phone: '+256 700 112 233',
     bio: 'Leads Little Royals Kindergarten and Primary operations, NCDC programmes and UNEB readiness.',
     location: 'Kampala, Uganda',
@@ -431,7 +431,7 @@ export function canCurrentUser(
   flag: PermFlag = 'read',
 ): boolean {
   const row = getRolePerms(currentUser.role, doctype)
-  if (!row) return currentUser.role === 'Education Manager'
+  if (!row) return currentUser.role === 'Head Teacher'
   return Boolean(row.perms[flag])
 }
 

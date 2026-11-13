@@ -7,9 +7,9 @@ export const classes = catalog.classes.rows
 export const attendance = catalog.attendance.rows
 
 export const enrollmentByGrade = [
-  { grade: 'Baby', students: 24 },
-  { grade: 'Middle', students: 22 },
-  { grade: 'Top', students: 26 },
+  { grade: 'Baby Class', students: 24 },
+  { grade: 'Middle Class', students: 22 },
+  { grade: 'Top Class', students: 26 },
   { grade: 'P.1', students: 68 },
   { grade: 'P.2', students: 64 },
   { grade: 'P.3', students: 70 },

@@ -14,13 +14,18 @@ import { schoolStore, addRecord, updateRecord } from '../data/store'
 import { schoolSetup } from '../data/schoolSetup'
 import { canCurrentUser } from '../data/permissions'
 import { logActivity } from '../data/activity'
+import {
+  isNurseryClass,
+  percentToAggregate,
+  percentToNurseryBand,
+} from '../data/grades'
 import ListStatCards from '../components/ListStatCards.vue'
 
 const router = useRouter()
 
 const className = ref('P.5 Blue')
 const subject = ref('Mathematics')
-const assessment = ref('Mid of Term')
+const assessment = ref('MOT')
 
 const canWrite = computed(() => canCurrentUser('gradebook', 'write'))
 const canCreate = computed(() => canCurrentUser('gradebook', 'create'))
@@ -37,19 +42,32 @@ const classOptions = computed(() => {
   return [...names].map((n) => ({ label: n, value: n }))
 })
 
-const subjectOptions = [
-  { label: 'Mathematics', value: 'Mathematics' },
-  { label: 'English', value: 'English' },
-  { label: 'Science', value: 'Science' },
-  { label: 'Social Studies', value: 'Social Studies' },
-  { label: 'Literacy', value: 'Literacy' },
+const nurserySubjects = [
+  { label: 'Literacy readiness', value: 'Literacy readiness' },
+  { label: 'Numeracy play', value: 'Numeracy play' },
+  { label: 'Creative arts', value: 'Creative arts' },
+  { label: 'Religious education', value: 'Religious education' },
 ]
 
+const primarySubjects = [
+  { label: 'English', value: 'English' },
+  { label: 'Mathematics', value: 'Mathematics' },
+  { label: 'Science', value: 'Science' },
+  { label: 'Social Studies', value: 'Social Studies' },
+  { label: 'Luganda', value: 'Luganda' },
+  { label: 'Religious Education', value: 'Religious Education' },
+]
+
+const subjectOptions = computed(() =>
+  isNurseryClass(className.value) ? nurserySubjects : primarySubjects,
+)
+
 const assessmentOptions = [
-  { label: 'Beginning of Term', value: 'Beginning of Term' },
-  { label: 'Mid of Term', value: 'Mid of Term' },
-  { label: 'End of Term', value: 'End of Term' },
-  { label: 'Weekly test', value: 'Weekly test' },
+  { label: 'BOT · Beginning of term', value: 'BOT' },
+  { label: 'MOT · Mid of term', value: 'MOT' },
+  { label: 'EOT · End of term', value: 'EOT' },
+  { label: 'Weekly CA', value: 'Weekly CA' },
+  { label: 'PLE mock', value: 'PLE mock' },
 ]
 
 type MarkRow = {
@@ -62,16 +80,16 @@ type MarkRow = {
 const marks = ref<MarkRow[]>([])
 
 function letterGrade(score: number) {
-  if (score >= 80) return 'D1'
-  if (score >= 75) return 'D2'
-  if (score >= 70) return 'C3'
-  if (score >= 65) return 'C4'
-  if (score >= 60) return 'C5'
-  if (score >= 55) return 'C6'
-  if (score >= 45) return 'P7'
-  if (score >= 40) return 'P8'
-  return 'F9'
+  if (isNurseryClass(className.value)) return percentToNurseryBand(score)
+  return percentToAggregate(score)
 }
+
+watch(className, () => {
+  const opts = subjectOptions.value
+  if (!opts.some((o) => o.value === subject.value)) {
+    subject.value = opts[0]?.value || 'Mathematics'
+  }
+})
 
 function loadLearners() {
   const learners = (schoolStore.students?.rows || []).filter(
@@ -107,12 +125,16 @@ const stats = computed(() => [
     caption: '%',
   },
   {
-    title: 'Distinction (D1–D2)',
-    value: marks.value.filter((m) => m.score >= 75).length,
+    title: isNurseryClass(className.value) ? 'Secure+' : 'D1–D2',
+    value: marks.value.filter((m) =>
+      isNurseryClass(className.value) ? m.score >= 70 : m.score >= 80,
+    ).length,
   },
   {
-    title: 'Below P8',
-    value: marks.value.filter((m) => m.score < 40).length,
+    title: isNurseryClass(className.value) ? 'Emerging' : 'P8–F9',
+    value: marks.value.filter((m) =>
+      isNurseryClass(className.value) ? m.score < 50 : m.score < 45,
+    ).length,
   },
 ])
 
@@ -204,7 +226,10 @@ function submitMarks() {
             score: m.score,
             grade: m.grade,
             className: className.value,
-            status: m.score >= 40 ? 'Pass' : 'Fail',
+            status:
+              m.score >= 40 || isNurseryClass(className.value)
+                ? 'Posted'
+                : 'Remedial',
           })
         }
       }
@@ -240,8 +265,9 @@ function submitMarks() {
 
   <div class="school-page max-w-5xl">
     <p class="text-p-base text-ink-gray-6">
-      Enter continuous assessment using UNEB-style aggregates (D1–F9) for
-      {{ schoolSetup.shortName }} · {{ schoolSetup.currentTerm }}.
+      Enter continuous assessment for nursery (Emerging–Exceeding) or primary
+      UNEB aggregates (D1–F9). {{ schoolSetup.shortName }} ·
+      {{ schoolSetup.currentTerm }}.
     </p>
 
     <ListStatCards :stats="stats" />

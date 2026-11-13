@@ -38,7 +38,7 @@ export interface MasterGroup {
   links: MasterLink[]
 }
 
-/** Strict Education sidebar — ERPNext Education doctypes only */
+/** Nursery & primary desk — Baby Class–Top Class, P.1–P.7 (NCDC / UNEB) */
 export const educationNav: NavGroup[] = [
   {
     title: 'Overview',
@@ -47,29 +47,29 @@ export const educationNav: NavGroup[] = [
     ],
   },
   {
-    title: 'Student',
+    title: 'Pupils',
     items: [
-      { label: 'Student', icon: 'lucide-graduation-cap', route: '/students' },
-      { label: 'Guardian', icon: 'lucide-heart-handshake', route: '/guardians' },
-      { label: 'Class', icon: 'lucide-users', route: '/classes' },
-      { label: 'Student Log', icon: 'lucide-notebook-pen', route: '/student-log' },
+      { label: 'Pupils', icon: 'lucide-graduation-cap', route: '/students' },
+      { label: 'Guardians', icon: 'lucide-heart-handshake', route: '/guardians' },
+      { label: 'Classes', icon: 'lucide-users', route: '/classes' },
+      { label: 'Pupil log', icon: 'lucide-notebook-pen', route: '/student-log' },
       {
-        label: 'Disciplinary Cases',
+        label: 'Disciplinary cases',
         icon: 'lucide-shield-alert',
         route: '/disciplinary-cases',
       },
       {
-        label: 'Health Records',
+        label: 'Health records',
         icon: 'lucide-heart-pulse',
         route: '/health-records',
       },
       {
-        label: 'Hostel / Boarding',
+        label: 'Boarding (optional)',
         icon: 'lucide-bed-double',
         route: '/hostel',
       },
       {
-        label: 'Student Category',
+        label: 'Fee categories',
         icon: 'lucide-tags',
         route: '/student-categories',
       },
@@ -78,30 +78,30 @@ export const educationNav: NavGroup[] = [
   {
     title: 'Teachers',
     items: [
-      { label: 'Teacher', icon: 'lucide-briefcase', route: '/teachers' },
+      { label: 'Teachers', icon: 'lucide-briefcase', route: '/teachers' },
     ],
   },
   {
     title: 'Academics',
     items: [
-      { label: 'Program', icon: 'lucide-book-marked', route: '/programs' },
-      { label: 'Subject', icon: 'lucide-book-open', route: '/courses' },
-      { label: 'Topic', icon: 'lucide-list-tree', route: '/topics' },
-      { label: 'Room', icon: 'lucide-door-open', route: '/rooms' },
+      { label: 'Sections', icon: 'lucide-book-marked', route: '/programs' },
+      { label: 'Subjects', icon: 'lucide-book-open', route: '/courses' },
+      { label: 'Topics', icon: 'lucide-list-tree', route: '/topics' },
+      { label: 'Rooms', icon: 'lucide-door-open', route: '/rooms' },
       {
-        label: 'Academic Term',
+        label: 'School terms',
         icon: 'lucide-calendar-range',
         route: '/academic-terms',
       },
-      { label: 'Student Batch', icon: 'lucide-layers', route: '/batches' },
+      { label: 'Intake / cohort', icon: 'lucide-layers', route: '/batches' },
       {
-        label: 'Course Schedule',
+        label: 'Timetable',
         icon: 'lucide-calendar-clock',
         route: '/timetable',
       },
       { label: 'Homework', icon: 'lucide-pencil-line', route: '/homework' },
       {
-        label: 'Lesson Plans',
+        label: 'Lesson plans',
         icon: 'lucide-clipboard-pen',
         route: '/lesson-plans',
       },
@@ -111,7 +111,7 @@ export const educationNav: NavGroup[] = [
     title: 'Attendance',
     items: [
       {
-        label: 'Student Attendance',
+        label: 'Pupil attendance',
         icon: 'lucide-clipboard-check',
         route: '/attendance',
       },
@@ -443,40 +443,40 @@ export const shortcuts: ShortcutItem[] = [
 
 export const tools: ToolItem[] = [
   {
-    label: 'Student Monthly Attendance Sheet',
+    label: 'Pupil monthly attendance',
     route: '/attendance',
     icon: 'lucide-calendar-days',
     description: 'Month-wise presence by class',
   },
   {
-    label: 'Course Scheduling Tool',
+    label: 'Timetable planner',
     route: '/timetable',
     icon: 'lucide-calendar-clock',
     description: 'Plan periods and rooms',
   },
   {
-    label: 'Student Attendance Tool',
+    label: 'Pupil attendance',
     route: '/attendance',
     icon: 'lucide-clipboard-check',
     description: "Mark today's roll call",
   },
   {
-    label: 'Education Dashboard',
+    label: 'School dashboard',
     route: '/',
     icon: 'lucide-layout-dashboard',
-    description: 'Charts, KPIs, and tables',
+    description: 'Nursery & primary KPIs, classes Baby–P.7',
   },
   {
-    label: 'Assessment Result Entry',
+    label: 'Assessment results',
     route: '/exam-results',
     icon: 'lucide-award',
-    description: 'Post and review scores',
+    description: 'Post NCDC / UNEB marks (D1–F9)',
   },
   {
     label: 'School Reports',
     route: '/reports',
     icon: 'lucide-bar-chart-3',
-    description: 'Overall school summaries to print or export',
+    description: 'Overall nursery & primary summaries',
   },
   {
     label: 'Scan to data',

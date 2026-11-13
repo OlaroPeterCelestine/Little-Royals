@@ -268,7 +268,13 @@ function payFees() {
             <div>
               <p class="text-sm-medium text-ink-gray-9">{{ rc.term }}</p>
               <p class="text-xs text-ink-gray-5">
-                Avg {{ rc.average }}% · Div {{ rc.division }} · {{ rc.position }}
+                Avg {{ rc.average }}% ·
+                {{
+                  /Baby|Middle|Top|Nursery/i.test(String(rc.className || ''))
+                    ? `Readiness ${rc.division}`
+                    : `${rc.division}${rc.aggregate != null ? ` · Agg ${rc.aggregate}` : ''}`
+                }}
+                · {{ rc.position }}
               </p>
             </div>
             <Button

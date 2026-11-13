@@ -316,7 +316,7 @@ function openUser(user: SystemUser) {
 }
 
 /* ——— Roles tab ——— */
-const selectedRole = ref(roles[0]?.name || 'Education Manager')
+const selectedRole = ref(roles[0]?.name || 'Head Teacher')
 const selectedDoc = ref(documentTypes[0]?.key || 'students')
 const dirty = ref(false)
 

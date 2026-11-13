@@ -15,6 +15,7 @@ import { schoolSetup } from '../data/schoolSetup'
 import { canCurrentUser } from '../data/permissions'
 import type { CatalogRow } from '../data/catalog'
 import { openPrintWindow } from '../data/documents'
+import { isNurseryClass } from '../data/grades'
 import ListStatCards from '../components/ListStatCards.vue'
 
 const router = useRouter()
@@ -66,6 +67,14 @@ const subjectRows = computed(() => {
     }))
   }
   const avg = Number(selected.value?.average || 70)
+  if (isNurseryClass(selected.value?.className)) {
+    return [
+      { subject: 'Literacy readiness', score: avg + 2, grade: 'Secure' },
+      { subject: 'Numeracy play', score: avg - 3, grade: 'Developing' },
+      { subject: 'Creative arts', score: avg + 4, grade: 'Exceeding' },
+      { subject: 'Social skills', score: avg, grade: 'Secure' },
+    ]
+  }
   return [
     { subject: 'English', score: avg + 2, grade: 'C3' },
     { subject: 'Mathematics', score: avg - 4, grade: 'C4' },
@@ -73,6 +82,10 @@ const subjectRows = computed(() => {
     { subject: 'Social Studies', score: avg - 1, grade: 'C4' },
   ]
 })
+
+const selectedIsNursery = computed(() =>
+  isNurseryClass(selected.value?.className),
+)
 
 const stats = computed(() => [
   { title: 'Report cards', value: cards.value.length },
@@ -85,8 +98,10 @@ const stats = computed(() => [
     value: cards.value.filter((r) => r.status === 'Draft').length,
   },
   {
-    title: 'Division I',
-    value: cards.value.filter((r) => String(r.division) === 'I').length,
+    title: 'Div 1 / Secure',
+    value: cards.value.filter((r) =>
+      ['Div 1', 'Secure', 'Exceeding'].includes(String(r.division)),
+    ).length,
   },
 ])
 
@@ -145,19 +160,19 @@ function printCard() {
   <div><strong>Learner:</strong> ${row.name}</div>
   <div><strong>Class:</strong> ${row.className}</div>
   <div><strong>Average:</strong> ${row.average}%</div>
-  <div><strong>Division:</strong> ${row.division}</div>
+  <div><strong>${isNurseryClass(row.className) ? 'Readiness' : 'Division'}:</strong> ${row.division}${row.aggregate != null && !isNurseryClass(row.className) ? ` · Agg ${row.aggregate}` : ''}</div>
   <div><strong>Position:</strong> ${row.position || '—'}</div>
   <div><strong>Status:</strong> ${row.status}</div>
 </div>
 <table>
-  <thead><tr><th>Subject</th><th>Score %</th><th>Aggregate</th></tr></thead>
+  <thead><tr><th>Subject</th><th>Score %</th><th>${isNurseryClass(row.className) ? 'Band' : 'Aggregate'}</th></tr></thead>
   <tbody>${subjects}</tbody>
 </table>
 <p><strong>Class teacher:</strong> ${row.teacherComment || '—'}</p>
 <p><strong>Head teacher:</strong> ${row.headComment || '—'}</p>
 <div class="footer">
   <p>${schoolSetup.addressLine1}, ${schoolSetup.city} · ${schoolSetup.phone}</p>
-  <p>Generated ${new Date().toLocaleDateString()} · NCDC / UNEB style desk template</p>
+  <p>Generated ${new Date().toLocaleDateString()} · ${isNurseryClass(row.className) ? 'NCDC nursery descriptors' : 'NCDC / UNEB PLE primary'} desk template</p>
 </div>
 </body></html>`
   openPrintWindow(`Report Card · ${row.name}`, html)
@@ -262,7 +277,17 @@ function printCard() {
           <div class="grid grid-cols-2 gap-2 text-sm">
             <p><span class="text-ink-gray-5">Class:</span> {{ selected.className }}</p>
             <p><span class="text-ink-gray-5">Average:</span> {{ selected.average }}%</p>
-            <p><span class="text-ink-gray-5">Division:</span> {{ selected.division }}</p>
+            <p>
+              <span class="text-ink-gray-5">
+                {{ selectedIsNursery ? 'Readiness:' : 'Division:' }}
+              </span>
+              {{ selected.division
+              }}{{
+                !selectedIsNursery && selected.aggregate != null
+                  ? ` · Agg ${selected.aggregate}`
+                  : ''
+              }}
+            </p>
             <p><span class="text-ink-gray-5">Position:</span> {{ selected.position }}</p>
           </div>
           <table class="w-full text-sm">
@@ -270,7 +295,7 @@ function printCard() {
               <tr class="border-b border-outline-gray-2 text-left text-ink-gray-5">
                 <th class="py-2">Subject</th>
                 <th class="py-2">Score</th>
-                <th class="py-2">Agg</th>
+                <th class="py-2">{{ selectedIsNursery ? 'Band' : 'Agg' }}</th>
               </tr>
             </thead>
             <tbody>

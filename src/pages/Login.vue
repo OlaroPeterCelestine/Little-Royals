@@ -52,7 +52,7 @@ function askAdmin() {
         <SchoolLogo size="md" />
         <div>
           <p class="login-brand-title">{{ brand.shortName }}</p>
-          <p class="login-brand-sub">Edusync SchoolOS</p>
+          <p class="login-brand-sub">Kindergarten & Primary desk</p>
         </div>
       </header>
 
@@ -132,10 +132,10 @@ function askAdmin() {
     <aside class="login-right" aria-hidden="true">
       <div class="login-panel">
         <div class="login-panel-copy">
-          <h2>Effortlessly manage your school and operations.</h2>
+          <h2>Nursery &amp; primary desk for Baby Class through P.7.</h2>
           <p>
-            Log in to access attendance, admissions, fees, and parent messaging
-            in one place.
+            Attendance, admissions, NCDC assessments, UNEB PLE prep, fees, and
+            parent SMS — built for Little Royals Kindergarten and Primary.
           </p>
         </div>
 
