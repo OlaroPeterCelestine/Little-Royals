@@ -13,6 +13,10 @@ dist
 # Backend is a separate git repo (Little-Royals-API) — do not track here
 /backend/
 /.repos/
+
+# Local Go workspace (points at ./backend for the IDE)
+go.work
+go.work.sum
 *.exe
 *.test
 *.out

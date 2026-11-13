@@ -1,0 +1,10 @@
+{
+  "go.workingDir": "backend",
+  "gopls": {
+    "build.directoryFilters": ["-node_modules", "-dist", "-.vercel", "-.repos"],
+    "ui.semanticTokens": true
+  },
+  "go.toolsEnvVars": {
+    "GOFLAGS": "-mod=mod"
+  }
+}
