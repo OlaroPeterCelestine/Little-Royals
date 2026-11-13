@@ -12,7 +12,9 @@ import {
 import {
   defaultDocumentKind,
   documentCatalog,
+  downloadRecordDocument,
   printRecordDocument,
+  shareRecordDocument,
   type DocumentKind,
 } from '../data/documents'
 import { getLiveModule } from '../data/store'
@@ -60,13 +62,10 @@ const selectedRow = computed<CatalogRow | null>(() => {
   return mod?.rows.find((r) => r.id === selectedRecordId.value) || null
 })
 
-watch(
-  selectedKind,
-  () => {
-    const mods = currentDef.value?.modules || []
-    selectedModule.value = mods.includes('*') ? 'fees' : mods[0] || 'fees'
-  },
-)
+watch(selectedKind, () => {
+  const mods = currentDef.value?.modules || []
+  selectedModule.value = mods.includes('*') ? 'fees' : mods[0] || 'fees'
+})
 
 watch(
   [selectedModule, recordOptions],
@@ -80,16 +79,21 @@ watch(
 
 function assertCanPrint(moduleKey: string) {
   if (canCurrentUser(moduleKey, 'print')) return true
-  toast.error('Your role cannot print documents for this module')
+  toast.error('Your role cannot print or export documents for this module')
   return false
 }
 
-function printSelected() {
+function requireSelection() {
   if (!selectedRow.value) {
-    toast.error('Pick a record to print')
-    return
+    toast.error('Pick a record first')
+    return false
   }
-  if (!assertCanPrint(selectedModule.value)) return
+  if (!assertCanPrint(selectedModule.value)) return false
+  return true
+}
+
+function printSelected() {
+  if (!requireSelection() || !selectedRow.value) return
   try {
     const title = printRecordDocument(
       selectedKind.value,
@@ -99,6 +103,39 @@ function printSelected() {
     toast.success(`Opened print preview · ${title}`)
   } catch (err) {
     toast.error(err instanceof Error ? err.message : 'Could not print')
+  }
+}
+
+function downloadSelected() {
+  if (!requireSelection() || !selectedRow.value) return
+  try {
+    const title = downloadRecordDocument(
+      selectedKind.value,
+      selectedModule.value,
+      selectedRow.value,
+    )
+    toast.success(`Downloaded · ${title}`)
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Could not download')
+  }
+}
+
+async function shareSelected() {
+  if (!requireSelection() || !selectedRow.value) return
+  try {
+    const mode = await shareRecordDocument(
+      selectedKind.value,
+      selectedModule.value,
+      selectedRow.value,
+    )
+    toast.success(
+      mode === 'shared'
+        ? 'Share sheet opened'
+        : 'Document summary copied to clipboard',
+    )
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') return
+    toast.error(err instanceof Error ? err.message : 'Could not share')
   }
 }
 
@@ -144,7 +181,7 @@ const kindOptions = documentCatalog.map((d) => ({
 
 <template>
   <PageHeader>
-    <PageHeaderTitle title="Print Documents" />
+    <PageHeaderTitle title="Documents" />
     <div class="flex flex-wrap items-center gap-2">
       <Button
         icon-left="lucide-file-code"
@@ -152,9 +189,21 @@ const kindOptions = documentCatalog.map((d) => ({
         @click="router.push('/reports')"
       />
       <Button
+        icon-left="lucide-share-2"
+        label="Share"
+        :disabled="!selectedRow"
+        @click="shareSelected"
+      />
+      <Button
+        icon-left="lucide-download"
+        label="Download"
+        :disabled="!selectedRow"
+        @click="downloadSelected"
+      />
+      <Button
         variant="solid"
         icon-left="lucide-printer"
-        label="Print selected"
+        label="Print"
         @click="printSelected"
       />
     </div>
@@ -162,9 +211,9 @@ const kindOptions = documentCatalog.map((d) => ({
 
   <div class="school-page max-w-4xl">
     <p class="text-p-base text-ink-gray-6">
-      Print fee invoices, receipts, letters of admission, exam memos, report
-      cards, attendance reports and disciplinary notices on Little Royals
-      letterhead.
+      Print, download, or share fee invoices, receipts, admission letters, exam
+      memos, report cards, attendance reports and disciplinary notices on
+      Little Royals letterhead.
     </p>
 
     <section class="school-section">
@@ -197,7 +246,7 @@ const kindOptions = documentCatalog.map((d) => ({
     </section>
 
     <section class="school-section">
-      <h2 class="school-section-title">Print a specific record</h2>
+      <h2 class="school-section-title">Print, download or share a record</h2>
       <div
         class="grid gap-4 rounded-6 border border-outline-gray-1 bg-surface-white p-5 sm:grid-cols-2"
       >
@@ -224,8 +273,20 @@ const kindOptions = documentCatalog.map((d) => ({
           <Button
             variant="solid"
             icon-left="lucide-printer"
-            label="Print document"
+            label="Print"
             @click="printSelected"
+          />
+          <Button
+            icon-left="lucide-download"
+            label="Download"
+            :disabled="!selectedRow"
+            @click="downloadSelected"
+          />
+          <Button
+            icon-left="lucide-share-2"
+            label="Share"
+            :disabled="!selectedRow"
+            @click="shareSelected"
           />
           <Button
             label="Open record"
@@ -240,12 +301,12 @@ const kindOptions = documentCatalog.map((d) => ({
     </section>
 
     <section class="school-section">
-      <h2 class="school-section-title">Also printable from records</h2>
+      <h2 class="school-section-title">Also available from records</h2>
       <p class="text-sm text-ink-gray-6">
-        Every detail page has a Print button. Fees can print invoice or receipt;
-        admissions print letters; exam results print memos; disciplinary cases
-        print parent notices; students print term report cards. Default for
-        this desk:
+        Detail pages keep Print. From Documents you can also
+        <strong>Download</strong> an HTML letterhead file or
+        <strong>Share</strong> via the device share sheet (falls back to
+        clipboard). Defaults:
         <strong>{{ defaultDocumentKind('fees') }}</strong> on fees,
         <strong>{{ defaultDocumentKind('admissions') }}</strong> on admissions,
         <strong>{{ defaultDocumentKind('exam-results') }}</strong> on exams.

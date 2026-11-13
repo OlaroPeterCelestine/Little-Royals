@@ -520,3 +520,67 @@ export function printRecordDocument(
   openPrintWindow(title, html)
   return title
 }
+
+function safeFileName(title: string) {
+  return title
+    .replace(/[^\w\s.-]+/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .slice(0, 80)
+}
+
+/** Download the branded document as an HTML file (opens cleanly in Word/browser). */
+export function downloadRecordDocument(
+  kind: DocumentKind,
+  moduleKey: string,
+  row: CatalogRow,
+) {
+  const { title, html } = buildDocumentHtml(kind, moduleKey, row)
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${safeFileName(title) || 'little-royals-document'}.html`
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return title
+}
+
+/** Share via Web Share API when available, otherwise copy a text summary. */
+export async function shareRecordDocument(
+  kind: DocumentKind,
+  moduleKey: string,
+  row: CatalogRow,
+): Promise<'shared' | 'copied'> {
+  const { title, html } = buildDocumentHtml(kind, moduleKey, row)
+  const text = `${title}\n${schoolSetup.name}\nRecord: ${row.name} (${row.id})\nGenerated ${new Date().toLocaleString()}`
+  const fileName = `${safeFileName(title) || 'document'}.html`
+  const file = new File([html], fileName, { type: 'text/html' })
+
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      const canFiles =
+        typeof navigator.canShare === 'function' ? navigator.canShare({ files: [file] }) : false
+      if (canFiles) {
+        await navigator.share({ title, text, files: [file] })
+        return 'shared'
+      }
+      await navigator.share({ title, text })
+      return 'shared'
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw err
+      }
+      /* fall through to clipboard */
+    }
+  }
+
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text)
+    return 'copied'
+  }
+  throw new Error('Sharing is not available in this browser')
+}
