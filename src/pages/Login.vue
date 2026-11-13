@@ -204,11 +204,9 @@ function askAdmin() {
   --login-blue-deep: #2e3192;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
-  width: 100%;
-  max-width: 100vw;
-  margin-inline: auto;
   background: #fff;
   color: #111827;
   font-family:
@@ -221,39 +219,10 @@ function askAdmin() {
   overflow-x: clip;
 }
 
-/* Keep login readable on ultra-wide: cap shell, center on the canvas */
-@media (min-width: 1400px) {
-  .login-page {
-    max-width: 86rem;
-    min-height: calc(100dvh - 2rem);
-    margin-block: 1rem;
-    border-radius: 1.25rem;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 20px 50px rgb(15 23 42 / 0.08);
-    overflow: hidden;
-  }
-
-  body:has(.login-page) {
-    background: #f3f4f6;
-  }
-}
-
-@media (min-width: 1920px) {
-  .login-page {
-    max-width: 96rem;
-  }
-}
-
-@media (min-width: 2560px) {
-  .login-page {
-    max-width: 110rem;
-  }
-}
-
 .login-left {
   display: flex;
   flex-direction: column;
-  padding: clamp(1.25rem, 2.5vw, 1.75rem) clamp(1.25rem, 3vw, 2rem)
+  padding: clamp(1.25rem, 2.5vw, 1.75rem) clamp(1.25rem, 3vw, 2.5rem)
     1.25rem;
   min-height: 100vh;
   min-height: 100dvh;
@@ -481,13 +450,6 @@ function askAdmin() {
   min-width: 0;
 }
 
-@media (min-width: 1400px) {
-  .login-left,
-  .login-right {
-    min-height: 0;
-  }
-}
-
 .login-panel {
   height: 100%;
   min-height: calc(100vh - 2.5rem);
@@ -652,13 +614,6 @@ function askAdmin() {
 @media (max-width: 980px) {
   .login-page {
     grid-template-columns: 1fr;
-    max-width: 100%;
-    margin-block: 0;
-    border-radius: 0;
-    border: 0;
-    box-shadow: none;
-    min-height: 100vh;
-    min-height: 100dvh;
   }
 
   .login-right {

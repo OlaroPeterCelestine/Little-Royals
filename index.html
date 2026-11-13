@@ -10,32 +10,29 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <title>Little Royals Kindergarten and Primary School</title>
     <link rel="icon" type="image/png" href="/little-royals-logo.png" />
+    <style>
+      /* Quiet boot — white canvas, no “Loading…” flash before Vue mounts */
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: #ffffff;
+      }
+      #app {
+        min-height: 100vh;
+        min-height: 100dvh;
+        background: #ffffff;
+      }
+    </style>
     <script>
-      // School desk stays light/white — ignore OS dark preference and any
-      // previously saved dark theme so the brand UI does not flip.
+      // School desk stays light / white — ignore OS dark preference.
       localStorage.setItem('theme', 'light')
       document.documentElement.dataset.theme = 'light'
       document.documentElement.style.colorScheme = 'light'
     </script>
   </head>
   <body>
-    <div id="app">
-      <!-- Shown only until Vue boots; matches Login so the desk never flashes -->
-      <div
-        style="
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #f8f8f8;
-          color: #6b7280;
-          font-family: system-ui, sans-serif;
-          font-size: 14px;
-        "
-      >
-        Loading sign-in…
-      </div>
-    </div>
+    <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
