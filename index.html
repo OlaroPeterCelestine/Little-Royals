@@ -6,16 +6,11 @@
     <title>Little Royals Kindergarten and Primary School</title>
     <link rel="icon" type="image/png" href="/little-royals-logo.png" />
     <script>
-      // Apply the saved light or dark mode before the first paint, so the page
-      // doesn't flash. useColorScheme() in the app keeps it in sync after that.
-      // Default to light to match the ERPNext Education desk look; Help menu
-      // can still switch modes and persist via useColorScheme().
-      const scheme = localStorage.getItem('theme') || 'light'
-      const dark =
-        scheme === 'dark' ||
-        (scheme !== 'light' &&
-          matchMedia('(prefers-color-scheme: dark)').matches)
-      document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+      // School desk stays light/white — ignore OS dark preference and any
+      // previously saved dark theme so the brand UI does not flip.
+      localStorage.setItem('theme', 'light')
+      document.documentElement.dataset.theme = 'light'
+      document.documentElement.style.colorScheme = 'light'
     </script>
   </head>
   <body>

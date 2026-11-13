@@ -7,7 +7,6 @@ import {
   Dropdown,
   TextInput,
   toast,
-  useColorScheme,
 } from 'frappe-ui'
 import { HelpIcon } from 'frappe-ui/icons'
 import { commandItems } from '../data/workspace'
@@ -31,7 +30,6 @@ import {
 import SchoolLogo from './SchoolLogo.vue'
 
 const router = useRouter()
-const { resolvedColorScheme, toggleColorScheme } = useColorScheme()
 const { collapsed, toggle: toggleSidebar } = useSidebarCollapse()
 const avatarLabel = computed(() => currentUser.name || 'PC')
 const sidebarToggleIcon = computed(() =>
@@ -107,11 +105,6 @@ const helpItems = computed(() => [
     icon: 'lucide-keyboard',
     onClick: () => openKeyboardShortcuts(),
   },
-  {
-    label: resolvedColorScheme.value === 'dark' ? 'Light mode' : 'Dark mode',
-    icon: resolvedColorScheme.value === 'dark' ? 'lucide-sun' : 'lucide-moon',
-    onClick: () => toggleColorScheme(),
-  },
 ])
 
 const accountItems = computed(() => [
@@ -126,7 +119,7 @@ const accountItems = computed(() => [
   {
     label: 'Account actions',
     icon: 'lucide-settings',
-    onClick: () => openUserMenu(router, toggleColorScheme),
+    onClick: () => openUserMenu(router),
   },
   {
     label: 'School Setup',

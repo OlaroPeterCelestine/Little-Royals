@@ -128,7 +128,7 @@ export function exportDashboardCsv() {
   toast.success('Dashboard CSV downloaded')
 }
 
-export function openUserMenu(router: Router, toggleTheme: () => void) {
+export function openUserMenu(router: Router) {
   dialog.prompt({
     title: 'Account',
     message: 'Little Royals Kindergarten and Primary School · Admin session',
@@ -150,7 +150,6 @@ export function openUserMenu(router: Router, toggleTheme: () => void) {
           { label: 'Activity Log', value: 'activity' },
           { label: 'Users & Roles', value: 'users' },
           { label: 'Role Permissions', value: 'permissions' },
-          { label: 'Toggle light / dark mode', value: 'theme' },
           { label: 'View keyboard shortcuts', value: 'keys' },
           { label: 'Log out', value: 'logout' },
         ],
@@ -168,10 +167,7 @@ export function openUserMenu(router: Router, toggleTheme: () => void) {
       else if (action === 'permissions')
         await router.push({ path: '/users', query: { tab: 'roles' } })
       else if (action === 'users') await router.push('/users')
-      else if (action === 'theme') {
-        toggleTheme()
-        toast.success('Theme updated')
-      } else if (action === 'keys') openKeyboardShortcuts()
+      else if (action === 'keys') openKeyboardShortcuts()
       else if (action === 'logout') {
         logout()
         toast.success('Signed out')

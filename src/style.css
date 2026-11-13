@@ -1,5 +1,21 @@
 @import 'frappe-ui/style.css';
 
+/* Force light / white desk — no dark mode */
+html,
+html[data-theme='dark'] {
+  color-scheme: light !important;
+}
+
+html[data-theme='dark'] {
+  /* Remap dark theme back to light surfaces if somehow toggled */
+  --surface-base: #f8f8f8 !important;
+  --surface-white: #ffffff !important;
+  --surface-gray-1: #f3f3f3 !important;
+  --surface-gray-2: #ededed !important;
+  --ink-gray-8: #383838 !important;
+  --ink-gray-9: #171717 !important;
+}
+
 /* —— Little Royals brand (logo blue / crown red) —— */
 
 :root {
