@@ -172,6 +172,11 @@ export const educationNav: NavGroup[] = [
         route: '/applicants',
       },
       {
+        label: 'Scan to data',
+        icon: 'lucide-scan-text',
+        route: '/scan',
+      },
+      {
         label: 'Student Admission',
         icon: 'lucide-clipboard-list',
         route: '/admissions',
@@ -473,6 +478,12 @@ export const tools: ToolItem[] = [
     icon: 'lucide-bar-chart-3',
     description: 'Overall school summaries to print or export',
   },
+  {
+    label: 'Scan to data',
+    route: '/scan',
+    icon: 'lucide-scan-text',
+    description: 'Upload a photo and fill records from the text',
+  },
 ]
 
 const groupIcons: Record<string, string> = {
@@ -560,6 +571,11 @@ export const commandItems = [
     label: 'School Reports',
     route: '/reports',
     group: 'Reports',
+  },
+  {
+    label: 'Scan to data',
+    route: '/scan',
+    group: 'Admissions',
   },
   {
     label: 'Visitor Log',

@@ -185,6 +185,11 @@ export const router = createRouter({
       component: () => import('./pages/Documents.vue'),
     },
     {
+      path: '/scan',
+      name: 'document-scan',
+      component: () => import('./pages/DocumentScan.vue'),
+    },
+    {
       path: '/school-setup',
       name: 'school-setup',
       component: () => import('./pages/SchoolSetup.vue'),
