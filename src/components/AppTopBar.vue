@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Avatar,
@@ -40,6 +40,31 @@ const query = ref('')
 const open = ref(false)
 const notifOpen = ref(false)
 const inputEl = ref<{ focus?: () => void } | null>(null)
+const bellEl = ref<HTMLElement | null>(null)
+const notifPanelStyle = ref<Record<string, string>>({})
+
+function placeNotifPanel() {
+  const bell = bellEl.value
+  if (!bell) return
+  const rect = bell.getBoundingClientRect()
+  const width = Math.min(22 * 16, window.innerWidth - 16)
+  const right = Math.max(8, window.innerWidth - rect.right)
+  const top = rect.bottom + 8
+  notifPanelStyle.value = {
+    position: 'fixed',
+    top: `${top}px`,
+    right: `${right}px`,
+    width: `${width}px`,
+    maxWidth: 'calc(100vw - 1rem)',
+    zIndex: '80',
+  }
+}
+
+watch(notifOpen, async (isOpen) => {
+  if (!isOpen) return
+  await nextTick()
+  placeNotifPanel()
+})
 
 const results = computed(() => {
   const q = query.value.trim().toLowerCase()
@@ -91,8 +116,20 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', onKeydown))
-onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+function onWindowReposition() {
+  if (notifOpen.value) placeNotifPanel()
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  window.addEventListener('resize', onWindowReposition)
+  window.addEventListener('scroll', onWindowReposition, true)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('resize', onWindowReposition)
+  window.removeEventListener('scroll', onWindowReposition, true)
+})
 
 const helpItems = computed(() => [
   {
@@ -171,9 +208,9 @@ async function signOut() {
 
       <div
         v-if="open"
-        class="absolute inset-x-0 top-0 z-50 overflow-hidden rounded-6 border border-outline-gray-2 bg-surface-white shadow-xl"
+        class="absolute inset-x-0 top-0 z-50 overflow-hidden rounded-6 border border-outline-gray-2 bg-white shadow-xl"
       >
-        <div class="border-b border-outline-gray-1 p-2">
+        <div class="border-b border-outline-gray-1 bg-white p-2">
           <TextInput
             ref="inputEl"
             v-model="query"
@@ -184,7 +221,7 @@ async function signOut() {
             </template>
           </TextInput>
         </div>
-        <ul class="max-h-72 overflow-y-auto p-1">
+        <ul class="max-h-72 overflow-y-auto bg-white p-1">
           <li v-for="item in results" :key="item.route + item.label">
             <button
               type="button"
@@ -203,11 +240,19 @@ async function signOut() {
           </li>
         </ul>
       </div>
+      <button
+        v-if="open"
+        type="button"
+        class="fixed inset-0 z-40 cursor-default bg-ink-gray-9/20"
+        aria-label="Close search"
+        @click="open = false"
+      />
     </div>
 
     <div class="flex shrink-0 items-center gap-1">
       <div class="relative">
         <button
+          ref="bellEl"
           type="button"
           class="school-notif-bell relative inline-flex size-8 items-center justify-center rounded-4 text-ink-gray-7 transition hover:bg-surface-gray-2"
           :aria-label="
@@ -226,62 +271,6 @@ async function signOut() {
             {{ badgeLabel }}
           </span>
         </button>
-
-        <div
-          v-if="notifOpen"
-          class="absolute end-0 top-full z-50 mt-2 w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-6 border border-outline-gray-2 bg-surface-white shadow-xl"
-        >
-          <div
-            class="flex items-center justify-between gap-2 border-b border-outline-gray-1 px-3 py-2.5"
-          >
-            <div>
-              <p class="text-sm-medium text-ink-gray-9">Notifications</p>
-              <p class="text-xs text-ink-gray-5">
-                {{
-                  unreadCount
-                    ? `${unreadCount} unread · same alerts as dashboard`
-                    : 'You are all caught up'
-                }}
-              </p>
-            </div>
-            <Button
-              v-if="unreadCount"
-              label="Clear"
-              @click="clearAll"
-            />
-          </div>
-          <ul class="max-h-80 overflow-y-auto">
-            <li v-for="n in items" :key="n.id">
-              <button
-                type="button"
-                class="flex w-full gap-3 px-3 py-3 text-left transition hover:bg-surface-gray-1"
-                :class="n.read ? 'opacity-60' : ''"
-                @click="openNotification(n.id, n.route)"
-              >
-                <span
-                  class="mt-1.5 size-2 shrink-0 rounded-full"
-                  :class="toneDot(n.tone)"
-                  aria-hidden="true"
-                />
-                <span class="min-w-0 flex-1 space-y-0.5">
-                  <span class="block text-sm-medium text-ink-gray-9">
-                    {{ n.title }}
-                  </span>
-                  <span class="block text-xs text-ink-gray-6">{{ n.body }}</span>
-                  <span class="block text-xs text-ink-gray-4">{{
-                    n.createdAt
-                  }}</span>
-                </span>
-              </button>
-            </li>
-            <li
-              v-if="!items.length"
-              class="px-3 py-10 text-center text-sm text-ink-gray-5"
-            >
-              No notifications right now.
-            </li>
-          </ul>
-        </div>
       </div>
 
       <Dropdown :options="helpItems">
@@ -327,12 +316,68 @@ async function signOut() {
       />
     </div>
 
-    <button
-      v-if="open || notifOpen"
-      type="button"
-      class="fixed inset-0 z-40 cursor-default bg-ink-gray-9/20"
-      :aria-label="open ? 'Close search' : 'Close notifications'"
-      @click="open = false; notifOpen = false"
-    />
+    <Teleport to="body">
+      <button
+        v-if="notifOpen"
+        type="button"
+        class="school-overlay-scrim"
+        aria-label="Close notifications"
+        @click="notifOpen = false"
+      />
+      <div
+        v-if="notifOpen"
+        class="school-notif-panel"
+        :style="notifPanelStyle"
+        role="dialog"
+        aria-label="Notifications"
+      >
+        <div
+          class="flex items-center justify-between gap-2 border-b border-outline-gray-1 px-3 py-2.5"
+        >
+          <div>
+            <p class="text-sm-medium text-ink-gray-9">Notifications</p>
+            <p class="text-xs text-ink-gray-5">
+              {{
+                unreadCount
+                  ? `${unreadCount} unread`
+                  : 'You are all caught up'
+              }}
+            </p>
+          </div>
+          <Button v-if="unreadCount" label="Clear" @click="clearAll" />
+        </div>
+        <ul class="max-h-80 overflow-y-auto bg-white">
+          <li v-for="n in items" :key="n.id">
+            <button
+              type="button"
+              class="flex w-full gap-3 bg-white px-3 py-3 text-left transition hover:bg-surface-gray-1"
+              :class="n.read ? 'opacity-70' : ''"
+              @click="openNotification(n.id, n.route)"
+            >
+              <span
+                class="mt-1.5 size-2 shrink-0 rounded-full"
+                :class="toneDot(n.tone)"
+                aria-hidden="true"
+              />
+              <span class="min-w-0 flex-1 space-y-0.5">
+                <span class="block text-sm-medium text-ink-gray-9">
+                  {{ n.title }}
+                </span>
+                <span class="block text-xs text-ink-gray-6">{{ n.body }}</span>
+                <span class="block text-xs text-ink-gray-4">{{
+                  n.createdAt
+                }}</span>
+              </span>
+            </button>
+          </li>
+          <li
+            v-if="!items.length"
+            class="bg-white px-3 py-10 text-center text-sm text-ink-gray-5"
+          >
+            No notifications right now.
+          </li>
+        </ul>
+      </div>
+    </Teleport>
   </header>
 </template>
