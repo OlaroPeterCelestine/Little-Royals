@@ -12,7 +12,7 @@ const route = useRoute()
 
 const email = ref('admin@littleroyals.ug')
 const password = ref(DEMO_PASSWORD)
-const remember = ref(true)
+const remember = ref(false)
 const showPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
@@ -27,7 +27,7 @@ async function submit() {
       remember: remember.value,
     })
     toast.success('Welcome back')
-    const fallback = user.role === 'Parent' ? '/parent-portal' : '/'
+    const fallback = user.role === 'Parent' ? '/parent-portal' : '/dashboard'
     const redirect = safeInternalPath(route.query.redirect, fallback)
     await router.replace(redirect)
   } catch (err) {

@@ -160,7 +160,7 @@ export function openUserMenu(router: Router) {
       if (action === 'profile') {
         const me = getCurrentSystemUser()
         await router.push(me ? `/users/${me.id}` : '/me')
-      } else if (action === 'home') await router.push('/')
+      } else if (action === 'home') await router.push('/dashboard')
       else if (action === 'students') await router.push('/students')
       else if (action === 'school-setup') await router.push('/school-setup')
       else if (action === 'activity') await router.push('/activity-log')

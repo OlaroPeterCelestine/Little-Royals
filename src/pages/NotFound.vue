@@ -11,6 +11,11 @@ import { Button } from 'frappe-ui'
     </div>
     <p class="text-base text-ink-gray-7">Page not found</p>
     <p class="text-sm text-ink-gray-5">There's nothing at this address.</p>
-    <Button class="mt-2" icon-left="lucide-house" label="Go home" route="/" />
+    <Button
+      class="mt-2"
+      icon-left="lucide-house"
+      label="Go home"
+      route="/dashboard"
+    />
   </div>
 </template>

@@ -86,11 +86,21 @@ export const router = createRouter({
       meta: { public: true },
     },
     {
+      // Opening the site always hits login first when signed out
       path: '/',
+      name: 'home',
+      redirect: () =>
+        isAuthenticated.value
+          ? authSession.value?.role === 'Parent'
+            ? '/parent-portal'
+            : '/dashboard'
+          : '/login',
+    },
+    {
+      path: '/dashboard',
       name: 'dashboard',
       component: () => import('./pages/Dashboard.vue'),
     },
-    { path: '/dashboard', redirect: '/' },
     {
       path: '/students',
       name: 'students',
@@ -240,7 +250,9 @@ router.beforeEach((to) => {
   const publicRoute = to.meta.public === true || to.name === 'login'
   if (!isAuthenticated.value && !publicRoute) {
     const redirect =
-      to.fullPath !== '/' && isSafeInternalPath(to.fullPath)
+      to.fullPath !== '/' &&
+      to.name !== 'home' &&
+      isSafeInternalPath(to.fullPath)
         ? to.fullPath
         : undefined
     return {
@@ -251,7 +263,7 @@ router.beforeEach((to) => {
 
   const isParent = authSession.value?.role === 'Parent'
   if (isAuthenticated.value && to.name === 'login') {
-    return { path: isParent ? '/parent-portal' : '/' }
+    return { path: isParent ? '/parent-portal' : '/dashboard' }
   }
 
   if (isParent && !isParentAllowedPath(to.path)) {

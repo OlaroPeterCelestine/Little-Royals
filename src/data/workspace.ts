@@ -43,7 +43,11 @@ export const educationNav: NavGroup[] = [
   {
     title: 'Overview',
     items: [
-      { label: 'Dashboard', icon: 'lucide-layout-dashboard', route: '/' },
+      {
+        label: 'Dashboard',
+        icon: 'lucide-layout-dashboard',
+        route: '/dashboard',
+      },
     ],
   },
   {
@@ -462,7 +466,7 @@ export const tools: ToolItem[] = [
   },
   {
     label: 'School dashboard',
-    route: '/',
+    route: '/dashboard',
     icon: 'lucide-layout-dashboard',
     description: 'Nursery & primary KPIs, classes Baby–P.7',
   },

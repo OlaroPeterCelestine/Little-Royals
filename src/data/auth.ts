@@ -13,9 +13,21 @@ import {
 } from '../lib/security'
 
 const STORAGE_KEY = 'little-royals-auth'
+const BOOT_KEY = 'little-royals-auth-boot'
 
 /** Demo desk shared password — replace with server auth in production. */
 export const DEMO_PASSWORD = 'royals123'
+
+/** One-time: force Login as the first screen after this auth boot bump. */
+try {
+  if (localStorage.getItem(BOOT_KEY) !== '2') {
+    localStorage.removeItem(STORAGE_KEY)
+    sessionStorage.removeItem(STORAGE_KEY)
+    localStorage.setItem(BOOT_KEY, '2')
+  }
+} catch {
+  /* ignore */
+}
 
 export type AuthSession = AuthSessionShape
 
@@ -25,18 +37,30 @@ const state = reactive({
 })
 
 function loadSession(): AuthSession | null {
-  const fromLocal = readJsonStorage(
-    localStorage,
-    STORAGE_KEY,
-    parseAuthSession,
-  )
+  // Session tab first — a fresh browser visit should start at Login unless
+  // this tab already signed in. "Remember me" may restore from localStorage.
   const fromSession = readJsonStorage(
     sessionStorage,
     STORAGE_KEY,
     parseAuthSession,
   )
-  const parsed = fromLocal || fromSession
-  if (!parsed) return null
+  const fromLocal = readJsonStorage(
+    localStorage,
+    STORAGE_KEY,
+    parseAuthSession,
+  )
+  const parsed = fromSession || (fromLocal?.remember ? fromLocal : null)
+  if (!parsed) {
+    // Drop stale local sessions that were saved without an explicit remember
+    if (fromLocal && !fromLocal.remember) {
+      try {
+        localStorage.removeItem(STORAGE_KEY)
+      } catch {
+        /* ignore */
+      }
+    }
+    return null
+  }
 
   const user = getUserByEmail(parsed.email)
   if (!user || user.status !== 'Active') {
