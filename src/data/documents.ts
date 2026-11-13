@@ -27,6 +27,8 @@ export interface DocumentDef {
   description: string
   icon: string
   modules: string[]
+  /** Official parent/office docs shown on the Documents desk */
+  important?: boolean
 }
 
 export const documentCatalog: DocumentDef[] = [
@@ -36,6 +38,7 @@ export const documentCatalog: DocumentDef[] = [
     description: 'Print pupil fee invoices with school letterhead',
     icon: 'lucide-file-text',
     modules: ['fees'],
+    important: true,
   },
   {
     kind: 'receipt',
@@ -43,6 +46,7 @@ export const documentCatalog: DocumentDef[] = [
     description: 'Print payment receipts for paid or partial fees',
     icon: 'lucide-receipt',
     modules: ['fees'],
+    important: true,
   },
   {
     kind: 'admission-letter',
@@ -50,13 +54,15 @@ export const documentCatalog: DocumentDef[] = [
     description: 'Official offer / admission letters for new pupils',
     icon: 'lucide-mail',
     modules: ['admissions', 'applicants', 'program-enrollments'],
+    important: true,
   },
   {
     kind: 'exam-memo',
-    label: 'Exam memo',
-    description: 'Assessment / exam result memos for parents',
+    label: 'Exam report',
+    description: 'Assessment / exam result reports for parents',
     icon: 'lucide-scroll-text',
     modules: ['exam-results', 'exams', 'exam-settings'],
+    important: true,
   },
   {
     kind: 'report-card',
@@ -64,6 +70,7 @@ export const documentCatalog: DocumentDef[] = [
     description: 'Student academic summary with results and attendance',
     icon: 'lucide-clipboard-list',
     modules: ['students', 'report-cards'],
+    important: true,
   },
   {
     kind: 'attendance-report',
@@ -71,6 +78,7 @@ export const documentCatalog: DocumentDef[] = [
     description: 'Class or school attendance listing',
     icon: 'lucide-calendar-check',
     modules: ['attendance', 'staff-attendance', 'reports'],
+    important: false,
   },
   {
     kind: 'disciplinary-notice',
@@ -78,6 +86,7 @@ export const documentCatalog: DocumentDef[] = [
     description: 'Parent notice for behaviour cases',
     icon: 'lucide-shield-alert',
     modules: ['disciplinary-cases'],
+    important: false,
   },
   {
     kind: 'generic',
@@ -86,11 +95,15 @@ export const documentCatalog: DocumentDef[] = [
       'Print any record — inventory issues, library loans, routes, events, and more',
     icon: 'lucide-printer',
     modules: ['*'],
+    important: false,
   },
 ]
 
+/** Documents desk — official prints only (invoice, receipt, admission, exams, report cards). */
+export const importantDocuments = documentCatalog.filter((d) => d.important)
+
 export function documentsForModule(moduleKey: string): DocumentDef[] {
-  return documentCatalog.filter(
+  return importantDocuments.filter(
     (d) => d.modules.includes('*') || d.modules.includes(moduleKey),
   )
 }

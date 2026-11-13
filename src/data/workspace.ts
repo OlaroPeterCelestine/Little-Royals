@@ -303,9 +303,13 @@ export const educationNav: NavGroup[] = [
   {
     title: 'Reports',
     items: [
-      { label: 'Education Reports', icon: 'lucide-file-code', route: '/reports' },
       {
-        label: 'Print Documents',
+        label: 'School Reports',
+        icon: 'lucide-bar-chart-3',
+        route: '/reports',
+      },
+      {
+        label: 'Important Documents',
         icon: 'lucide-printer',
         route: '/documents',
       },
@@ -464,10 +468,10 @@ export const tools: ToolItem[] = [
     description: 'Post and review scores',
   },
   {
-    label: 'Fee Collection Report',
+    label: 'School Reports',
     route: '/reports',
-    icon: 'lucide-file-code',
-    description: 'Education finance exports',
+    icon: 'lucide-bar-chart-3',
+    description: 'Overall school summaries to print or export',
   },
 ]
 
@@ -548,8 +552,13 @@ export const commandItems = [
     group: 'Communications',
   },
   {
-    label: 'Print Documents',
+    label: 'Important Documents',
     route: '/documents',
+    group: 'Reports',
+  },
+  {
+    label: 'School Reports',
+    route: '/reports',
     group: 'Reports',
   },
   {

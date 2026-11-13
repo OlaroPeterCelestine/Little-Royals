@@ -10,9 +10,8 @@ import {
   toast,
 } from 'frappe-ui'
 import {
-  defaultDocumentKind,
-  documentCatalog,
   downloadRecordDocument,
+  importantDocuments,
   printRecordDocument,
   shareRecordDocument,
   type DocumentKind,
@@ -28,21 +27,11 @@ const selectedModule = ref('fees')
 const selectedRecordId = ref('')
 
 const currentDef = computed(
-  () => documentCatalog.find((d) => d.kind === selectedKind.value) || null,
+  () => importantDocuments.find((d) => d.kind === selectedKind.value) || null,
 )
 
 const moduleOptions = computed(() => {
   const mods = currentDef.value?.modules || []
-  if (mods.includes('*')) {
-    return [
-      { label: 'Fees', value: 'fees' },
-      { label: 'Admissions', value: 'admissions' },
-      { label: 'Exam results', value: 'exam-results' },
-      { label: 'Students', value: 'students' },
-      { label: 'Attendance', value: 'attendance' },
-      { label: 'Disciplinary cases', value: 'disciplinary-cases' },
-    ]
-  }
   return mods.map((m) => ({
     label: getLiveModule(m)?.title || m,
     value: m,
@@ -64,7 +53,7 @@ const selectedRow = computed<CatalogRow | null>(() => {
 
 watch(selectedKind, () => {
   const mods = currentDef.value?.modules || []
-  selectedModule.value = mods.includes('*') ? 'fees' : mods[0] || 'fees'
+  selectedModule.value = mods[0] || 'fees'
 })
 
 watch(
@@ -141,8 +130,8 @@ async function shareSelected() {
 
 function quickPrint(kind: DocumentKind) {
   selectedKind.value = kind
-  const mods = documentCatalog.find((d) => d.kind === kind)?.modules || []
-  selectedModule.value = mods.includes('*') ? 'fees' : mods[0] || 'fees'
+  const mods = importantDocuments.find((d) => d.kind === kind)?.modules || []
+  selectedModule.value = mods[0] || 'fees'
   if (!assertCanPrint(selectedModule.value)) return
   const first = getLiveModule(selectedModule.value)?.rows[0]
   if (!first) {
@@ -158,22 +147,7 @@ function quickPrint(kind: DocumentKind) {
   }
 }
 
-function printAttendanceReport() {
-  if (!assertCanPrint('attendance')) return
-  const first = getLiveModule('attendance')?.rows[0]
-  if (!first) {
-    toast.warning('No attendance records')
-    return
-  }
-  try {
-    printRecordDocument('attendance-report', 'attendance', first)
-    toast.success('Attendance report ready to print')
-  } catch (err) {
-    toast.error(err instanceof Error ? err.message : 'Could not print')
-  }
-}
-
-const kindOptions = documentCatalog.map((d) => ({
+const kindOptions = importantDocuments.map((d) => ({
   label: d.label,
   value: d.kind,
 }))
@@ -181,11 +155,11 @@ const kindOptions = documentCatalog.map((d) => ({
 
 <template>
   <PageHeader>
-    <PageHeaderTitle title="Documents" />
+    <PageHeaderTitle title="Important Documents" />
     <div class="flex flex-wrap items-center gap-2">
       <Button
-        icon-left="lucide-file-code"
-        label="Reports"
+        icon-left="lucide-bar-chart-3"
+        label="School reports"
         @click="router.push('/reports')"
       />
       <Button
@@ -211,30 +185,27 @@ const kindOptions = documentCatalog.map((d) => ({
 
   <div class="school-page max-w-4xl">
     <p class="text-p-base text-ink-gray-6">
-      Print, download, or share fee invoices, receipts, admission letters, exam
-      memos, report cards, attendance reports and disciplinary notices on
-      Little Royals letterhead.
+      Print only official school documents: fee invoices, receipts, admission
+      letters, exam reports and term report cards. For school-wide summaries,
+      use School Reports.
     </p>
 
     <section class="school-section">
-      <h2 class="school-section-title">Quick print</h2>
+      <h2 class="school-section-title">Important documents</h2>
       <div class="grid gap-3 sm:grid-cols-2">
         <button
-          v-for="doc in documentCatalog.filter((d) => d.kind !== 'generic')"
+          v-for="doc in importantDocuments"
           :key="doc.kind"
           type="button"
           class="rounded-6 border border-outline-gray-1 bg-surface-white p-4 text-left transition hover:border-outline-gray-3 hover:bg-surface-gray-1"
-          @click="
-            doc.kind === 'attendance-report'
-              ? printAttendanceReport()
-              : quickPrint(doc.kind)
-          "
+          @click="quickPrint(doc.kind)"
         >
           <p class="text-sm-medium text-ink-gray-9">{{ doc.label }}</p>
           <p class="mt-1 text-xs text-ink-gray-5">{{ doc.description }}</p>
           <div class="mt-3 flex flex-wrap gap-1.5">
+            <Badge label="Official" theme="blue" variant="subtle" />
             <Badge
-              v-for="m in doc.modules.filter((x) => x !== '*')"
+              v-for="m in doc.modules"
               :key="m"
               :label="m"
               theme="gray"
@@ -298,19 +269,6 @@ const kindOptions = documentCatalog.map((d) => ({
           />
         </div>
       </div>
-    </section>
-
-    <section class="school-section">
-      <h2 class="school-section-title">Also available from records</h2>
-      <p class="text-sm text-ink-gray-6">
-        Detail pages keep Print. From Documents you can also
-        <strong>Download</strong> an HTML letterhead file or
-        <strong>Share</strong> via the device share sheet (falls back to
-        clipboard). Defaults:
-        <strong>{{ defaultDocumentKind('fees') }}</strong> on fees,
-        <strong>{{ defaultDocumentKind('admissions') }}</strong> on admissions,
-        <strong>{{ defaultDocumentKind('exam-results') }}</strong> on exams.
-      </p>
     </section>
   </div>
 </template>
