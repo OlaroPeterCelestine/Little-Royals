@@ -28,11 +28,11 @@ export interface ActivityEntry {
   ip?: string
 }
 
-/** Current desk user — used when writing activity + permission checks */
+/** Current desk user — filled by auth session (JWT roles match backend). */
 export const currentUser = reactive({
-  name: 'Sarah Nalwanga',
-  email: 'admin@littleroyals.ug',
-  role: 'Head Teacher',
+  name: '',
+  email: '',
+  role: '',
 })
 
 function ago(minutes: number) {

@@ -40,6 +40,8 @@ export interface AuthSessionShape {
   name: string
   role: string
   remember: boolean
+  /** JWT from the Go school API */
+  token?: string
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -58,11 +60,16 @@ export function parseAuthSession(raw: unknown): AuthSessionShape | null {
   }
   const email = o.email.trim().toLowerCase()
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
+  const token =
+    typeof o.token === 'string' && o.token.trim().length > 20
+      ? o.token.trim()
+      : undefined
   return {
     email,
     name: o.name.trim().slice(0, 120),
     role: o.role.trim().slice(0, 80),
     remember: Boolean(o.remember),
+    token,
   }
 }
 

@@ -1,6 +1,6 @@
 import { computed, reactive } from 'vue'
 import { currentUser, logActivity } from './activity'
-import { getUserByEmail, type SystemUser } from './permissions'
+import { getUserByEmail, normalizeRole, type SystemUser } from './permissions'
 import {
   assertLoginAllowed,
   clearLoginFailures,
@@ -15,15 +15,17 @@ import {
 const STORAGE_KEY = 'little-royals-auth'
 const BOOT_KEY = 'little-royals-auth-boot'
 
-/** Demo desk shared password — replace with server auth in production. */
-export const DEMO_PASSWORD = 'royals123'
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8080').replace(
+  /\/$/,
+  '',
+)
 
 /** One-time: force Login as the first screen after this auth boot bump. */
 try {
-  if (localStorage.getItem(BOOT_KEY) !== '2') {
+  if (localStorage.getItem(BOOT_KEY) !== '3') {
     localStorage.removeItem(STORAGE_KEY)
     sessionStorage.removeItem(STORAGE_KEY)
-    localStorage.setItem(BOOT_KEY, '2')
+    localStorage.setItem(BOOT_KEY, '3')
   }
 } catch {
   /* ignore */
@@ -37,8 +39,6 @@ const state = reactive({
 })
 
 function loadSession(): AuthSession | null {
-  // Session tab first — a fresh browser visit should start at Login unless
-  // this tab already signed in. "Remember me" may restore from localStorage.
   const fromSession = readJsonStorage(
     sessionStorage,
     STORAGE_KEY,
@@ -51,7 +51,6 @@ function loadSession(): AuthSession | null {
   )
   const parsed = fromSession || (fromLocal?.remember ? fromLocal : null)
   if (!parsed) {
-    // Drop stale local sessions that were saved without an explicit remember
     if (fromLocal && !fromLocal.remember) {
       try {
         localStorage.removeItem(STORAGE_KEY)
@@ -62,13 +61,23 @@ function loadSession(): AuthSession | null {
     return null
   }
 
+  // Prefer JWT session from API; fall back to local user directory for offline desk.
+  if (parsed.token) {
+    return {
+      email: parsed.email.toLowerCase(),
+      name: parsed.name,
+      role: normalizeRole(parsed.role) || parsed.role,
+      remember: parsed.remember,
+      token: parsed.token,
+    }
+  }
+
   const user = getUserByEmail(parsed.email)
   if (!user || user.status !== 'Active') {
     clearStorageKeys([STORAGE_KEY])
     return null
   }
 
-  // Rehydrate name/role from the live user record (never trust stale role alone)
   return {
     email: user.email.toLowerCase(),
     name: user.name,
@@ -107,7 +116,24 @@ export const isAuthenticated = computed(() => Boolean(state.session))
 
 export const authSession = computed(() => state.session)
 
-export function loginWithCredentials(input: {
+export function authToken(): string | undefined {
+  return state.session?.token
+}
+
+type LoginAPIResponse = {
+  ok: boolean
+  data?: {
+    token: string
+    expiresAt: string
+    email: string
+    name: string
+    role: string
+    userId: string
+  }
+  error?: string
+}
+
+export async function loginWithCredentials(input: {
   email: string
   password: string
   remember?: boolean
@@ -119,46 +145,61 @@ export function loginWithCredentials(input: {
 
   assertLoginAllowed(email)
 
-  const user = getUserByEmail(email)
-  if (!user) {
+  let payload: LoginAPIResponse
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        email,
+        password,
+        remember: Boolean(input.remember),
+      }),
+    })
+    payload = (await res.json()) as LoginAPIResponse
+    if (!res.ok || !payload.ok || !payload.data?.token) {
+      recordLoginFailure(email)
+      throw new Error(payload.error || 'Incorrect email or password')
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message !== 'Failed to fetch') throw err
     recordLoginFailure(email)
-    throw new Error('No account found for that email. Ask your school admin.')
-  }
-  if (user.status !== 'Active') {
-    recordLoginFailure(email)
-    throw new Error('This account is not active yet. Contact your school admin.')
-  }
-
-  // Demo desk: shared password for seeded users (never ship real secrets here)
-  if (password !== DEMO_PASSWORD) {
-    recordLoginFailure(email)
-    throw new Error('Incorrect email or password')
+    throw new Error('Cannot reach the school API. Is the backend running?')
   }
 
   clearLoginFailures(email)
 
+  const data = payload.data!
+  const role = normalizeRole(data.role) || data.role
   const session: AuthSession = {
-    email: user.email.toLowerCase(),
-    name: user.name,
-    role: user.role,
+    email: data.email.toLowerCase(),
+    name: data.name,
+    role,
     remember: Boolean(input.remember),
+    token: data.token,
   }
   state.session = session
   persist(session)
-  applyUser(user)
-  user.lastLogin = new Date().toISOString()
+  applyUser({ name: data.name, email: data.email, role })
+
+  const local = getUserByEmail(data.email)
+  if (local) {
+    local.lastLogin = new Date().toISOString()
+    local.role = role
+    local.name = data.name
+  }
 
   logActivity({
     action: 'Login',
     module: 'system',
     moduleLabel: 'System',
-    recordName: user.name,
-    summary: `${user.name} signed in`,
-    detail: user.email,
+    recordName: data.name,
+    summary: `${data.name} signed in`,
+    detail: data.email,
     severity: 'success',
   })
 
-  return user
+  return { name: data.name, email: data.email, role } as SystemUser
 }
 
 export function logout() {
@@ -178,9 +219,13 @@ export function logout() {
   }
 }
 
-/** Re-check stored session against the live user list (call on focus/boot). */
+/** Re-check stored session (JWT preferred). */
 export function refreshAuthSession() {
   if (!state.session) return
+  if (state.session.token) {
+    applyUser(state.session)
+    return
+  }
   const user = getUserByEmail(state.session.email)
   if (!user || user.status !== 'Active') {
     logout()

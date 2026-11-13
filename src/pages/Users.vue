@@ -27,6 +27,7 @@ import {
   permissionStats,
   permFlagLabels,
   roles,
+  roleLabel,
   saveRolePerms,
   systemUsers,
   type DocPerms,
@@ -187,7 +188,7 @@ function inviteUser() {
         type: 'select',
         required: true,
         defaultValue: 'Teacher',
-        options: roles.map((r) => ({ label: r.name, value: r.name })),
+        options: roles.map((r) => ({ label: r.name, value: r.key })),
       },
       {
         name: 'department',
@@ -238,7 +239,7 @@ function editUser(user: SystemUser) {
         type: 'select',
         required: true,
         defaultValue: user.role,
-        options: roles.map((r) => ({ label: r.name, value: r.name })),
+        options: roles.map((r) => ({ label: r.name, value: r.key })),
       },
       {
         name: 'status',
@@ -316,7 +317,7 @@ function openUser(user: SystemUser) {
 }
 
 /* ——— Roles tab ——— */
-const selectedRole = ref(roles[0]?.name || 'Head Teacher')
+const selectedRole = ref<string>(roles[0]?.key || 'Admin')
 const selectedDoc = ref(documentTypes[0]?.key || 'students')
 const dirty = ref(false)
 
@@ -331,7 +332,7 @@ const draft = reactive<DocPerms>({
 })
 
 const roleOptions = computed(() =>
-  roles.map((r) => ({ label: r.name, value: r.name })),
+  roles.map((r) => ({ label: r.name, value: r.key })),
 )
 
 const docOptions = computed(() =>
@@ -339,7 +340,7 @@ const docOptions = computed(() =>
 )
 
 const currentRole = computed(
-  () => roles.find((r) => r.name === selectedRole.value) || null,
+  () => roles.find((r) => r.key === selectedRole.value) || null,
 )
 
 const currentDocLabel = computed(
@@ -379,7 +380,7 @@ function savePerms() {
   saveRolePerms(selectedRole.value, selectedDoc.value, { ...draft })
   dirty.value = false
   toast.success(
-    `${selectedRole.value} permissions saved for ${currentDocLabel.value}`,
+    `${roleLabel(selectedRole.value)} permissions saved for ${currentDocLabel.value}`,
   )
 }
 
@@ -607,11 +608,11 @@ function openRole(roleName: string) {
           type="button"
           class="rounded-5 border px-3.5 py-3 text-left transition"
           :class="
-            selectedRole === role.name
+            selectedRole === role.key
               ? 'border-[color:var(--school-blue)] bg-[color:var(--school-blue-soft)]'
               : 'border-outline-gray-1 hover:bg-surface-gray-1'
           "
-          @click="openRole(role.name)"
+          @click="openRole(role.key)"
         >
           <div class="flex flex-wrap items-center gap-1.5">
             <p class="text-sm-medium text-ink-gray-9">{{ role.name }}</p>
@@ -655,7 +656,7 @@ function openRole(roleName: string) {
       <section class="school-section">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 class="school-section-title mb-0">
-            Permissions · {{ selectedRole }} → {{ currentDocLabel }}
+            Permissions · {{ roleLabel(selectedRole) }} → {{ currentDocLabel }}
           </h2>
           <div class="flex flex-wrap gap-2">
             <Button label="Select all" @click="selectAll" />
@@ -722,7 +723,7 @@ function openRole(roleName: string) {
 
       <section class="school-section">
         <h2 class="school-section-title">
-          {{ selectedRole }} · module overview
+          {{ roleLabel(selectedRole) }} · module overview
         </h2>
         <div
           class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"

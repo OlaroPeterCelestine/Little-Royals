@@ -11,7 +11,7 @@ import {
 } from 'frappe-ui'
 import { educationNav, parentNav } from '../data/workspace'
 import { currentUser } from '../data/activity'
-import { getCurrentSystemUser } from '../data/permissions'
+import { getCurrentSystemUser, isParentRole } from '../data/permissions'
 import { schoolSetup } from '../data/schoolSetup'
 import SchoolLogo from './SchoolLogo.vue'
 import { useSidebarCollapse } from '../composables/useSidebarCollapse'
@@ -31,7 +31,7 @@ const usersRolesActive = computed(
     (route.path.startsWith('/users') && !route.params.id),
 )
 
-const isParent = computed(() => currentUser.role === 'Parent')
+const isParent = computed(() => isParentRole(currentUser.role))
 const navGroups = computed(() =>
   isParent.value ? parentNav : educationNav,
 )

@@ -6,6 +6,7 @@ import {
 } from 'vue-router'
 import { catalog } from './data/catalog'
 import { isAuthenticated, authSession, refreshAuthSession } from './data/auth'
+import { isParentRole } from './data/permissions'
 import {
   isParentAllowedPath,
   isSafeInternalPath,
@@ -91,7 +92,7 @@ export const router = createRouter({
       name: 'home',
       redirect: () => {
         if (!isAuthenticated.value) return { name: 'login' }
-        if (authSession.value?.role === 'Parent') return '/parent-portal'
+        if (isParentRole(authSession.value?.role || '')) return '/parent-portal'
         return '/dashboard'
       },
     },
@@ -260,7 +261,7 @@ router.beforeEach((to) => {
     }
   }
 
-  const isParent = authSession.value?.role === 'Parent'
+  const isParent = isParentRole(authSession.value?.role || '')
   if (isAuthenticated.value && to.name === 'login') {
     return { path: isParent ? '/parent-portal' : '/dashboard' }
   }

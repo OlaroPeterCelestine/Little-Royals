@@ -1,5 +1,9 @@
 import { computed, reactive } from 'vue'
 import {
+  liveNotifications,
+  markLiveNotificationRead,
+} from './liveNotifications'
+import {
   pendingApplicantCount,
   schoolStore,
   unpaidFeeCount,
@@ -127,7 +131,10 @@ export const notifications = computed<SchoolNotification[]>(() => {
     })
   }
 
-  return items
+  // Merge realtime API notifications (newest first) with desk signals
+  const live = liveNotifications.value
+  const seen = new Set(live.map((n) => n.id))
+  return [...live, ...items.filter((n) => !seen.has(n.id))]
 })
 
 export const unreadNotificationCount = computed(
@@ -142,8 +149,12 @@ export const notificationBadgeLabel = computed(() => {
 
 export function markNotificationRead(id: string) {
   dismissed.add(id)
+  void markLiveNotificationRead(id)
 }
 
 export function markAllNotificationsRead() {
-  for (const n of notifications.value) dismissed.add(n.id)
+  for (const n of notifications.value) {
+    dismissed.add(n.id)
+    void markLiveNotificationRead(n.id)
+  }
 }

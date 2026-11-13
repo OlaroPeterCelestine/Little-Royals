@@ -1,6 +1,14 @@
 import { computed, reactive } from 'vue'
 import { catalog } from './catalog'
 import { currentUser, logActivity } from './activity'
+import {
+  API_ROLES,
+  ROLE_LABELS,
+  isFullAccessRole,
+  normalizeRole,
+  roleLabel,
+  type ApiRole,
+} from './roles'
 
 export type PermFlag =
   | 'read'
@@ -13,6 +21,8 @@ export type PermFlag =
 
 export interface RoleDef {
   id: string
+  /** API role key (JWT / Casbin). */
+  key: ApiRole
   name: string
   description: string
   deskAccess: boolean
@@ -58,6 +68,27 @@ const DOC_TYPES = Object.values(catalog).map((m) => ({
   label: m.singular,
 }))
 
+/** Map desk catalog keys → backend Casbin resources (when applicable). */
+export const DOCTYPE_API_RESOURCE: Record<string, string> = {
+  students: 'students',
+  staff: 'staff',
+  teachers: 'staff',
+  guardians: 'parents',
+  parents: 'parents',
+  classes: 'classes',
+  subjects: 'subjects',
+  attendance: 'attendance',
+  fees: 'fees',
+  'fee-structures': 'fees',
+  'fee-categories': 'fees',
+  'fee-schedules': 'fees',
+  payments: 'payments',
+  invoices: 'invoices',
+  users: 'users',
+  announcements: 'notifications',
+  'sms-messages': 'notifications',
+}
+
 function full(overrides: Partial<DocPerms> = {}): DocPerms {
   return {
     read: true,
@@ -84,6 +115,18 @@ function readOnly(overrides: Partial<DocPerms> = {}): DocPerms {
   }
 }
 
+function none(): DocPerms {
+  return {
+    read: false,
+    write: false,
+    create: false,
+    delete: false,
+    export: false,
+    print: false,
+    share: false,
+  }
+}
+
 function teach(): DocPerms {
   return full({
     delete: false,
@@ -91,21 +134,36 @@ function teach(): DocPerms {
   })
 }
 
+function inList(doc: string, keys: string[]) {
+  return keys.includes(doc)
+}
+
 function seedPerms(): RoleDocPermission[] {
   const out: RoleDocPermission[] = []
 
   for (const doc of DOC_TYPES) {
+    // SuperAdmin / Admin — full desk (also short-circuited in canCurrentUser)
+    for (const role of ['SuperAdmin', 'Admin'] as ApiRole[]) {
+      out.push({
+        role,
+        doctype: doc.key,
+        doctypeLabel: doc.label,
+        perms: full(),
+      })
+    }
+
     out.push({
-      role: 'Head Teacher',
+      role: 'HeadTeacher',
       doctype: doc.key,
       doctypeLabel: doc.label,
-      perms: full(),
+      perms: full({ share: false }),
     })
+
     out.push({
       role: 'Teacher',
       doctype: doc.key,
       doctypeLabel: doc.label,
-      perms: [
+      perms: inList(doc.key, [
         'students',
         'attendance',
         'classes',
@@ -120,9 +178,10 @@ function seedPerms(): RoleDocPermission[] {
         'assessment-groups',
         'gradebook',
         'report-cards',
-      ].includes(doc.key)
+        'subjects',
+      ])
         ? teach()
-        : [
+        : inList(doc.key, [
               'exam-settings',
               'grading-scales',
               'staff-attendance',
@@ -133,18 +192,19 @@ function seedPerms(): RoleDocPermission[] {
               'announcements',
               'sms-messages',
               'staff-leave',
-            ].includes(doc.key)
+            ])
           ? readOnly({
               write: doc.key === 'staff-attendance',
               create: false,
             })
-          : readOnly({ write: false, create: false, print: false }),
+          : readOnly({ write: false, create: false, print: false, read: false }),
     })
+
     out.push({
-      role: 'Admissions Officer',
+      role: 'Admissions',
       doctype: doc.key,
       doctypeLabel: doc.label,
-      perms: [
+      perms: inList(doc.key, [
         'applicants',
         'admissions',
         'students',
@@ -156,15 +216,16 @@ function seedPerms(): RoleDocPermission[] {
         'sms-messages',
         'message-templates',
         'announcements',
-      ].includes(doc.key)
+      ])
         ? full({ delete: false, share: false })
-        : readOnly(),
+        : readOnly({ read: true, export: false, print: false }),
     })
+
     out.push({
-      role: 'Accounts',
+      role: 'Accountant',
       doctype: doc.key,
       doctypeLabel: doc.label,
-      perms: [
+      perms: inList(doc.key, [
         'fees',
         'fee-structures',
         'fee-categories',
@@ -178,17 +239,56 @@ function seedPerms(): RoleDocPermission[] {
         'payments',
         'expenses',
         'payroll',
-      ].includes(doc.key)
-        ? full({ delete: false })
-        : readOnly({ export: true }),
+        'students',
+        'guardians',
+      ])
+        ? full({ delete: doc.key.startsWith('fee') || doc.key === 'payments' })
+        : readOnly({ export: true, read: inList(doc.key, ['students', 'guardians', 'announcements']) }),
     })
+
+    out.push({
+      role: 'Librarian',
+      doctype: doc.key,
+      doctypeLabel: doc.label,
+      perms: inList(doc.key, ['library-books', 'library-issues', 'students'])
+        ? full({ delete: false })
+        : readOnly({ read: doc.key === 'announcements', export: false, print: false }),
+    })
+
+    out.push({
+      role: 'Staff',
+      doctype: doc.key,
+      doctypeLabel: doc.label,
+      perms: inList(doc.key, ['announcements', 'school-events', 'staff-leave', 'staff-attendance'])
+        ? readOnly({ write: doc.key === 'staff-leave' || doc.key === 'staff-attendance', create: false })
+        : none(),
+    })
+
+    out.push({
+      role: 'Student',
+      doctype: doc.key,
+      doctypeLabel: doc.label,
+      perms: readOnly({
+        read: inList(doc.key, [
+          'students',
+          'homework',
+          'timetable',
+          'exam-results',
+          'announcements',
+          'school-events',
+        ]),
+        export: false,
+        print: false,
+      }),
+    })
+
     out.push({
       role: 'Parent',
       doctype: doc.key,
       doctypeLabel: doc.label,
       perms: readOnly({
         export: false,
-        print: [
+        print: inList(doc.key, [
           'fees',
           'exam-results',
           'attendance',
@@ -196,8 +296,8 @@ function seedPerms(): RoleDocPermission[] {
           'school-events',
           'report-cards',
           'payments',
-        ].includes(doc.key),
-        read: [
+        ]),
+        read: inList(doc.key, [
           'students',
           'fees',
           'attendance',
@@ -209,7 +309,7 @@ function seedPerms(): RoleDocPermission[] {
           'transport-routes',
           'report-cards',
           'payments',
-        ].includes(doc.key),
+        ]),
       }),
     })
   }
@@ -220,36 +320,65 @@ function seedPerms(): RoleDocPermission[] {
 export const roles = reactive<RoleDef[]>([
   {
     id: 'ROLE-01',
-    name: 'Head Teacher',
-    description: 'Full desk access for Little Royals school operations',
+    key: 'Admin',
+    name: ROLE_LABELS.Admin,
+    description: 'Full school desk access — users, finance, academics',
     deskAccess: true,
     status: 'Active',
   },
   {
     id: 'ROLE-02',
-    name: 'Teacher',
-    description: 'Class teachers — attendance, assessment, student notes',
+    key: 'HeadTeacher',
+    name: ROLE_LABELS.HeadTeacher,
+    description: 'Academic leadership — students, classes, attendance',
     deskAccess: true,
     status: 'Active',
   },
   {
     id: 'ROLE-03',
-    name: 'Admissions Officer',
-    description: 'Applicants, admissions and enrollments',
+    key: 'Teacher',
+    name: ROLE_LABELS.Teacher,
+    description: 'Class teachers — attendance, assessment, student notes',
     deskAccess: true,
     status: 'Active',
   },
   {
     id: 'ROLE-04',
-    name: 'Accounts',
-    description: 'Fee structures, invoices and collections',
+    key: 'Admissions',
+    name: ROLE_LABELS.Admissions,
+    description: 'Applicants, admissions and enrollments',
     deskAccess: true,
     status: 'Active',
   },
   {
     id: 'ROLE-05',
-    name: 'Parent',
+    key: 'Accountant',
+    name: ROLE_LABELS.Accountant,
+    description: 'Fee structures, invoices and collections',
+    deskAccess: true,
+    status: 'Active',
+  },
+  {
+    id: 'ROLE-06',
+    key: 'Parent',
+    name: ROLE_LABELS.Parent,
     description: 'Parent portal — fees, attendance, results and calendar',
+    deskAccess: true,
+    status: 'Active',
+  },
+  {
+    id: 'ROLE-07',
+    key: 'Librarian',
+    name: ROLE_LABELS.Librarian,
+    description: 'Library catalogue and issues',
+    deskAccess: true,
+    status: 'Active',
+  },
+  {
+    id: 'ROLE-08',
+    key: 'Staff',
+    name: ROLE_LABELS.Staff,
+    description: 'General staff — limited operational access',
     deskAccess: true,
     status: 'Active',
   },
@@ -258,13 +387,13 @@ export const roles = reactive<RoleDef[]>([
 export const systemUsers = reactive<SystemUser[]>([
   {
     id: 'USR-01',
-    name: 'Sarah Nalwanga',
-    email: 'admin@littleroyals.ug',
-    role: 'Head Teacher',
+    name: 'School Admin',
+    email: 'admin@littleroyals.school',
+    role: 'Admin',
     status: 'Active',
     lastLogin: new Date().toISOString(),
     department: 'Administration',
-    title: 'Head Teacher',
+    title: 'School Admin',
     phone: '+256 700 112 233',
     bio: 'Leads Little Royals Kindergarten and Primary operations, NCDC programmes and UNEB readiness.',
     location: 'Kampala, Uganda',
@@ -272,8 +401,8 @@ export const systemUsers = reactive<SystemUser[]>([
   },
   {
     id: 'USR-02',
-    name: 'Grace Achieng',
-    email: 'grace.achieng@littleroyals.ug',
+    name: 'Ada Teacher',
+    email: 'teacher@littleroyals.school',
     role: 'Teacher',
     status: 'Active',
     lastLogin: new Date(Date.now() - 95 * 60_000).toISOString(),
@@ -286,23 +415,9 @@ export const systemUsers = reactive<SystemUser[]>([
   },
   {
     id: 'USR-03',
-    name: 'Joseph Mukasa',
-    email: 'joseph.mukasa@littleroyals.ug',
-    role: 'Admissions Officer',
-    status: 'Active',
-    lastLogin: new Date(Date.now() - 180 * 60_000).toISOString(),
-    department: 'Admissions',
-    title: 'Admissions lead',
-    phone: '+256 701 998 877',
-    bio: 'Handles applicants, interviews and program enrollments.',
-    location: 'Kampala, Uganda',
-    joinedAt: '2023-08-20',
-  },
-  {
-    id: 'USR-04',
-    name: 'Rebecca Namuli',
-    email: 'rebecca.namuli@littleroyals.ug',
-    role: 'Accounts',
+    name: 'Finance Officer',
+    email: 'accountant@littleroyals.school',
+    role: 'Accountant',
     status: 'Active',
     lastLogin: new Date(Date.now() - 2 * 24 * 60_000).toISOString(),
     department: 'Finance',
@@ -313,9 +428,9 @@ export const systemUsers = reactive<SystemUser[]>([
     joinedAt: '2022-09-05',
   },
   {
-    id: 'USR-05',
-    name: 'Daniel Okello',
-    email: 'daniel.parent@gmail.com',
+    id: 'USR-04',
+    name: 'Sam Parent',
+    email: 'parent@littleroyals.school',
     role: 'Parent',
     status: 'Active',
     lastLogin: new Date(Date.now() - 5 * 24 * 60_000).toISOString(),
@@ -325,19 +440,6 @@ export const systemUsers = reactive<SystemUser[]>([
     bio: 'Guardian account for viewing fees, attendance and results.',
     location: 'Ntinda, Kampala',
     joinedAt: '2024-02-12',
-  },
-  {
-    id: 'USR-06',
-    name: 'Mary Nabirye',
-    email: 'mary.nabirye@littleroyals.ug',
-    role: 'Teacher',
-    status: 'Invited',
-    department: 'Nursery',
-    title: 'Nursery teacher',
-    phone: '+256 704 667 788',
-    bio: 'Invited to join the Nursery section teaching team.',
-    location: 'Kampala, Uganda',
-    joinedAt: '2026-11-01',
   },
 ])
 
@@ -372,7 +474,8 @@ export const permFlagLabels: Record<PermFlag, string> = {
 }
 
 export function getRolePerms(role: string, doctype: string) {
-  return rolePermissions.find((p) => p.role === role && p.doctype === doctype)
+  const key = normalizeRole(role) || role
+  return rolePermissions.find((p) => p.role === key && p.doctype === doctype)
 }
 
 export function setPermFlag(
@@ -391,7 +494,8 @@ export function saveRolePerms(
   doctype: string,
   perms: DocPerms,
 ) {
-  const row = getRolePerms(role, doctype)
+  const key = normalizeRole(role) || role
+  const row = getRolePerms(key, doctype)
   const docLabel =
     row?.doctypeLabel ||
     documentTypes.find((d) => d.key === doctype)?.label ||
@@ -400,7 +504,7 @@ export function saveRolePerms(
     Object.assign(row.perms, perms)
   } else {
     rolePermissions.push({
-      role,
+      role: key,
       doctype,
       doctypeLabel: docLabel,
       perms: { ...perms },
@@ -414,8 +518,8 @@ export function saveRolePerms(
     action: 'Permission',
     module: 'permissions',
     moduleLabel: 'Role Permission',
-    recordName: `${role} → ${docLabel}`,
-    summary: `Updated ${role} permissions on ${docLabel}`,
+    recordName: `${roleLabel(key)} → ${docLabel}`,
+    summary: `Updated ${roleLabel(key)} permissions on ${docLabel}`,
     detail: [
       enabled.length ? `Enabled ${enabled.join(', ')}` : null,
       disabled.length ? `Disabled ${disabled.join(', ')}` : null,
@@ -430,10 +534,16 @@ export function canCurrentUser(
   doctype: string,
   flag: PermFlag = 'read',
 ): boolean {
-  const row = getRolePerms(currentUser.role, doctype)
-  if (!row) return currentUser.role === 'Head Teacher'
+  const role = normalizeRole(currentUser.role)
+  if (!role) return false
+  if (isFullAccessRole(role)) return true
+  const row = getRolePerms(role, doctype)
+  if (!row) return false
   return Boolean(row.perms[flag])
 }
+
+export { API_ROLES, ROLE_LABELS, normalizeRole, roleLabel, isFullAccessRole }
+export { isParentRole } from './roles'
 
 export const permissionStats = computed(() => ({
   roles: roles.filter((r) => r.status === 'Active').length,

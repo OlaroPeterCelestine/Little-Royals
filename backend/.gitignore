@@ -1,0 +1,22 @@
+# Secrets & local data
+.env
+.env.*
+!.env.example
+.admin-credentials
+*.db
+school.db
+
+# Binaries & build
+bin/
+tmp/
+*.exe
+*.test
+*.out
+school-api
+school-api-linux-amd64
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.local

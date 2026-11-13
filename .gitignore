@@ -3,7 +3,21 @@ dist
 *.local
 .DS_Store
 .vercel
+
+# Env files (keep examples)
 .env
 .env.*
 !.env.example
-.env*
+!**/.env.example
+
+# Go backend
+backend/bin/
+backend/tmp/
+backend/*.db
+backend/school.db
+backend/.admin-credentials
+*.exe
+*.test
+*.out
+
+

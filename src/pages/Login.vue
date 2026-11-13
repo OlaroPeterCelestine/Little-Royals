@@ -2,16 +2,17 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'frappe-ui'
-import { DEMO_PASSWORD, loginWithCredentials } from '../data/auth'
+import { loginWithCredentials } from '../data/auth'
 import { brand } from '../data/brand'
+import { isParentRole } from '../data/permissions'
 import { safeInternalPath } from '../lib/security'
 import SchoolLogo from '../components/SchoolLogo.vue'
 
 const router = useRouter()
 const route = useRoute()
 
-const email = ref('admin@littleroyals.ug')
-const password = ref(DEMO_PASSWORD)
+const email = ref('')
+const password = ref('')
 const remember = ref(false)
 const showPassword = ref(false)
 const loading = ref(false)
@@ -21,13 +22,13 @@ async function submit() {
   error.value = ''
   loading.value = true
   try {
-    const user = loginWithCredentials({
+    const user = await loginWithCredentials({
       email: email.value,
       password: password.value,
       remember: remember.value,
     })
     toast.success('Welcome back')
-    const fallback = user.role === 'Parent' ? '/parent-portal' : '/dashboard'
+    const fallback = isParentRole(user.role) ? '/parent-portal' : '/dashboard'
     const redirect = safeInternalPath(route.query.redirect, fallback)
     await router.replace(redirect)
   } catch (err) {
@@ -71,7 +72,7 @@ function askAdmin() {
               v-model="email"
               type="email"
               autocomplete="username"
-              placeholder="admin@littleroyals.ug"
+              placeholder="you@school.edu"
               required
             />
           </label>

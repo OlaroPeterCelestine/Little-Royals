@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { FrappeUIProvider, DesktopShell } from 'frappe-ui'
 import AppTopBar from './components/AppTopBar.vue'
 import ModuleSidebar from './components/ModuleSidebar.vue'
 import { isAuthenticated } from './data/auth'
+import {
+  startRealtimeNotifications,
+  stopRealtimeNotifications,
+} from './data/liveNotifications'
 
 const route = useRoute()
 
@@ -14,6 +18,15 @@ const showDesk = computed(
     isAuthenticated.value &&
     route.name !== 'login' &&
     route.meta.public !== true,
+)
+
+watch(
+  showDesk,
+  (on) => {
+    if (on) startRealtimeNotifications()
+    else stopRealtimeNotifications()
+  },
+  { immediate: true },
 )
 </script>
 

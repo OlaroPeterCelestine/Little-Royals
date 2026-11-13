@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-school}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
+      POSTGRES_DB: ${POSTGRES_DB:-little_royals}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file: [.env]
+    environment:
+      PORT: "8080"
+      APP_ENV: development
+      DB_DRIVER: postgres
+      DB_DSN: host=postgres user=${POSTGRES_USER:-school} password=${POSTGRES_PASSWORD} dbname=${POSTGRES_DB:-little_royals} port=5432 sslmode=disable
+      REDIS_ADDR: redis:6379
+      SCHOOL_NAME: Little Royals Kindergarten and Primary School
+      SCHOOL_CODE: LRKPS
+      SCHOOL_COUNTRY: Uganda
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
