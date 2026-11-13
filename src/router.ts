@@ -5,7 +5,12 @@ import {
   type RouteRecordRaw,
 } from 'vue-router'
 import { catalog } from './data/catalog'
-import { isAuthenticated, authSession } from './data/auth'
+import { isAuthenticated, authSession, refreshAuthSession } from './data/auth'
+import {
+  isParentAllowedPath,
+  isSafeInternalPath,
+  safeInternalPath,
+} from './lib/security'
 
 type ModuleKey = keyof typeof catalog
 
@@ -230,19 +235,28 @@ export const router = createRouter({
 })
 
 router.beforeEach((to) => {
+  refreshAuthSession()
+
   const publicRoute = to.meta.public === true || to.name === 'login'
   if (!isAuthenticated.value && !publicRoute) {
+    const redirect =
+      to.fullPath !== '/' && isSafeInternalPath(to.fullPath)
+        ? to.fullPath
+        : undefined
     return {
       name: 'login',
-      query: to.fullPath !== '/' ? { redirect: to.fullPath } : undefined,
+      query: redirect ? { redirect } : undefined,
     }
   }
+
   const isParent = authSession.value?.role === 'Parent'
   if (isAuthenticated.value && to.name === 'login') {
     return { path: isParent ? '/parent-portal' : '/' }
   }
-  if (isParent && (to.path === '/' || to.name === 'dashboard')) {
+
+  if (isParent && !isParentAllowedPath(to.path)) {
     return { path: '/parent-portal' }
   }
+
   return true
 })

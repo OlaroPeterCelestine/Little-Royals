@@ -2,15 +2,16 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'frappe-ui'
-import { loginWithCredentials } from '../data/auth'
+import { DEMO_PASSWORD, loginWithCredentials } from '../data/auth'
 import { brand } from '../data/brand'
+import { safeInternalPath } from '../lib/security'
 import SchoolLogo from '../components/SchoolLogo.vue'
 
 const router = useRouter()
 const route = useRoute()
 
 const email = ref('admin@littleroyals.ug')
-const password = ref('royals123')
+const password = ref(DEMO_PASSWORD)
 const remember = ref(true)
 const showPassword = ref(false)
 const loading = ref(false)
@@ -20,14 +21,15 @@ async function submit() {
   error.value = ''
   loading.value = true
   try {
-    loginWithCredentials({
+    const user = loginWithCredentials({
       email: email.value,
       password: password.value,
       remember: remember.value,
     })
     toast.success('Welcome back')
-    const redirect = String(route.query.redirect || '/')
-    await router.replace(redirect.startsWith('/') ? redirect : '/')
+    const fallback = user.role === 'Parent' ? '/parent-portal' : '/'
+    const redirect = safeInternalPath(route.query.redirect, fallback)
+    await router.replace(redirect)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Could not sign in'
     toast.error(error.value)

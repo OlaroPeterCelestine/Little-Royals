@@ -1,40 +1,63 @@
 import { computed, reactive } from 'vue'
-import { currentUser } from './activity'
+import { currentUser, logActivity } from './activity'
 import { getUserByEmail, type SystemUser } from './permissions'
-import { logActivity } from './activity'
+import {
+  assertLoginAllowed,
+  clearLoginFailures,
+  clearStorageKeys,
+  parseAuthSession,
+  readJsonStorage,
+  recordLoginFailure,
+  writeJsonStorage,
+  type AuthSessionShape,
+} from '../lib/security'
 
 const STORAGE_KEY = 'little-royals-auth'
 
-export interface AuthSession {
-  email: string
-  name: string
-  role: string
-  remember: boolean
-}
+/** Demo desk shared password — replace with server auth in production. */
+export const DEMO_PASSWORD = 'royals123'
+
+export type AuthSession = AuthSessionShape
 
 const state = reactive({
-  session: loadSession() as AuthSession | null,
+  session: null as AuthSession | null,
   booted: true,
 })
 
 function loadSession(): AuthSession | null {
-  try {
-    const raw =
-      localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw) as AuthSession
-  } catch {
+  const fromLocal = readJsonStorage(
+    localStorage,
+    STORAGE_KEY,
+    parseAuthSession,
+  )
+  const fromSession = readJsonStorage(
+    sessionStorage,
+    STORAGE_KEY,
+    parseAuthSession,
+  )
+  const parsed = fromLocal || fromSession
+  if (!parsed) return null
+
+  const user = getUserByEmail(parsed.email)
+  if (!user || user.status !== 'Active') {
+    clearStorageKeys([STORAGE_KEY])
     return null
+  }
+
+  // Rehydrate name/role from the live user record (never trust stale role alone)
+  return {
+    email: user.email.toLowerCase(),
+    name: user.name,
+    role: user.role,
+    remember: parsed.remember,
   }
 }
 
 function persist(session: AuthSession | null) {
-  localStorage.removeItem(STORAGE_KEY)
-  sessionStorage.removeItem(STORAGE_KEY)
+  clearStorageKeys([STORAGE_KEY])
   if (!session) return
-  const raw = JSON.stringify(session)
-  if (session.remember) localStorage.setItem(STORAGE_KEY, raw)
-  else sessionStorage.setItem(STORAGE_KEY, raw)
+  const store = session.remember ? localStorage : sessionStorage
+  writeJsonStorage(store, STORAGE_KEY, session)
 }
 
 function applyUser(user: Pick<SystemUser, 'name' | 'email' | 'role'> | null) {
@@ -49,6 +72,7 @@ function applyUser(user: Pick<SystemUser, 'name' | 'email' | 'role'> | null) {
   currentUser.role = user.role
 }
 
+state.session = loadSession()
 if (state.session) {
   applyUser(state.session)
 } else {
@@ -64,22 +88,33 @@ export function loginWithCredentials(input: {
   password: string
   remember?: boolean
 }) {
-  const email = input.email.trim()
+  const email = input.email.trim().toLowerCase()
   const password = input.password
   if (!email) throw new Error('Email is required')
   if (!password) throw new Error('Password is required')
 
+  assertLoginAllowed(email)
+
   const user = getUserByEmail(email)
   if (!user) {
+    recordLoginFailure(email)
     throw new Error('No account found for that email. Ask your school admin.')
   }
   if (user.status !== 'Active') {
+    recordLoginFailure(email)
     throw new Error('This account is not active yet. Contact your school admin.')
   }
 
-  // Demo desk: any non-empty password works for seeded users
+  // Demo desk: shared password for seeded users (never ship real secrets here)
+  if (password !== DEMO_PASSWORD) {
+    recordLoginFailure(email)
+    throw new Error('Incorrect email or password')
+  }
+
+  clearLoginFailures(email)
+
   const session: AuthSession = {
-    email: user.email,
+    email: user.email.toLowerCase(),
     name: user.name,
     role: user.role,
     remember: Boolean(input.remember),
@@ -119,3 +154,20 @@ export function logout() {
   }
 }
 
+/** Re-check stored session against the live user list (call on focus/boot). */
+export function refreshAuthSession() {
+  if (!state.session) return
+  const user = getUserByEmail(state.session.email)
+  if (!user || user.status !== 'Active') {
+    logout()
+    return
+  }
+  state.session = {
+    ...state.session,
+    name: user.name,
+    role: user.role,
+    email: user.email.toLowerCase(),
+  }
+  persist(state.session)
+  applyUser(user)
+}

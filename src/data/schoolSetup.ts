@@ -56,8 +56,17 @@ function load(): SchoolSetup {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { ...defaults }
-    const parsed = JSON.parse(raw) as Partial<SchoolSetup>
-    return { ...defaults, ...parsed }
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== 'object') return { ...defaults }
+    const incoming = parsed as Record<string, unknown>
+    const next: SchoolSetup = { ...defaults }
+    for (const key of Object.keys(defaults) as (keyof SchoolSetup)[]) {
+      const value = incoming[key]
+      if (typeof value === 'string') {
+        next[key] = value.slice(0, 500)
+      }
+    }
+    return next
   } catch {
     return { ...defaults }
   }

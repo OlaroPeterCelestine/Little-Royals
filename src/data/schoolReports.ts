@@ -2,6 +2,9 @@ import { schoolSetup, formatSchoolAddress } from './schoolSetup'
 import { brand } from './brand'
 import { schoolStore, unpaidFeeCount, pendingApplicantCount } from './store'
 import { openPrintWindow } from './documents'
+import { escapeHtml, escapeHtmlMultiline } from '../lib/security'
+
+const esc = escapeHtml
 
 export type SchoolReportId =
   | 'overview'
@@ -64,14 +67,6 @@ export const schoolReportCatalog: SchoolReportDef[] = [
   },
 ]
 
-function esc(value: unknown) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
 function logoSrc() {
   try {
     return new URL(brand.logoUrl, window.location.origin).href
@@ -81,7 +76,7 @@ function logoSrc() {
 }
 
 function wrap(title: string, body: string) {
-  const address = formatSchoolAddress().replace(/\n/g, '<br>')
+  const address = escapeHtmlMultiline(formatSchoolAddress())
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

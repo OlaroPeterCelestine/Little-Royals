@@ -86,7 +86,8 @@ async function onFileChange(ev: Event) {
   const file = input.files?.[0]
   input.value = ''
   if (!file) return
-  if (!file.type.startsWith('image/')) {
+  const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+  if (!allowed.has(file.type)) {
     toast.error('Choose a photo or scanned image (JPG, PNG, WebP)')
     return
   }

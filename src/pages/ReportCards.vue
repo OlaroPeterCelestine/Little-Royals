@@ -16,6 +16,7 @@ import { canCurrentUser } from '../data/permissions'
 import type { CatalogRow } from '../data/catalog'
 import { openPrintWindow } from '../data/documents'
 import { isNurseryClass } from '../data/grades'
+import { escapeHtml } from '../lib/security'
 import ListStatCards from '../components/ListStatCards.vue'
 
 const router = useRouter()
@@ -133,13 +134,18 @@ function printCard() {
     return
   }
   const row = selected.value
+  const e = escapeHtml
+  const nursery = isNurseryClass(row.className)
   const subjects = subjectRows.value
     .map(
       (s) =>
-        `<tr><td>${s.subject}</td><td style="text-align:center">${s.score}</td><td style="text-align:center">${s.grade}</td></tr>`,
+        `<tr><td>${e(s.subject)}</td><td style="text-align:center">${e(s.score)}</td><td style="text-align:center">${e(s.grade)}</td></tr>`,
     )
     .join('')
-  const html = `<!DOCTYPE html><html><head><title>Report Card · ${row.name}</title>
+  const divLine = nursery
+    ? e(row.division)
+    : `${e(row.division)}${row.aggregate != null ? ` · Agg ${e(row.aggregate)}` : ''}`
+  const html = `<!DOCTYPE html><html><head><title>Report Card · ${e(row.name)}</title>
 <style>
   body{font-family:Georgia,serif;max-width:720px;margin:24px auto;color:#111;padding:0 16px}
   h1{font-size:20px;margin:0} h2{font-size:16px;margin:8px 0 0;font-weight:normal;color:#444}
@@ -152,27 +158,27 @@ function printCard() {
   .motto{font-style:italic;color:#666;font-size:12px}
 </style></head><body>
 <div class="brand">
-  <h1>${schoolSetup.name}</h1>
-  <p class="motto">${schoolSetup.motto} · UNEB Centre ${schoolSetup.unebCentre || '—'}</p>
-  <h2>End of Term Report Card · ${row.term}</h2>
+  <h1>${e(schoolSetup.name)}</h1>
+  <p class="motto">${e(schoolSetup.motto)} · UNEB Centre ${e(schoolSetup.unebCentre || '—')}</p>
+  <h2>End of Term Report Card · ${e(row.term)}</h2>
 </div>
 <div class="meta">
-  <div><strong>Learner:</strong> ${row.name}</div>
-  <div><strong>Class:</strong> ${row.className}</div>
-  <div><strong>Average:</strong> ${row.average}%</div>
-  <div><strong>${isNurseryClass(row.className) ? 'Readiness' : 'Division'}:</strong> ${row.division}${row.aggregate != null && !isNurseryClass(row.className) ? ` · Agg ${row.aggregate}` : ''}</div>
-  <div><strong>Position:</strong> ${row.position || '—'}</div>
-  <div><strong>Status:</strong> ${row.status}</div>
+  <div><strong>Learner:</strong> ${e(row.name)}</div>
+  <div><strong>Class:</strong> ${e(row.className)}</div>
+  <div><strong>Average:</strong> ${e(row.average)}%</div>
+  <div><strong>${nursery ? 'Readiness' : 'Division'}:</strong> ${divLine}</div>
+  <div><strong>Position:</strong> ${e(row.position || '—')}</div>
+  <div><strong>Status:</strong> ${e(row.status)}</div>
 </div>
 <table>
-  <thead><tr><th>Subject</th><th>Score %</th><th>${isNurseryClass(row.className) ? 'Band' : 'Aggregate'}</th></tr></thead>
+  <thead><tr><th>Subject</th><th>Score %</th><th>${nursery ? 'Band' : 'Aggregate'}</th></tr></thead>
   <tbody>${subjects}</tbody>
 </table>
-<p><strong>Class teacher:</strong> ${row.teacherComment || '—'}</p>
-<p><strong>Head teacher:</strong> ${row.headComment || '—'}</p>
+<p><strong>Class teacher:</strong> ${e(row.teacherComment || '—')}</p>
+<p><strong>Head teacher:</strong> ${e(row.headComment || '—')}</p>
 <div class="footer">
-  <p>${schoolSetup.addressLine1}, ${schoolSetup.city} · ${schoolSetup.phone}</p>
-  <p>Generated ${new Date().toLocaleDateString()} · ${isNurseryClass(row.className) ? 'NCDC nursery descriptors' : 'NCDC / UNEB PLE primary'} desk template</p>
+  <p>${e(schoolSetup.addressLine1)}, ${e(schoolSetup.city)} · ${e(schoolSetup.phone)}</p>
+  <p>Generated ${e(new Date().toLocaleDateString())} · ${nursery ? 'NCDC nursery descriptors' : 'NCDC / UNEB PLE primary'} desk template</p>
 </div>
 </body></html>`
   openPrintWindow(`Report Card · ${row.name}`, html)

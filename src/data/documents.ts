@@ -2,6 +2,9 @@ import type { CatalogRow } from './catalog'
 import { brand } from './brand'
 import { formatSchoolAddress, schoolSetup } from './schoolSetup'
 import { schoolStore } from './store'
+import { escapeHtml, escapeHtmlMultiline } from '../lib/security'
+
+export { escapeHtml as esc }
 
 function logoSrc() {
   try {
@@ -123,16 +126,10 @@ export function defaultDocumentKind(moduleKey: string): DocumentKind {
   return map[moduleKey] || 'generic'
 }
 
-function esc(value: unknown) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+const esc = escapeHtml
 
 function letterhead(docTitle: string, refNo: string) {
-  const address = formatSchoolAddress().replace(/\n/g, '<br>')
+  const address = escapeHtmlMultiline(formatSchoolAddress())
   return `
     <header class="head">
       <div class="brand">
@@ -523,6 +520,11 @@ export function openPrintWindow(title: string, html: string) {
   iframe.id = 'lr-print-frame'
   iframe.title = title
   iframe.setAttribute('aria-hidden', 'true')
+  // Sandbox: allow same-origin so we can print; block scripts/forms/top-nav
+  iframe.setAttribute(
+    'sandbox',
+    'allow-modals allow-same-origin allow-popups',
+  )
   Object.assign(iframe.style, {
     position: 'fixed',
     right: '0',
@@ -533,18 +535,9 @@ export function openPrintWindow(title: string, html: string) {
     opacity: '0',
     pointerEvents: 'none',
   })
+  // Prefer srcdoc over document.write (clearer origin + no write races)
+  iframe.srcdoc = html
   document.body.appendChild(iframe)
-
-  const doc = iframe.contentDocument || iframe.contentWindow?.document
-  if (!doc) {
-    iframe.remove()
-    throw new Error('Could not prepare the print preview')
-  }
-
-  doc.open()
-  doc.write(html)
-  doc.close()
-  doc.title = title
 
   const triggerPrint = () => {
     try {
@@ -558,11 +551,18 @@ export function openPrintWindow(title: string, html: string) {
     }, 60_000)
   }
 
-  // Wait for letterhead images / layout before printing
-  const images = Array.from(doc.images || [])
-  if (!images.length) {
-    window.setTimeout(triggerPrint, 150)
-  } else {
+  const onReady = () => {
+    const doc = iframe.contentDocument
+    if (!doc) {
+      window.setTimeout(triggerPrint, 200)
+      return
+    }
+    doc.title = title
+    const images = Array.from(doc.images || [])
+    if (!images.length) {
+      window.setTimeout(triggerPrint, 150)
+      return
+    }
     let pending = images.length
     const done = () => {
       pending -= 1
@@ -577,6 +577,12 @@ export function openPrintWindow(title: string, html: string) {
     })
     window.setTimeout(triggerPrint, 2000)
   }
+
+  iframe.addEventListener('load', onReady, { once: true })
+  // Fallback if load already fired
+  window.setTimeout(() => {
+    if (iframe.contentDocument?.readyState === 'complete') onReady()
+  }, 50)
 
   return iframe
 }
