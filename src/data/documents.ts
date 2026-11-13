@@ -491,24 +491,74 @@ export function buildDocumentHtml(
   return { title, html }
 }
 
+/**
+ * Print without `window.open` — browsers block pop-ups on Vercel / production.
+ * Uses a same-origin hidden iframe so the print dialog always opens.
+ */
 export function openPrintWindow(title: string, html: string) {
-  const win = window.open('', '_blank', 'noopener,noreferrer,width=900,height=1000')
-  if (!win) {
-    throw new Error('Pop-up blocked — allow pop-ups to print documents')
+  const existing = document.getElementById('lr-print-frame')
+  if (existing) existing.remove()
+
+  const iframe = document.createElement('iframe')
+  iframe.id = 'lr-print-frame'
+  iframe.title = title
+  iframe.setAttribute('aria-hidden', 'true')
+  Object.assign(iframe.style, {
+    position: 'fixed',
+    right: '0',
+    bottom: '0',
+    width: '0',
+    height: '0',
+    border: '0',
+    opacity: '0',
+    pointerEvents: 'none',
+  })
+  document.body.appendChild(iframe)
+
+  const doc = iframe.contentDocument || iframe.contentWindow?.document
+  if (!doc) {
+    iframe.remove()
+    throw new Error('Could not prepare the print preview')
   }
-  win.document.open()
-  win.document.write(html)
-  win.document.close()
-  win.document.title = title
-  win.focus()
-  window.setTimeout(() => {
+
+  doc.open()
+  doc.write(html)
+  doc.close()
+  doc.title = title
+
+  const triggerPrint = () => {
     try {
-      win.print()
+      iframe.contentWindow?.focus()
+      iframe.contentWindow?.print()
     } catch {
-      /* user can print manually */
+      /* user can print from Download instead */
     }
-  }, 250)
-  return win
+    window.setTimeout(() => {
+      iframe.remove()
+    }, 60_000)
+  }
+
+  // Wait for letterhead images / layout before printing
+  const images = Array.from(doc.images || [])
+  if (!images.length) {
+    window.setTimeout(triggerPrint, 150)
+  } else {
+    let pending = images.length
+    const done = () => {
+      pending -= 1
+      if (pending <= 0) window.setTimeout(triggerPrint, 100)
+    }
+    images.forEach((img) => {
+      if (img.complete) done()
+      else {
+        img.addEventListener('load', done)
+        img.addEventListener('error', done)
+      }
+    })
+    window.setTimeout(triggerPrint, 2000)
+  }
+
+  return iframe
 }
 
 export function printRecordDocument(

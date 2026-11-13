@@ -14,6 +14,7 @@ import { schoolStore, updateRecord } from '../data/store'
 import { schoolSetup } from '../data/schoolSetup'
 import { canCurrentUser } from '../data/permissions'
 import type { CatalogRow } from '../data/catalog'
+import { openPrintWindow } from '../data/documents'
 import ListStatCards from '../components/ListStatCards.vue'
 
 const router = useRouter()
@@ -158,15 +159,9 @@ function printCard() {
   <p>${schoolSetup.addressLine1}, ${schoolSetup.city} · ${schoolSetup.phone}</p>
   <p>Generated ${new Date().toLocaleDateString()} · NCDC / UNEB style desk template</p>
 </div>
-<script>window.onload=()=>window.print()<\/script>
 </body></html>`
-  const win = window.open('', '_blank')
-  if (!win) {
-    toast.error('Allow pop-ups to print')
-    return
-  }
-  win.document.write(html)
-  win.document.close()
+  openPrintWindow(`Report Card · ${row.name}`, html)
+  toast.success('Print dialog opened')
 }
 </script>
 
