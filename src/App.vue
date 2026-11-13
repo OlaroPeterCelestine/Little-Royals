@@ -4,14 +4,22 @@ import { useRoute } from 'vue-router'
 import { FrappeUIProvider, DesktopShell } from 'frappe-ui'
 import AppTopBar from './components/AppTopBar.vue'
 import ModuleSidebar from './components/ModuleSidebar.vue'
+import { isAuthenticated } from './data/auth'
 
 const route = useRoute()
-const isLogin = computed(() => route.name === 'login' || route.meta.public === true)
+
+/** Desk chrome only after a real signed-in session — never flash it on Login. */
+const showDesk = computed(
+  () =>
+    isAuthenticated.value &&
+    route.name !== 'login' &&
+    route.meta.public !== true,
+)
 </script>
 
 <template>
   <FrappeUIProvider>
-    <RouterView v-if="isLogin" />
+    <RouterView v-if="!showDesk" />
     <div
       v-else
       class="school-brand-shell flex h-screen flex-col bg-surface-base text-ink-gray-8"

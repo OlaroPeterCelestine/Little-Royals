@@ -86,15 +86,14 @@ export const router = createRouter({
       meta: { public: true },
     },
     {
-      // Opening the site always hits login first when signed out
+      // Opening the site: guests → Login, staff → dashboard (no desk flash)
       path: '/',
       name: 'home',
-      redirect: () =>
-        isAuthenticated.value
-          ? authSession.value?.role === 'Parent'
-            ? '/parent-portal'
-            : '/dashboard'
-          : '/login',
+      redirect: () => {
+        if (!isAuthenticated.value) return { name: 'login' }
+        if (authSession.value?.role === 'Parent') return '/parent-portal'
+        return '/dashboard'
+      },
     },
     {
       path: '/dashboard',
