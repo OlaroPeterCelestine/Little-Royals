@@ -16,7 +16,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:8080 http://localhost:8080 http://127.0.0.1:18080 ws://127.0.0.1:8080 ws://localhost:8080 ws://127.0.0.1:18080 https://api-production-7463841e.up.railway.app wss://api-production-7463841e.up.railway.app https://*.up.railway.app wss://*.up.railway.app https://cdn.jsdelivr.net https://*.tessdata.projectnaptha.com blob:; worker-src 'self' blob:; frame-src 'self' blob:; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:8080 http://localhost:8080 http://127.0.0.1:18080 ws://127.0.0.1:8080 ws://localhost:8080 ws://127.0.0.1:18080 https://cdn.jsdelivr.net https://*.tessdata.projectnaptha.com blob:; worker-src 'self' blob:; frame-src 'self' blob:; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'none'"
         }
       ]
     }

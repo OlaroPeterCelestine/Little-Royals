@@ -137,7 +137,7 @@ const quickLinks = computed(() => [
           <h1 class="text-2xl-semibold text-ink-gray-9">
             School dashboard
           </h1>
-          <p class="max-w-xl text-p-base text-ink-gray-6">
+          <p class="max-w-2xl text-p-base text-ink-gray-6 2xl:max-w-3xl">
             {{ schoolSetup.motto }} — Baby Class to P.7 nursery &amp; primary
             desk · enrollment, attendance, fees ·
             {{ schoolSetup.currentTerm }} {{ schoolSetup.academicYear }}.
@@ -232,7 +232,7 @@ const quickLinks = computed(() => [
 
     <section class="school-section">
       <h2 class="school-section-title">Jump to</h2>
-      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="school-tile-grid">
         <RouterLink
           v-for="link in quickLinks"
           :key="link.route"

@@ -35,10 +35,10 @@ watch(
     <RouterView v-if="!showDesk" />
     <div
       v-else
-      class="school-brand-shell flex h-screen flex-col bg-surface-base text-ink-gray-8"
+      class="school-brand-shell flex h-dvh max-h-dvh min-h-0 w-full max-w-[100vw] flex-col overflow-hidden bg-surface-base text-ink-gray-8"
     >
       <AppTopBar />
-      <div class="min-h-0 flex-1">
+      <div class="min-h-0 min-w-0 flex-1 overflow-hidden">
         <DesktopShell>
           <template #sidebar>
             <ModuleSidebar />

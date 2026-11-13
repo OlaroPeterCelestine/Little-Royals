@@ -25,12 +25,15 @@ html[data-theme='dark'] {
   --school-red: #ed1c24;
   --school-red-dark: #c41218;
   --school-red-soft: #fde8e9;
-  --school-page-x: 1.5rem;
-  --school-page-y: 1.75rem;
-  --school-section-gap: 2.5rem;
-  --school-card-pad: 1.5rem;
+  /* Fluid page shell — grows from phone → ultra-wide */
+  --school-page-max: 80rem;
+  --school-page-x: clamp(1rem, 2.2vw, 1.5rem);
+  --school-page-y: clamp(1.25rem, 2vw, 1.75rem);
+  --school-section-gap: clamp(1.5rem, 2.5vw, 2.5rem);
+  --school-card-pad: clamp(1rem, 1.6vw, 1.5rem);
   --school-table-gap: 1rem;
   --school-table-pad-x: 1rem;
+  --school-content-cols: 1;
 }
 
 /* Remap frappe blue / red tokens toward Little Royals brand */
@@ -82,19 +85,69 @@ html[data-theme='dark'] {
 
 @media (min-width: 640px) {
   :root {
-    --school-page-x: 2.25rem;
-    --school-page-y: 2.25rem;
+    --school-page-x: clamp(1.5rem, 2.5vw, 2.25rem);
+    --school-page-y: clamp(1.5rem, 2.5vw, 2.25rem);
   }
+}
+
+/* Large desktops */
+@media (min-width: 1280px) {
+  :root {
+    --school-page-max: 90rem;
+  }
+}
+
+/* Wide (≈1600–1919) */
+@media (min-width: 1600px) {
+  :root {
+    --school-page-max: 104rem;
+    --school-page-x: clamp(2rem, 3vw, 3rem);
+    --school-page-y: 2.5rem;
+  }
+}
+
+/* Ultra-wide / 2K+ */
+@media (min-width: 1920px) {
+  :root {
+    --school-page-max: 120rem;
+    --school-page-x: clamp(2.5rem, 3.5vw, 4rem);
+  }
+}
+
+/* Extreme ultra-wide (ultrawide monitors / 4K) */
+@media (min-width: 2560px) {
+  :root {
+    --school-page-max: 140rem;
+    --school-page-x: clamp(3rem, 4vw, 5rem);
+  }
+}
+
+/* Prevent page-level horizontal scroll on any viewport */
+html,
+body,
+#app {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.school-brand-shell {
+  min-width: 0;
+  max-width: 100vw;
 }
 
 .school-page {
   width: 100%;
-  max-width: 80rem;
+  max-width: var(--school-page-max);
   margin-inline: auto;
   padding: var(--school-page-y) var(--school-page-x);
+  padding-inline: max(var(--school-page-x), env(safe-area-inset-left, 0px))
+    max(var(--school-page-x), env(safe-area-inset-right, 0px));
+  padding-bottom: max(var(--school-page-y), env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 1.75rem;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .school-page--workspace {
@@ -105,6 +158,7 @@ html[data-theme='dark'] {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  min-width: 0;
 }
 
 .school-section-title {
@@ -115,7 +169,31 @@ html[data-theme='dark'] {
 
 .school-card-grid {
   display: grid;
-  gap: 1.25rem;
+  gap: clamp(1rem, 1.5vw, 1.35rem);
+  min-width: 0;
+}
+
+/* Auto-fit card grids when no explicit column class is set */
+.school-card-grid:not([class*='grid-cols']) {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 16rem), 1fr)
+  );
+}
+
+/* Chart / dual panels: use a third column only on extreme widths */
+@media (min-width: 2560px) {
+  .school-card-grid.lg\:grid-cols-2 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Generic responsive grids used for quick links / tiles */
+.school-tile-grid {
+  display: grid;
+  gap: clamp(0.85rem, 1.2vw, 1.25rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  min-width: 0;
 }
 
 .school-card {
@@ -179,9 +257,18 @@ html[data-theme='dark'] {
 }
 
 .school-toolbar-search {
-  flex: 0 0 14rem;
-  width: 14rem;
-  max-width: 14rem;
+  flex: 0 1 18rem;
+  width: min(100%, 18rem);
+  max-width: min(100%, 22rem);
+  min-width: 0;
+}
+
+@media (min-width: 1600px) {
+  .school-toolbar-search {
+    flex-basis: 22rem;
+    width: 22rem;
+    max-width: 28rem;
+  }
 }
 
 .school-toolbar-filters {
@@ -257,13 +344,34 @@ html[data-theme='dark'] {
   height: 3.5rem;
   gap: 0.75rem;
   min-width: 0;
-  padding-inline: 1.125rem;
+  width: 100%;
+  max-width: 100%;
+  padding-inline: max(1.125rem, env(safe-area-inset-left, 0px))
+    max(1.125rem, env(safe-area-inset-right, 0px));
   border-bottom: 1px solid
     color-mix(in srgb, var(--school-blue) 16%, var(--outline-gray-1));
   background: var(--surface-white);
   overflow: visible;
   position: relative;
   z-index: 40;
+  box-sizing: border-box;
+}
+
+@media (min-width: 1600px) {
+  .school-topbar {
+    padding-inline: max(1.75rem, env(safe-area-inset-left, 0px))
+      max(1.75rem, env(safe-area-inset-right, 0px));
+  }
+
+  .school-topbar .relative.mx-auto {
+    max-width: 36rem;
+  }
+}
+
+@media (min-width: 1920px) {
+  .school-topbar .relative.mx-auto {
+    max-width: 42rem;
+  }
 }
 
 /* Portaled overlays — sit above page tables / sticky headers */
