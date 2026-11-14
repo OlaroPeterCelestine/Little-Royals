@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { FrappeUIProvider, DesktopShell } from 'frappe-ui'
+import { FrappeUIProvider } from 'frappe-ui'
 import AppTopBar from './components/AppTopBar.vue'
 import ModuleSidebar from './components/ModuleSidebar.vue'
 import { isAuthenticated } from './data/auth'
@@ -40,18 +40,19 @@ watch(
       <ModuleSidebar />
       <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <AppTopBar />
-        <div class="min-h-0 min-w-0 flex-1 overflow-hidden">
-          <DesktopShell>
-            <RouterView v-slot="{ Component, route: r }">
-              <Suspense timeout="0">
-                <component :is="Component" :key="r.path" />
-                <template #fallback>
-                  <div class="school-page-loading">Loading…</div>
-                </template>
-              </Suspense>
-            </RouterView>
-          </DesktopShell>
-        </div>
+        <main
+          data-slot="desktop-shell-content"
+          class="school-main-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
+        >
+          <RouterView v-slot="{ Component, route: r }">
+            <Suspense timeout="0">
+              <component :is="Component" :key="r.path" />
+              <template #fallback>
+                <div class="school-page-loading">Loading…</div>
+              </template>
+            </Suspense>
+          </RouterView>
+        </main>
       </div>
     </div>
   </FrappeUIProvider>

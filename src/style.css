@@ -138,19 +138,50 @@ body,
 }
 
 /* Main desk pane must shrink inside the sidebar layout */
-.school-brand-shell [data-slot='desktop-shell'],
 .school-brand-shell [data-slot='desktop-shell-content'],
-.school-brand-shell main {
+.school-brand-shell main,
+.school-brand-shell .school-main-scroll {
   min-width: 0 !important;
   max-width: 100%;
   overflow-x: hidden;
 }
 
-.school-brand-shell [data-slot='scroll-area-viewport'],
-.school-brand-shell [data-slot='scroll-area'] {
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: hidden !important;
+.school-main-scroll {
+  background: var(--surface-base);
+}
+
+/* Page titles sit on the page (not a sticky bar with a divider line) */
+.school-main-scroll > header,
+.school-main-scroll > div > header,
+header:has([data-slot='page-header-title']),
+header.border-b:has([data-slot='page-header-title']),
+[data-slot='page-header'] {
+  border-bottom: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  width: 100%;
+  max-width: var(--school-page-max);
+  margin-inline: auto;
+  min-height: 0 !important;
+  padding-block: 1.15rem 0.15rem !important;
+  padding-inline: max(var(--school-page-x), env(safe-area-inset-left, 0px))
+    max(var(--school-page-x), env(safe-area-inset-right, 0px)) !important;
+  box-sizing: border-box;
+}
+
+/* Bigger page titles (Pupils, Reports, etc.) */
+.school-main-scroll header .text-lg.font-semibold,
+.school-main-scroll header .truncate.text-lg {
+  font-size: clamp(1.75rem, 2.4vw, 2.25rem) !important;
+  line-height: 1.2 !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+  color: var(--ink-gray-9);
+}
+
+.school-main-scroll > header + .school-page,
+.school-main-scroll > div > header + .school-page {
+  padding-top: 0.85rem;
 }
 
 .school-page {
@@ -1029,7 +1060,6 @@ body,
 header:has([data-slot='page-header-title']) {
   gap: 0.75rem;
   flex-wrap: wrap;
-  max-width: 100%;
   min-width: 0;
   overflow-x: hidden;
 }
