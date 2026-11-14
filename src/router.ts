@@ -107,18 +107,18 @@ export const router = createRouter({
       meta: { public: true },
     },
     {
-      // Spec: no Dashboard — staff land on Students list
       path: '/',
       name: 'home',
       redirect: () => {
         if (!isAuthenticated.value) return { name: 'login' }
         if (isParentRole(authSession.value?.role || '')) return '/parent-portal'
-        return '/students'
+        return '/dashboard'
       },
     },
     {
       path: '/dashboard',
-      redirect: '/students',
+      name: 'dashboard',
+      component: () => import('./pages/Dashboard.vue'),
     },
     {
       path: '/students',
@@ -288,7 +288,7 @@ router.beforeEach((to) => {
 
   const isParent = isParentRole(authSession.value?.role || '')
   if (isAuthenticated.value && to.name === 'login') {
-    return { path: isParent ? '/parent-portal' : '/students' }
+    return { path: isParent ? '/parent-portal' : '/dashboard' }
   }
 
   if (isParent && !isParentAllowedPath(to.path)) {

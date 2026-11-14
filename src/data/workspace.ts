@@ -40,10 +40,15 @@ export interface MasterGroup {
 }
 
 /**
- * Navigation aligned to the 24-module school UI specification.
- * No Dashboard — lists and operations are the home of the desk.
+ * Sidebar navigation: Dashboard plus the previous desk pages and newer modules.
  */
 export const educationNav: NavGroup[] = [
+  {
+    title: 'Overview',
+    items: [
+      { label: 'Dashboard', icon: 'lucide-layout-dashboard', route: '/dashboard' },
+    ],
+  },
   {
     title: 'People',
     items: [
@@ -62,6 +67,7 @@ export const educationNav: NavGroup[] = [
       { label: 'Admissions', icon: 'lucide-clipboard-list', route: '/admissions' },
       { label: 'Waiting list', icon: 'lucide-list-ordered', route: '/waiting-list' },
       { label: 'Enrollments', icon: 'lucide-badge-check', route: '/program-enrollments' },
+      { label: 'Subject enrollment', icon: 'lucide-list-checks', route: '/course-enrollments' },
       { label: 'Scan to data', icon: 'lucide-scan-text', route: '/scan' },
     ],
   },
@@ -119,6 +125,9 @@ export const educationNav: NavGroup[] = [
       { label: 'Examinations', icon: 'lucide-file-check-2', route: '/exams' },
       { label: 'Results', icon: 'lucide-award', route: '/exam-results' },
       { label: 'Report cards', icon: 'lucide-file-badge', route: '/report-cards' },
+      { label: 'Gradebook', icon: 'lucide-table-2', route: '/gradebook' },
+      { label: 'Assessment groups', icon: 'lucide-folders', route: '/assessment-groups' },
+      { label: 'Assessment criteria', icon: 'lucide-list-checks', route: '/assessment-criteria' },
       { label: 'Grading scales', icon: 'lucide-sliders-horizontal', route: '/grading-scales' },
       { label: 'Exam settings', icon: 'lucide-settings-2', route: '/exam-settings' },
     ],
@@ -127,6 +136,8 @@ export const educationNav: NavGroup[] = [
     title: 'Finance',
     items: [
       { label: 'Fee structures', icon: 'lucide-table', route: '/fee-structures' },
+      { label: 'Fee categories', icon: 'lucide-tags', route: '/fee-categories' },
+      { label: 'Fee schedules', icon: 'lucide-calendar-range', route: '/fee-schedules' },
       { label: 'Invoices', icon: 'lucide-file-spreadsheet', route: '/invoices' },
       { label: 'Fees', icon: 'lucide-receipt', route: '/fees' },
       { label: 'Payments', icon: 'lucide-smartphone-nfc', route: '/payments' },
@@ -152,6 +163,7 @@ export const educationNav: NavGroup[] = [
     items: [
       { label: 'Announcements', icon: 'lucide-megaphone', route: '/announcements' },
       { label: 'Messages', icon: 'lucide-messages-square', route: '/communications' },
+      { label: 'SMS', icon: 'lucide-message-square-text', route: '/sms-messages' },
       { label: 'Templates', icon: 'lucide-file-text', route: '/message-templates' },
       { label: 'Calendar', icon: 'lucide-calendar-days', route: '/calendar' },
     ],
@@ -258,6 +270,12 @@ const unpaidFees = countByStatus(
 )
 
 export const shortcuts: ShortcutItem[] = [
+  {
+    label: 'Dashboard',
+    route: '/dashboard',
+    icon: 'lucide-layout-dashboard',
+    description: 'School overview',
+  },
   {
     label: 'Student',
     route: '/students',

@@ -135,6 +135,83 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
     ],
   },
 
+  teachers: {
+    module: 'teachers',
+    title: 'Register Teacher',
+    singular: 'Teacher',
+    draft: true,
+    sections: [
+      {
+        title: 'Personal biodata',
+        fields: [
+          { name: 'firstName', label: 'First name', type: 'text', required: true },
+          { name: 'lastName', label: 'Last name', type: 'text', required: true },
+          { name: 'otherNames', label: 'Other names', type: 'text' },
+          { name: 'name', label: 'Full name', type: 'readonly', auto: true, help: 'Built from first and last name' },
+          { name: 'gender', label: 'Gender', type: 'select', required: true, options: genderOpts },
+          { name: 'dateOfBirth', label: 'Date of birth', type: 'date', required: true },
+          { name: 'nationality', label: 'Nationality', type: 'text', placeholder: 'Ugandan' },
+          { name: 'nationalId', label: 'National ID / NIN', type: 'text' },
+          { name: 'maritalStatus', label: 'Marital status', type: 'select', options: [
+            { label: 'Single', value: 'Single' },
+            { label: 'Married', value: 'Married' },
+            { label: 'Other', value: 'Other' },
+          ] },
+          { name: 'languages', label: 'Languages spoken', type: 'text' },
+          { name: 'address', label: 'Residential address', type: 'textarea' },
+          { name: 'photo', label: 'Photograph', type: 'file' },
+        ],
+      },
+      {
+        title: 'Contact',
+        fields: [
+          { name: 'phone', label: 'Phone', type: 'phone', required: true },
+          { name: 'altPhone', label: 'Alternative phone', type: 'phone' },
+          { name: 'email', label: 'Email', type: 'email' },
+          { name: 'emergencyContact', label: 'Emergency contact', type: 'text', placeholder: 'Name · phone' },
+        ],
+      },
+      {
+        title: 'Employment & teaching',
+        fields: [
+          { name: 'employeeNumber', label: 'Staff number', type: 'readonly', auto: true },
+          { name: 'jobTitle', label: 'Job title', type: 'text', required: true },
+          { name: 'department', label: 'Section', type: 'select', required: true, options: sectionOpts },
+          { name: 'subject', label: 'Main subject / learning area', type: 'text', required: true },
+          {
+            name: 'employmentType',
+            label: 'Employment type',
+            type: 'select',
+            options: [
+              { label: 'Permanent', value: 'Permanent' },
+              { label: 'Contract', value: 'Contract' },
+              { label: 'Temporary', value: 'Temporary' },
+            ],
+          },
+          { name: 'startDate', label: 'Start date', type: 'date', required: true },
+          { name: 'yearsExperience', label: 'Years of experience', type: 'number' },
+          { name: 'qualification', label: 'Highest qualification', type: 'text', required: true },
+          { name: 'additionalQualifications', label: 'Additional qualifications', type: 'textarea' },
+          { name: 'status', label: 'Status', type: 'select', options: [
+            { label: 'Active', value: 'Active' },
+            { label: 'On Leave', value: 'On Leave' },
+            { label: 'Inactive', value: 'Inactive' },
+          ] },
+        ],
+      },
+      {
+        title: 'Health & notes',
+        fields: [
+          { name: 'bloodGroup', label: 'Blood group', type: 'text' },
+          { name: 'medicalAlerts', label: 'Medical alerts', type: 'textarea' },
+          { name: 'bio', label: 'Professional summary', type: 'textarea' },
+          { name: 'documents', label: 'Supporting documents', type: 'file' },
+          { name: 'subtitle', label: 'Internal notes', type: 'textarea' },
+        ],
+      },
+    ],
+  },
+
   applicants: {
     module: 'applicants',
     title: 'New Application',

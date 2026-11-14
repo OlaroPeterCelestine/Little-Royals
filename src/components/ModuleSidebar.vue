@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import {
   Button,
   Sidebar,
@@ -17,23 +17,20 @@ import SchoolLogo from './SchoolLogo.vue'
 import { useSidebarCollapse } from '../composables/useSidebarCollapse'
 
 const route = useRoute()
-const router = useRouter()
-const { collapsed } = useSidebarCollapse()
+const { collapsed, toggle: toggleSidebar } = useSidebarCollapse()
 
 const profileRoute = computed(() => {
   const me = getCurrentSystemUser()
   return me ? `/users/${me.id}` : '/me'
 })
 
-const usersRolesActive = computed(
-  () =>
-    route.path === '/users' ||
-    (route.path.startsWith('/users') && !route.params.id),
-)
-
 const isParent = computed(() => isParentRole(currentUser.role))
 const navGroups = computed(() =>
   isParent.value ? parentNav : educationNav,
+)
+
+const sidebarToggleIcon = computed(() =>
+  collapsed.value ? 'lucide-panel-left-open' : 'lucide-panel-left-close',
 )
 
 function isActive(path?: string) {
@@ -45,10 +42,6 @@ function isActive(path?: string) {
     return route.path === '/attendance/take'
   }
   return route.path === path || route.path.startsWith(`${path}/`)
-}
-
-function openUsersRoles() {
-  router.push('/users')
 }
 </script>
 
@@ -71,14 +64,16 @@ function openUsersRoles() {
         </template>
       </SidebarHeader>
 
-      <Tooltip v-if="!isParent" text="Users & Roles" placement="right">
+      <Tooltip
+        :text="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        placement="right"
+      >
         <Button
-          class="school-sidebar-users-btn"
-          :variant="usersRolesActive ? 'solid' : 'subtle'"
-          theme="blue"
-          icon="lucide-users"
-          aria-label="Users & Roles"
-          @click="openUsersRoles"
+          class="school-sidebar-collapse-btn"
+          variant="subtle"
+          :icon="sidebarToggleIcon"
+          :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+          @click="toggleSidebar"
         />
       </Tooltip>
     </div>

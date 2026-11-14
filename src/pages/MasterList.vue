@@ -172,6 +172,27 @@ function clearSelection() {
     showSelectionWarning.value = false
   })
 }
+
+function selectPage() {
+  selection.value = pageRows.value.map((r) => r.id)
+}
+
+function selectAllFiltered() {
+  selection.value = filtered.value.map((r) => r.id)
+}
+
+const allPageSelected = computed(
+  () =>
+    pageRows.value.length > 0 &&
+    pageRows.value.every((r) => selection.value.includes(r.id)),
+)
+
+const allFilteredSelected = computed(
+  () =>
+    filtered.value.length > 0 &&
+    selection.value.length === filtered.value.length &&
+    filtered.value.every((r) => selection.value.includes(r.id)),
+)
 </script>
 
 <template>
@@ -224,11 +245,7 @@ function clearSelection() {
       v-if="selection.length"
       theme="blue"
       :title="`${selection.length} selected`"
-      :description="
-        canDelete
-          ? 'Edit one row with the pencil, or delete the selection.'
-          : 'Your role can view this selection but cannot delete it.'
-      "
+      description="Use row checkboxes or Select page / Select all for bulk actions. Open a record with the eye icon."
       icon="lucide-list-checks"
       :primary-action="
         canDelete
@@ -276,9 +293,28 @@ function clearSelection() {
       <Button
         v-if="hasActiveFilters"
         class="school-filter-clear"
-        label="Clear"
+        label="Clear filters"
         icon-left="lucide-filter-x"
         @click="resetFilters"
+      />
+      <Button
+        v-if="!allPageSelected"
+        icon-left="lucide-list-checks"
+        label="Select page"
+        :disabled="!pageRows.length"
+        @click="selectPage"
+      />
+      <Button
+        v-else-if="!allFilteredSelected && filtered.length > pageRows.length"
+        icon-left="lucide-check-check"
+        :label="`Select all ${filtered.length}`"
+        @click="selectAllFiltered"
+      />
+      <Button
+        v-if="selection.length"
+        icon-left="lucide-x"
+        label="Clear selection"
+        @click="selection = []"
       />
     </ListToolbar>
 

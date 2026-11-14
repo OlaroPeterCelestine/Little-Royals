@@ -17,7 +17,6 @@ import {
   openKeyboardShortcuts,
   openUserMenu,
 } from '../composables/useAppActions'
-import { useSidebarCollapse } from '../composables/useSidebarCollapse'
 import { logout } from '../data/auth'
 import {
   markAllNotificationsRead,
@@ -30,11 +29,7 @@ import {
 import SchoolLogo from './SchoolLogo.vue'
 
 const router = useRouter()
-const { collapsed, toggle: toggleSidebar } = useSidebarCollapse()
 const avatarLabel = computed(() => currentUser.name || 'PC')
-const sidebarToggleIcon = computed(() =>
-  collapsed.value ? 'lucide-panel-left-open' : 'lucide-panel-left-close',
-)
 
 const query = ref('')
 const open = ref(false)
@@ -185,7 +180,7 @@ async function signOut() {
 <template>
   <header class="school-topbar">
     <RouterLink
-      to="/students"
+      to="/dashboard"
       class="school-brand-mark flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full"
       aria-label="Students home"
     >
@@ -307,13 +302,6 @@ async function signOut() {
           </span>
         </template>
       </Button>
-      <Button
-        class="ms-0.5"
-        :icon="sidebarToggleIcon"
-        :tooltip="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
-        :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
-        @click="toggleSidebar"
-      />
     </div>
 
     <Teleport to="body">

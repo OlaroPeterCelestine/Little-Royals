@@ -113,12 +113,39 @@ function printReportCard(row: CatalogRow, event?: Event) {
     toast.error(err instanceof Error ? err.message : 'Could not print')
   }
 }
+
+function selectPage() {
+  selection.value = pageRows.value.map((r) => r.id)
+}
+
+function selectAllFiltered() {
+  selection.value = filtered.value.map((r) => r.id)
+}
+
+const allPageSelected = computed(
+  () =>
+    pageRows.value.length > 0 &&
+    pageRows.value.every((r) => selection.value.includes(r.id)),
+)
+
+const allFilteredSelected = computed(
+  () =>
+    filtered.value.length > 0 &&
+    selection.value.length === filtered.value.length &&
+    filtered.value.every((r) => selection.value.includes(r.id)),
+)
 </script>
 
 <template>
   <PageHeader>
     <PageHeaderTitle title="Pupils" />
     <div class="flex items-center gap-2">
+      <Button
+        v-if="selection.length"
+        icon-left="lucide-x"
+        label="Clear"
+        @click="selection = []"
+      />
       <Button
         v-if="canDelete"
         icon-left="lucide-trash-2"
@@ -152,6 +179,23 @@ function printReportCard(row: CatalogRow, event?: Event) {
       }"
     />
 
+    <Alert
+      v-if="selection.length"
+      theme="blue"
+      :title="`${selection.length} selected`"
+      description="Use row checkboxes or Select page / Select all for bulk actions."
+      icon="lucide-list-checks"
+      :primary-action="
+        canDelete
+          ? {
+              label: 'Delete selected',
+              theme: 'red',
+              onClick: () => openDeleteDialog('students', [...selection]),
+            }
+          : undefined
+      "
+    />
+
     <ListStatCards :stats="studentStats" />
 
     <ListToolbar>
@@ -182,9 +226,28 @@ function printReportCard(row: CatalogRow, event?: Event) {
       <Button
         v-if="hasActiveFilters"
         class="school-filter-clear"
-        label="Clear"
+        label="Clear filters"
         icon-left="lucide-filter-x"
         @click="resetFilters"
+      />
+      <Button
+        v-if="!allPageSelected"
+        icon-left="lucide-list-checks"
+        label="Select page"
+        :disabled="!pageRows.length"
+        @click="selectPage"
+      />
+      <Button
+        v-else-if="!allFilteredSelected && filtered.length > pageRows.length"
+        icon-left="lucide-check-check"
+        :label="`Select all ${filtered.length}`"
+        @click="selectAllFiltered"
+      />
+      <Button
+        v-if="selection.length"
+        icon-left="lucide-x"
+        label="Clear selection"
+        @click="selection = []"
       />
     </ListToolbar>
 

@@ -439,7 +439,7 @@ body,
   border-bottom: 0 !important;
 }
 
-.school-sidebar-users-btn {
+.school-sidebar-collapse-btn {
   flex-shrink: 0;
   z-index: 1;
 }
@@ -538,7 +538,13 @@ body,
   min-height: 4rem;
   align-items: center;
   width: 100%;
-  overflow: hidden;
+  /* Keep overflow visible so the bulk-select checkbox column is not clipped */
+  overflow: visible;
+}
+
+.school-table [data-slot='list-row-checkbox'],
+.school-table [data-slot='list-header-checkbox'] {
+  z-index: 2;
 }
 
 [data-slot='list-cell'],
