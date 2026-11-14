@@ -1,5 +1,6 @@
 import { onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { authToken } from '../data/auth'
+import { apiBaseUrl, isApiEnabled } from '../lib/apiMode'
 
 export type RealtimeEvent = {
   type: string
@@ -7,13 +8,10 @@ export type RealtimeEvent = {
   at: string
 }
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8080').replace(
-  /\/$/,
-  '',
-)
+const API_BASE = apiBaseUrl()
 const WS_BASE = (
   import.meta.env.VITE_WS_URL ||
-  API_BASE.replace(/^http/, 'ws')
+  (API_BASE ? API_BASE.replace(/^http/, 'ws') : '')
 ).replace(/\/$/, '')
 
 function wsURL(token: string) {
@@ -39,6 +37,7 @@ export function onRealtime(fn: (evt: RealtimeEvent) => void) {
 }
 
 export function connectRealtime() {
+  if (!isApiEnabled() || !WS_BASE) return
   const token = authToken()
   if (!token) return
   if (

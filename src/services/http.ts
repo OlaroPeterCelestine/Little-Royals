@@ -1,9 +1,7 @@
 import { authToken } from '../data/auth'
+import { apiBaseUrl, isApiEnabled } from '../lib/apiMode'
 
-export const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8080').replace(
-  /\/$/,
-  '',
-)
+export const API_BASE = apiBaseUrl()
 
 export type ApiMeta = {
   page?: number
@@ -39,6 +37,10 @@ export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<{ data: T; meta?: ApiMeta }> {
+  if (!isApiEnabled() || !API_BASE) {
+    throw new ApiError(503, 'School API is disabled — desk is running offline')
+  }
+
   const { method = 'GET', body, auth = true } = options
   const headers: Record<string, string> = {
     Accept: 'application/json',

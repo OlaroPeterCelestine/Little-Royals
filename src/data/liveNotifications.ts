@@ -2,11 +2,9 @@ import { computed, reactive } from 'vue'
 import { authToken } from './auth'
 import type { NotificationTone, SchoolNotification } from './notifications'
 import { onRealtime, connectRealtime, disconnectRealtime } from '../composables/useRealtime'
+import { apiBaseUrl, isApiEnabled } from '../lib/apiMode'
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8080').replace(
-  /\/$/,
-  '',
-)
+const API_BASE = apiBaseUrl()
 
 type APINotification = {
   id: string
@@ -53,6 +51,10 @@ export const liveNotifications = computed(() => live.items)
 export const realtimeConnected = computed(() => live.connected)
 
 export async function fetchLiveNotifications() {
+  if (!isApiEnabled() || !API_BASE) {
+    live.items = []
+    return
+  }
   const token = authToken()
   if (!token) {
     live.items = []
@@ -73,10 +75,11 @@ export async function fetchLiveNotifications() {
 }
 
 export async function markLiveNotificationRead(id: string) {
-  const token = authToken()
-  if (!token) return
   const item = live.items.find((n) => n.id === id)
   if (item) item.read = true
+  if (!isApiEnabled() || !API_BASE) return
+  const token = authToken()
+  if (!token) return
   try {
     await fetch(`${API_BASE}/api/v1/notifications/${id}/read`, {
       method: 'POST',
@@ -90,6 +93,11 @@ export async function markLiveNotificationRead(id: string) {
 let unsub: (() => void) | null = null
 
 export function startRealtimeNotifications() {
+  if (!isApiEnabled()) {
+    live.connected = false
+    live.items = []
+    return
+  }
   connectRealtime()
   void fetchLiveNotifications()
   if (unsub) return

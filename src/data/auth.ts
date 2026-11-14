@@ -11,21 +11,17 @@ import {
   writeJsonStorage,
   type AuthSessionShape,
 } from '../lib/security'
+import { apiBaseUrl, isApiEnabled, localDemoPassword } from '../lib/apiMode'
 
 const STORAGE_KEY = 'little-royals-auth'
 const BOOT_KEY = 'little-royals-auth-boot'
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8080').replace(
-  /\/$/,
-  '',
-)
-
-/** One-time: force Login as the first screen after this auth boot bump. */
+/** One-time: clear API JWT sessions when switching to offline desk. */
 try {
-  if (localStorage.getItem(BOOT_KEY) !== '3') {
+  if (localStorage.getItem(BOOT_KEY) !== '4') {
     localStorage.removeItem(STORAGE_KEY)
     sessionStorage.removeItem(STORAGE_KEY)
-    localStorage.setItem(BOOT_KEY, '3')
+    localStorage.setItem(BOOT_KEY, '4')
   }
 } catch {
   /* ignore */
@@ -61,28 +57,27 @@ function loadSession(): AuthSession | null {
     return null
   }
 
-  // Prefer JWT session from API; fall back to local user directory for offline desk.
-  if (parsed.token) {
+  // Offline desk: ignore leftover API JWT tokens and use the local user directory.
+  if (!isApiEnabled() || !parsed.token) {
+    const user = getUserByEmail(parsed.email)
+    if (!user || user.status !== 'Active') {
+      clearStorageKeys([STORAGE_KEY])
+      return null
+    }
     return {
-      email: parsed.email.toLowerCase(),
-      name: parsed.name,
-      role: normalizeRole(parsed.role) || parsed.role,
+      email: user.email.toLowerCase(),
+      name: user.name,
+      role: user.role,
       remember: parsed.remember,
-      token: parsed.token,
     }
   }
 
-  const user = getUserByEmail(parsed.email)
-  if (!user || user.status !== 'Active') {
-    clearStorageKeys([STORAGE_KEY])
-    return null
-  }
-
   return {
-    email: user.email.toLowerCase(),
-    name: user.name,
-    role: user.role,
+    email: parsed.email.toLowerCase(),
+    name: parsed.name,
+    role: normalizeRole(parsed.role) || parsed.role,
     remember: parsed.remember,
+    token: parsed.token,
   }
 }
 
@@ -117,6 +112,7 @@ export const isAuthenticated = computed(() => Boolean(state.session))
 export const authSession = computed(() => state.session)
 
 export function authToken(): string | undefined {
+  if (!isApiEnabled()) return undefined
   return state.session?.token
 }
 
@@ -133,26 +129,20 @@ type LoginAPIResponse = {
   error?: string
 }
 
-export async function loginWithCredentials(input: {
+async function loginViaApi(input: {
   email: string
   password: string
   remember?: boolean
-}) {
-  const email = input.email.trim().toLowerCase()
-  const password = input.password
-  if (!email) throw new Error('Email is required')
-  if (!password) throw new Error('Password is required')
-
-  assertLoginAllowed(email)
-
+}): Promise<SystemUser> {
+  const email = input.email
   let payload: LoginAPIResponse
   try {
-    const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+    const res = await fetch(`${apiBaseUrl()}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         email,
-        password,
+        password: input.password,
         remember: Boolean(input.remember),
       }),
     })
@@ -202,6 +192,66 @@ export async function loginWithCredentials(input: {
   return { name: data.name, email: data.email, role } as SystemUser
 }
 
+function loginLocal(input: {
+  email: string
+  password: string
+  remember?: boolean
+}): SystemUser {
+  const email = input.email
+  const user = getUserByEmail(email)
+  if (!user || user.status !== 'Active') {
+    recordLoginFailure(email)
+    throw new Error('Incorrect email or password')
+  }
+  if (input.password !== localDemoPassword()) {
+    recordLoginFailure(email)
+    throw new Error('Incorrect email or password')
+  }
+
+  clearLoginFailures(email)
+
+  const session: AuthSession = {
+    email: user.email.toLowerCase(),
+    name: user.name,
+    role: user.role,
+    remember: Boolean(input.remember),
+  }
+  state.session = session
+  persist(session)
+  applyUser(user)
+  user.lastLogin = new Date().toISOString()
+
+  logActivity({
+    action: 'Login',
+    module: 'system',
+    moduleLabel: 'System',
+    recordName: user.name,
+    summary: `${user.name} signed in (local desk)`,
+    detail: user.email,
+    severity: 'success',
+  })
+
+  return user
+}
+
+export async function loginWithCredentials(input: {
+  email: string
+  password: string
+  remember?: boolean
+}) {
+  const email = input.email.trim().toLowerCase()
+  const password = input.password
+  if (!email) throw new Error('Email is required')
+  if (!password) throw new Error('Password is required')
+
+  assertLoginAllowed(email)
+
+  if (!isApiEnabled()) {
+    return loginLocal({ email, password, remember: input.remember })
+  }
+  return loginViaApi({ email, password, remember: input.remember })
+}
+
 export function logout() {
   const name = state.session?.name
   state.session = null
@@ -219,10 +269,10 @@ export function logout() {
   }
 }
 
-/** Re-check stored session (JWT preferred). */
+/** Re-check stored session (local directory when API is off). */
 export function refreshAuthSession() {
   if (!state.session) return
-  if (state.session.token) {
+  if (isApiEnabled() && state.session.token) {
     applyUser(state.session)
     return
   }
@@ -236,6 +286,7 @@ export function refreshAuthSession() {
     name: user.name,
     role: user.role,
     email: user.email.toLowerCase(),
+    token: undefined,
   }
   persist(state.session)
   applyUser(user)
