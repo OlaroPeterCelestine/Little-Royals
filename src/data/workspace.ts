@@ -47,17 +47,20 @@ export const educationNav: NavGroup[] = [
     title: 'Overview',
     items: [
       { label: 'Dashboard', icon: 'lucide-layout-dashboard', route: '/dashboard' },
+      {
+        label: 'Term overview',
+        icon: 'lucide-calendar-range',
+        route: '/term-overview',
+      },
     ],
   },
   {
     title: 'People',
     items: [
       { label: 'Students', icon: 'lucide-graduation-cap', route: '/students' },
-      { label: 'Parents', icon: 'lucide-heart-handshake', route: '/guardians' },
-      { label: 'Staff', icon: 'lucide-id-card', route: '/staff' },
-      { label: 'Teachers', icon: 'lucide-briefcase', route: '/teachers' },
+      { label: 'People', icon: 'lucide-users-round', route: '/people' },
       { label: 'Alumni', icon: 'lucide-graduation-cap', route: '/alumni' },
-      { label: 'Users & Roles', icon: 'lucide-users', route: '/users' },
+      { label: 'Access', icon: 'lucide-shield-check', route: '/users' },
     ],
   },
   {
@@ -86,21 +89,9 @@ export const educationNav: NavGroup[] = [
     ],
   },
   {
-    title: 'Nursery',
+    title: 'School',
     items: [
-      { label: 'Activities', icon: 'lucide-puzzle', route: '/nursery-activities' },
-      { label: 'Observations', icon: 'lucide-eye', route: '/nursery-observations' },
-      { label: 'Development records', icon: 'lucide-baby', route: '/nursery-development' },
-      { label: 'Lesson plans', icon: 'lucide-clipboard-pen', route: '/lesson-plans' },
-    ],
-  },
-  {
-    title: 'Primary',
-    items: [
-      { label: 'Schemes of work', icon: 'lucide-list-checks', route: '/schemes-of-work' },
-      { label: 'Homework', icon: 'lucide-pencil-line', route: '/homework' },
-      { label: 'Lesson plans', icon: 'lucide-clipboard-pen', route: '/lesson-plans' },
-      { label: 'Gradebook', icon: 'lucide-table-2', route: '/gradebook' },
+      { label: 'Academics', icon: 'lucide-book-open', route: '/academics' },
     ],
   },
   {
@@ -122,10 +113,14 @@ export const educationNav: NavGroup[] = [
   {
     title: 'Exams & Results',
     items: [
+      {
+        label: 'Set exams & marks',
+        icon: 'lucide-table-2',
+        route: '/gradebook',
+      },
       { label: 'Examinations', icon: 'lucide-file-check-2', route: '/exams' },
       { label: 'Results', icon: 'lucide-award', route: '/exam-results' },
       { label: 'Report cards', icon: 'lucide-file-badge', route: '/report-cards' },
-      { label: 'Gradebook', icon: 'lucide-table-2', route: '/gradebook' },
       { label: 'Assessment groups', icon: 'lucide-folders', route: '/assessment-groups' },
       { label: 'Assessment criteria', icon: 'lucide-list-checks', route: '/assessment-criteria' },
       { label: 'Grading scales', icon: 'lucide-sliders-horizontal', route: '/grading-scales' },
@@ -140,6 +135,8 @@ export const educationNav: NavGroup[] = [
       { label: 'Fee schedules', icon: 'lucide-calendar-range', route: '/fee-schedules' },
       { label: 'Invoices', icon: 'lucide-file-spreadsheet', route: '/invoices' },
       { label: 'Fees', icon: 'lucide-receipt', route: '/fees' },
+      { label: 'Offset left dues', icon: 'lucide-circle-off', route: '/fees/offset' },
+      { label: 'Fee offsets', icon: 'lucide-history', route: '/fee-offsets' },
       { label: 'Payments', icon: 'lucide-smartphone-nfc', route: '/payments' },
       { label: 'Payment desk', icon: 'lucide-wallet', route: '/payment' },
       { label: 'Refunds', icon: 'lucide-undo-2', route: '/refunds' },
@@ -152,7 +149,7 @@ export const educationNav: NavGroup[] = [
   {
     title: 'HR',
     items: [
-      { label: 'Staff directory', icon: 'lucide-id-card', route: '/staff' },
+      { label: 'Staff directory', icon: 'lucide-id-card', route: '/people?tab=staff' },
       { label: 'Departments', icon: 'lucide-building', route: '/departments' },
       { label: 'Payroll', icon: 'lucide-wallet-cards', route: '/payroll' },
       { label: 'Leave', icon: 'lucide-calendar-off', route: '/staff-leave' },
@@ -210,6 +207,11 @@ export const educationNav: NavGroup[] = [
   {
     title: 'Events',
     items: [
+      {
+        label: 'Term overview',
+        icon: 'lucide-calendar-range',
+        route: '/term-overview',
+      },
       { label: 'School events', icon: 'lucide-party-popper', route: '/school-events' },
       { label: 'Clubs', icon: 'lucide-trophy', route: '/clubs' },
     ],
@@ -217,34 +219,24 @@ export const educationNav: NavGroup[] = [
   {
     title: 'Inventory',
     items: [
-      { label: 'Items', icon: 'lucide-package', route: '/inventory-items' },
-      { label: 'Stock', icon: 'lucide-warehouse', route: '/inventory-stock' },
-      { label: 'Issues', icon: 'lucide-package-open', route: '/inventory-issues' },
-      { label: 'Assets', icon: 'lucide-monitor', route: '/assets' },
-    ],
-  },
-  {
-    title: 'Documents & Reports',
-    items: [
-      { label: 'Documents', icon: 'lucide-printer', route: '/documents' },
-      { label: 'Reports', icon: 'lucide-bar-chart-3', route: '/reports' },
+      { label: 'Inventory', icon: 'lucide-package', route: '/inventory' },
     ],
   },
   {
     title: 'Administration',
     items: [
-      { label: 'School setup', icon: 'lucide-building-2', route: '/school-setup' },
       { label: 'Campuses', icon: 'lucide-map-pin', route: '/campuses' },
       { label: 'Boarding', icon: 'lucide-bed-double', route: '/hostel' },
       { label: 'Fee categories', icon: 'lucide-tags', route: '/student-categories' },
     ],
   },
   {
-    title: 'Security',
+    title: 'Settings',
     items: [
-      { label: 'Audit logs', icon: 'lucide-shield', route: '/audit-logs' },
-      { label: 'Activity log', icon: 'lucide-history', route: '/activity-log' },
-      { label: 'Users & permissions', icon: 'lucide-users', route: '/users' },
+      { label: 'School setup', icon: 'lucide-building-2', route: '/school-setup' },
+      { label: 'Activity & audit', icon: 'lucide-history', route: '/activity-log' },
+      { label: 'Documents', icon: 'lucide-printer', route: '/documents' },
+      { label: 'Reports', icon: 'lucide-bar-chart-3', route: '/reports' },
     ],
   },
 ]
@@ -363,7 +355,12 @@ export const commandItems = [
     route: `/${m.key}`,
     group: m.group,
   })),
-  { label: 'Users & Roles', route: '/users', group: 'Security' },
+  { label: 'Users & Roles', route: '/users', group: 'People' },
+  { label: 'Term overview', route: '/term-overview', group: 'Events' },
+  { label: 'School setup', route: '/school-setup', group: 'Settings' },
+  { label: 'Activity & audit', route: '/activity-log', group: 'Settings' },
+  { label: 'Documents', route: '/documents', group: 'Settings' },
+  { label: 'Reports', route: '/reports', group: 'Settings' },
   { label: 'Parent Portal', route: '/parent-portal', group: 'Communication' },
-  { label: 'My profile', route: '/me', group: 'Administration' },
+  { label: 'My profile', route: '/me', group: 'Settings' },
 ]

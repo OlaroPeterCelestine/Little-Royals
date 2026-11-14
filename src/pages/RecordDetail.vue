@@ -15,11 +15,13 @@ import { getLiveModule, updateRecord, deleteRecords } from '../data/store'
 import { openEditDialog } from '../composables/useModuleForms'
 import {
   defaultDocumentKind,
+  printExamPack,
   printRecordDocument,
   type DocumentKind,
 } from '../data/documents'
 import { asOptionalNumber, type RecordValues } from '../types/records'
 import { useModuleAccess } from '../composables/useModuleAccess'
+import { logActivity } from '../data/activity'
 
 const route = useRoute()
 const router = useRouter()
@@ -42,6 +44,8 @@ const editing = ref(false)
 const saving = ref(false)
 const form = reactive<Record<string, string>>({})
 
+const isExam = computed(() => moduleKey.value === 'exams')
+
 const statusOptions = computed(() => {
   const statuses = Array.from(
     new Set(
@@ -54,6 +58,9 @@ const statusOptions = computed(() => {
     'Active',
     'Draft',
     'Pending',
+    'Open',
+    'Scheduled',
+    'Closed',
     'On Leave',
     'Alumni',
     'Paid',
@@ -102,15 +109,15 @@ const displayFields = computed(() => {
           row.value![c.key] === undefined || row.value![c.key] === null
             ? '—'
             : String(row.value![c.key]),
-        badge: c.badge,
+        badge: Boolean(c.badge),
       })),
   ]
   if (row.value.subtitle) {
     fields.push({
       key: 'subtitle',
-      label: 'Note',
+      label: 'Notes',
       value: row.value.subtitle,
-      badge: false as boolean | undefined,
+      badge: false,
     })
   }
   return fields
@@ -203,6 +210,37 @@ function printDoc(kind?: DocumentKind) {
   }
 }
 
+function printExam(parts: Array<'paper' | 'marksheet'>) {
+  if (!row.value || !canPrint.value) return
+  if (!requirePerm('print', 'print')) return
+  const titles = printExamPack(row.value, parts)
+  logActivity({
+    action: 'Printed',
+    module: 'exams',
+    moduleLabel: 'Examination',
+    recordId: row.value.id,
+    recordName: row.value.name,
+    summary: `Printed ${parts.join(' + ')} for ${row.value.name}`,
+    detail: titles.join(' · '),
+    severity: 'info',
+  })
+  toast.success(
+    parts.length > 1
+      ? 'Exam paper and mark sheet sent to print'
+      : parts[0] === 'marksheet'
+        ? 'Mark sheet sent to print'
+        : 'Exam paper sent to print',
+  )
+}
+
+function openMarks() {
+  if (!row.value) return
+  router.push({
+    path: '/gradebook',
+    query: { tab: 'marks', exam: row.value.id },
+  })
+}
+
 const showReceiptPrint = computed(
   () =>
     moduleKey.value === 'fees' &&
@@ -217,7 +255,25 @@ const showReceiptPrint = computed(
       <Button icon-left="lucide-arrow-left" label="Back" @click="goBack" />
       <template v-if="row && mod">
         <Button
-          v-if="!editing && canPrint"
+          v-if="!editing && isExam"
+          icon-left="lucide-pen-line"
+          label="Enter marks"
+          @click="openMarks"
+        />
+        <Button
+          v-if="!editing && canPrint && isExam"
+          icon-left="lucide-printer"
+          label="Print paper"
+          @click="printExam(['paper'])"
+        />
+        <Button
+          v-if="!editing && canPrint && isExam"
+          icon-left="lucide-table-2"
+          label="Mark sheet"
+          @click="printExam(['marksheet'])"
+        />
+        <Button
+          v-if="!editing && canPrint && !isExam"
           icon-left="lucide-printer"
           label="Print"
           @click="printDoc()"
@@ -266,7 +322,7 @@ const showReceiptPrint = computed(
     </div>
   </PageHeader>
 
-  <div class="school-page max-w-4xl">
+  <div class="school-page">
     <div
       v-if="!mod || !row"
       class="rounded-6 border border-outline-gray-1 px-4 py-16 text-center text-ink-gray-5"
@@ -276,22 +332,24 @@ const showReceiptPrint = computed(
     </div>
 
     <template v-else>
-      <section
-        class="flex flex-wrap items-start justify-between gap-4 rounded-6 border border-outline-gray-1 bg-surface-white p-5"
-      >
-        <div class="flex min-w-0 items-start gap-4">
-          <Avatar :label="row.name" size="xl" />
-          <div class="min-w-0 space-y-1.5">
-            <p class="text-xs font-medium uppercase tracking-wide text-ink-gray-5">
+      <section class="school-detail-hero">
+        <div class="school-detail-hero__main">
+          <Avatar :label="row.name" size="xl" class="shrink-0" />
+          <div class="school-detail-hero__text">
+            <p class="school-detail-hero__meta">
               {{ mod.singular }} · {{ row.id }}
             </p>
-            <h1 class="truncate text-2xl-semibold text-ink-gray-9">
+            <h1 class="school-detail-hero__title" :title="row.name">
               {{ row.name }}
             </h1>
-            <p v-if="row.subtitle" class="text-p-base text-ink-gray-6">
+            <p
+              v-if="row.subtitle"
+              class="school-detail-hero__sub"
+              :title="row.subtitle"
+            >
               {{ row.subtitle }}
             </p>
-            <div class="flex flex-wrap gap-2 pt-1">
+            <div class="school-detail-hero__badges">
               <Badge
                 v-if="row.status"
                 :label="row.status"
@@ -299,6 +357,12 @@ const showReceiptPrint = computed(
                 variant="subtle"
               />
               <Badge :label="mod.title" theme="blue" variant="subtle" />
+              <Badge
+                v-if="isExam && row.className"
+                :label="String(row.className)"
+                theme="amber"
+                variant="subtle"
+              />
             </div>
           </div>
         </div>
@@ -307,18 +371,14 @@ const showReceiptPrint = computed(
       <!-- View mode -->
       <section v-if="!editing" class="school-section">
         <h2 class="school-section-title">Details</h2>
-        <div
-          class="grid gap-0 overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white sm:grid-cols-2"
-        >
+        <div class="school-detail-grid">
           <div
             v-for="field in displayFields"
             :key="field.key"
-            class="border-b border-outline-gray-1 px-4 py-3.5 sm:odd:border-e"
+            class="school-detail-field"
           >
-            <p class="text-xs font-medium uppercase tracking-wide text-ink-gray-5">
-              {{ field.label }}
-            </p>
-            <div class="mt-1.5">
+            <p class="school-detail-field__label">{{ field.label }}</p>
+            <div class="mt-1.5 min-w-0">
               <Badge
                 v-if="field.badge && field.value !== '—'"
                 :label="field.value"
@@ -327,7 +387,7 @@ const showReceiptPrint = computed(
               />
               <p
                 v-else
-                class="break-words text-sm text-ink-gray-9"
+                class="school-detail-field__value"
                 :title="field.value"
               >
                 {{ field.value }}
@@ -339,18 +399,21 @@ const showReceiptPrint = computed(
 
       <!-- Edit / update mode -->
       <section v-else class="school-section">
-        <h2 class="school-section-title">Update {{ mod.singular.toLowerCase() }}</h2>
-        <div
-          class="space-y-4 rounded-6 border border-outline-gray-1 bg-surface-white p-5"
-        >
+        <h2 class="school-section-title">
+          Update {{ mod.singular.toLowerCase() }}
+        </h2>
+        <div class="school-detail-form">
           <FormControl
             v-model="form.name"
-            :label="`${mod.singular} name (required)`"
+            class="school-detail-form__full"
+            :label="`${mod.singular} name`"
             type="text"
             required
           />
           <FormControl
-            v-for="col in editableColumns.filter((c) => c.key !== 'name' && c.key !== 'status')"
+            v-for="col in editableColumns.filter(
+              (c) => c.key !== 'name' && c.key !== 'status',
+            )"
             :key="col.key"
             v-model="form[col.key]"
             :label="col.label"
@@ -358,16 +421,17 @@ const showReceiptPrint = computed(
           />
           <FormControl
             v-model="form.status"
-            label="Status (required)"
+            label="Status"
             type="select"
             :options="statusOptions"
           />
           <FormControl
             v-model="form.subtitle"
+            class="school-detail-form__full"
             label="Note / subtitle"
             type="textarea"
           />
-          <div class="flex flex-wrap gap-2 pt-2">
+          <div class="school-detail-form__actions">
             <Button
               variant="solid"
               icon-left="lucide-check"

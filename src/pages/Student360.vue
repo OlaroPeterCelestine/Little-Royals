@@ -148,7 +148,7 @@ function statusTheme(status?: string) {
     </div>
   </PageHeader>
 
-  <div class="school-page max-w-5xl">
+  <div class="school-page">
     <div
       v-if="!bundle"
       class="rounded-6 border border-outline-gray-1 px-4 py-16 text-center text-ink-gray-5"
@@ -158,22 +158,23 @@ function statusTheme(status?: string) {
     </div>
 
     <template v-else>
-      <section
-        class="flex flex-wrap items-start justify-between gap-4 rounded-6 border border-outline-gray-1 bg-surface-white p-5"
-      >
-        <div class="flex min-w-0 items-start gap-4">
-          <Avatar :label="bundle.student.name" size="xl" />
-          <div class="min-w-0 space-y-1.5">
-            <p class="text-xs font-medium uppercase tracking-wide text-ink-gray-5">
+      <section class="school-detail-hero">
+        <div class="school-detail-hero__main">
+          <Avatar :label="bundle.student.name" size="xl" class="shrink-0" />
+          <div class="school-detail-hero__text">
+            <p class="school-detail-hero__meta">
               Student 360 · {{ bundle.student.id }}
             </p>
-            <h1 class="truncate text-2xl-semibold text-ink-gray-9">
+            <h1
+              class="school-detail-hero__title"
+              :title="bundle.student.name"
+            >
               {{ bundle.student.name }}
             </h1>
-            <p class="text-p-base text-ink-gray-6">
+            <p class="school-detail-hero__sub">
               {{ bundle.student.subtitle || bundle.student.className }}
             </p>
-            <div class="flex flex-wrap gap-2 pt-1">
+            <div class="school-detail-hero__badges">
               <Badge
                 v-if="bundle.student.status"
                 :label="bundle.student.status"
@@ -223,9 +224,7 @@ function statusTheme(status?: string) {
       <!-- Overview -->
       <section v-if="tab === 'overview'" class="school-section">
         <h2 class="school-section-title">Profile</h2>
-        <div
-          class="grid gap-0 overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white sm:grid-cols-2"
-        >
+        <div class="school-detail-grid">
           <div
             v-for="field in [
               { label: 'ID', value: bundle.student.id },
@@ -241,12 +240,10 @@ function statusTheme(status?: string) {
               { label: 'Status', value: String(bundle.student.status || '—') },
             ]"
             :key="field.label"
-            class="border-b border-outline-gray-1 px-4 py-3.5 sm:odd:border-e"
+            class="school-detail-field"
           >
-            <p class="text-xs font-medium uppercase tracking-wide text-ink-gray-5">
-              {{ field.label }}
-            </p>
-            <p class="mt-1.5 text-sm text-ink-gray-9">{{ field.value }}</p>
+            <p class="school-detail-field__label">{{ field.label }}</p>
+            <p class="school-detail-field__value">{{ field.value }}</p>
           </div>
         </div>
 

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { NumberCard } from 'frappe-ui/charts'
 import type { ListStat } from '../composables/useListPage'
 
 defineProps<{
@@ -9,13 +8,16 @@ defineProps<{
 
 <template>
   <div class="school-card-grid sm:grid-cols-2 lg:grid-cols-4">
-    <NumberCard
+    <div
       v-for="stat in stats"
       :key="stat.title"
-      :title="stat.title"
-      :value="stat.value"
-      :delta="null"
-      :delta-caption="stat.caption || ''"
-    />
+      class="school-stat-card"
+    >
+      <p class="school-stat-card__title">{{ stat.title }}</p>
+      <p class="school-stat-card__value">{{ stat.value }}</p>
+      <p v-if="stat.caption" class="school-stat-card__caption">
+        {{ stat.caption }}
+      </p>
+    </div>
   </div>
 </template>

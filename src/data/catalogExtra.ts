@@ -234,6 +234,43 @@ export const catalogExtra: Record<string, CatalogModule> = {
     [row('RF-01', 'Overpayment — Nabukeera', { amount: 50000, reason: 'Duplicate MoMo' }, 'Pending')],
   ),
 
+  'fee-offsets': mod(
+    'fee-offsets',
+    'Fee Offsets',
+    'Fee offset',
+    'lucide-circle-off',
+    'Written-off balances for children who left the school',
+    'Fees',
+    [
+      { key: 'id', label: 'ID' },
+      { key: 'name', label: 'Offset', primary: true },
+      { key: 'learner', label: 'Learner' },
+      { key: 'className', label: 'Class' },
+      { key: 'invoice', label: 'Invoice' },
+      { key: 'amount', label: 'Offset amount' },
+      { key: 'exitReason', label: 'Exit reason' },
+      { key: 'offsetDate', label: 'Date' },
+      { key: 'status', label: 'Status', badge: true },
+    ],
+    [
+      row(
+        'FO-01',
+        'Offset · sample cleared',
+        {
+          learner: 'Sample Learner',
+          className: 'P.4',
+          invoice: 'INV-2500',
+          amount: 'UGX 200,000',
+          exitReason: 'Completed',
+          offsetDate: '2025-12-01',
+          feeRef: 'FEE-SAMPLE',
+        },
+        'Posted',
+        'Demo history row',
+      ),
+    ],
+  ),
+
   scholarships: mod(
     'scholarships',
     'Scholarships',
@@ -263,7 +300,10 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'exitYear', label: 'Exit year' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [row('AL-01', 'David Ssekandi', { exitYear: '2025', className: 'P.7' }, 'Alumni')],
+    [
+      row('AL-01', 'David Ssekandi', { exitYear: '2025', className: 'P.5', exitReason: 'Transferred' }, 'Transferred'),
+      row('AL-02', 'Mercy Atim', { exitYear: '2026', className: 'Top Class', exitReason: 'Withdrawn' }, 'Withdrawn'),
+    ],
   ),
 
   'waiting-list': mod(
@@ -339,8 +379,12 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'status', label: 'Result', badge: true },
     ],
     [
-      row('AUD-01', 'Login', { user: 'admin@littleroyals.school', module: 'auth' }, 'Success', '2026-03-13 08:01'),
-      row('AUD-02', 'Update fee invoice', { user: 'accountant@littleroyals.school', module: 'invoices', recordId: 'INV-1001' }, 'Success'),
+      row('AUD-01', 'Login', { user: 'admin@littleroyals.school', module: 'auth' }, 'Success', '13 Mar 2026, 08:01'),
+      row('AUD-02', 'Update fee invoice', { user: 'accountant@littleroyals.school', module: 'invoices', recordId: 'INV-1001' }, 'Success', '13 Mar 2026, 09:14'),
+      row('AUD-03', 'Permission change · Teacher', { user: 'admin@littleroyals.school', module: 'permissions', recordId: 'Teacher' }, 'Success', '13 Mar 2026, 10:02'),
+      row('AUD-04', 'Failed login attempt', { user: 'unknown@external.com', module: 'auth' }, 'Denied', '13 Mar 2026, 11:40'),
+      row('AUD-05', 'Export students CSV', { user: 'admin@littleroyals.school', module: 'students' }, 'Success', '14 Mar 2026, 07:22'),
+      row('AUD-06', 'Delete applicant', { user: 'admissions@littleroyals.school', module: 'applicants', recordId: 'APP-04' }, 'Success', '14 Mar 2026, 08:05'),
     ],
   ),
 

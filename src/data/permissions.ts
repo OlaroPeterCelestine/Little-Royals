@@ -22,8 +22,8 @@ export type PermFlag =
 
 export interface RoleDef {
   id: string
-  /** API role key (JWT / Casbin). */
-  key: ApiRole
+  /** API role key (JWT / Casbin) or custom desk role key. */
+  key: string
   name: string
   description: string
   deskAccess: boolean
@@ -83,6 +83,7 @@ export const DOCTYPE_API_RESOURCE: Record<string, string> = {
   'fee-structures': 'fees',
   'fee-categories': 'fees',
   'fee-schedules': 'fees',
+  'fee-offsets': 'fees',
   payments: 'payments',
   invoices: 'invoices',
   users: 'users',
@@ -231,6 +232,7 @@ function seedPerms(): RoleDocPermission[] {
         'fee-structures',
         'fee-categories',
         'fee-schedules',
+        'fee-offsets',
         'inventory-items',
         'inventory-stock',
         'inventory-issues',
@@ -242,6 +244,8 @@ function seedPerms(): RoleDocPermission[] {
         'payroll',
         'students',
         'guardians',
+        'refunds',
+        'invoices',
       ])
         ? full({ delete: doc.key.startsWith('fee') || doc.key === 'payments' })
         : readOnly({ export: true, read: inList(doc.key, ['students', 'guardians', 'announcements']) }),
@@ -464,14 +468,31 @@ export const rolePermissions = reactive<RoleDocPermission[]>(seedPerms())
 export const documentTypes = DOC_TYPES
 export const permissionFlags = FLAGS
 
+/** Primary CRUD flags used when defining a role. */
+export const crudFlags = ['create', 'read', 'write', 'delete'] as const
+
+export type CrudFlag = (typeof crudFlags)[number]
+
+/** Extra flags beyond CRUD. */
+export const extraPermFlags = ['export', 'print', 'share'] as const
+
+export type ExtraPermFlag = (typeof extraPermFlags)[number]
+
 export const permFlagLabels: Record<PermFlag, string> = {
   read: 'Read',
-  write: 'Write',
+  write: 'Update',
   create: 'Create',
   delete: 'Delete',
   export: 'Export',
   print: 'Print',
   share: 'Share',
+}
+
+export const crudFlagLabels: Record<CrudFlag, string> = {
+  create: 'Create',
+  read: 'Read',
+  write: 'Update',
+  delete: 'Delete',
 }
 
 export function getRolePerms(role: string, doctype: string) {
@@ -494,6 +515,7 @@ export function saveRolePerms(
   role: string,
   doctype: string,
   perms: DocPerms,
+  options?: { silent?: boolean },
 ) {
   const key = normalizeRole(role) || role
   const row = getRolePerms(key, doctype)
@@ -511,6 +533,8 @@ export function saveRolePerms(
       perms: { ...perms },
     })
   }
+
+  if (options?.silent) return
 
   const enabled = FLAGS.filter((f) => perms[f]).map((f) => permFlagLabels[f])
   const disabled = FLAGS.filter((f) => !perms[f]).map((f) => permFlagLabels[f])
@@ -531,16 +555,182 @@ export function saveRolePerms(
   })
 }
 
+function roleKeyFromName(name: string) {
+  const base = name
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('')
+  const fallback = base || 'CustomRole'
+  let key = fallback
+  let n = 2
+  while (roles.some((r) => r.key === key)) {
+    key = `${fallback}${n}`
+    n += 1
+  }
+  return key
+}
+
+function seedRolePerms(
+  roleKey: string,
+  options?: {
+    copyFrom?: string
+    matrix?: Record<string, DocPerms>
+  },
+) {
+  for (const doc of documentTypes) {
+    const fromMatrix = options?.matrix?.[doc.key]
+    const source = fromMatrix
+      ? fromMatrix
+      : options?.copyFrom
+        ? getRolePerms(options.copyFrom, doc.key)?.perms
+        : undefined
+    saveRolePerms(roleKey, doc.key, source ? { ...source } : none(), {
+      silent: true,
+    })
+  }
+}
+
+/** Build a full module → CRUD map for a role (or blank / copy). */
+export function buildPermMatrix(options?: {
+  roleKey?: string
+  copyFrom?: string
+}): Record<string, DocPerms> {
+  const matrix: Record<string, DocPerms> = {}
+  for (const doc of documentTypes) {
+    const source = options?.roleKey
+      ? getRolePerms(options.roleKey, doc.key)?.perms
+      : options?.copyFrom
+        ? getRolePerms(options.copyFrom, doc.key)?.perms
+        : undefined
+    matrix[doc.key] = source ? { ...source } : none()
+  }
+  return matrix
+}
+
+/** Persist a full custom CRUD matrix onto a role. */
+export function applyPermMatrix(
+  roleKey: string,
+  matrix: Record<string, DocPerms>,
+) {
+  const key = normalizeRole(roleKey) || roleKey
+  for (const doc of documentTypes) {
+    const perms = matrix[doc.key] || none()
+    saveRolePerms(key, doc.key, { ...perms }, { silent: true })
+  }
+  const enabledDocs = documentTypes.filter((d) => {
+    const p = matrix[d.key]
+    return p && FLAGS.some((f) => p[f])
+  }).length
+  logActivity({
+    action: 'Permission',
+    module: 'permissions',
+    moduleLabel: 'Role Permission',
+    recordName: roleLabel(key),
+    summary: `Updated CRUD permissions for ${roleLabel(key)}`,
+    detail: `${enabledDocs} of ${documentTypes.length} modules have access`,
+    severity: 'warning',
+  })
+}
+
+export function createRole(input: {
+  name: string
+  description?: string
+  deskAccess?: boolean
+  status?: RoleDef['status']
+  copyFrom?: string
+  /** Custom CRUD matrix — when set, this defines the role. */
+  matrix?: Record<string, DocPerms>
+}): RoleDef {
+  const name = input.name.trim()
+  const key = roleKeyFromName(name)
+  const role: RoleDef = {
+    id: `ROLE-${String(roles.length + 1).padStart(2, '0')}`,
+    key,
+    name,
+    description: (input.description || '').trim() || `Custom role · ${name}`,
+    deskAccess: input.deskAccess !== false,
+    status: input.status || 'Active',
+  }
+  roles.push(role)
+  seedRolePerms(key, {
+    copyFrom: input.matrix ? undefined : input.copyFrom,
+    matrix: input.matrix,
+  })
+  const granted = input.matrix
+    ? documentTypes.filter((d) => {
+        const p = input.matrix![d.key]
+        return p && FLAGS.some((f) => p[f])
+      }).length
+    : undefined
+  logActivity({
+    action: 'Created',
+    module: 'roles',
+    moduleLabel: 'Role',
+    recordId: role.id,
+    recordName: role.name,
+    summary: `Created role ${role.name}`,
+    detail: granted != null
+      ? `Custom CRUD · ${granted} modules with access`
+      : role.description,
+    severity: 'success',
+  })
+  return role
+}
+
+export function updateRole(
+  key: string,
+  patch: Partial<Pick<RoleDef, 'name' | 'description' | 'deskAccess' | 'status'>>,
+) {
+  const role = roles.find((r) => r.key === key)
+  if (!role) return null
+  if (patch.name != null) role.name = patch.name.trim() || role.name
+  if (patch.description != null) role.description = patch.description.trim()
+  if (patch.deskAccess != null) role.deskAccess = patch.deskAccess
+  if (patch.status != null) role.status = patch.status
+  logActivity({
+    action: 'Updated',
+    module: 'roles',
+    moduleLabel: 'Role',
+    recordId: role.id,
+    recordName: role.name,
+    summary: `Updated role ${role.name}`,
+    detail: `${role.status} · ${role.deskAccess ? 'Desk' : 'Portal'}`,
+    severity: 'info',
+  })
+  return role
+}
+
 export function canCurrentUser(
   doctype: string,
   flag: PermFlag = 'read',
 ): boolean {
-  const role = normalizeRole(currentUser.role)
+  // Support built-in API roles and custom desk roles defined by CRUD matrix.
+  const role = normalizeRole(currentUser.role) || currentUser.role
   if (!role) return false
   if (isFullAccessRole(role)) return true
   const row = getRolePerms(role, doctype)
   if (!row) return false
   return Boolean(row.perms[flag])
+}
+
+/** Summarize CRUD access for a role (for role cards / invites). */
+export function roleCrudSummary(roleKey: string) {
+  let create = 0
+  let read = 0
+  let write = 0
+  let del = 0
+  for (const doc of documentTypes) {
+    const p = getRolePerms(roleKey, doc.key)?.perms
+    if (!p) continue
+    if (p.create) create += 1
+    if (p.read) read += 1
+    if (p.write) write += 1
+    if (p.delete) del += 1
+  }
+  return { create, read, write, delete: del, modules: documentTypes.length }
 }
 
 export { API_ROLES, ROLE_LABELS, normalizeRole, roleLabel, isFullAccessRole }

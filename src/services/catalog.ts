@@ -43,6 +43,7 @@ export const FRONTEND_MODULES = [
   'exams',
   'expenses',
   'fee-categories',
+  'fee-offsets',
   'fee-schedules',
   'fee-structures',
   'fees',

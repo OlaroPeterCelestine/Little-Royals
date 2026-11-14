@@ -35,13 +35,23 @@ const sidebarToggleIcon = computed(() =>
 
 function isActive(path?: string) {
   if (!path) return false
-  if (path === '/users') {
+  const base = path.split('?')[0]
+  if (base === '/users') {
     return route.path === '/users' || route.path.startsWith('/users/')
   }
-  if (path === '/attendance/take') {
+  if (base === '/attendance/take') {
     return route.path === '/attendance/take'
   }
-  return route.path === path || route.path.startsWith(`${path}/`)
+  if (base === '/people') {
+    return route.path === '/people' || route.path.startsWith('/teachers/')
+  }
+  if (base === '/academics') {
+    return route.path === '/academics'
+  }
+  if (base === '/inventory') {
+    return route.path === '/inventory'
+  }
+  return route.path === base || route.path.startsWith(`${base}/`)
 }
 </script>
 

@@ -144,13 +144,19 @@ function saveRegister() {
           :model-value="statuses[learner.id]"
           type="select"
           :options="statusOptions"
-          @update:model-value="(v) => (statuses[learner.id] = String(v))"
+          @update:model-value="
+            (v: string | number | boolean | null | undefined) =>
+              (statuses[learner.id] = String(v ?? ''))
+          "
         />
         <FormControl
           :model-value="remarks[learner.id] || ''"
           type="text"
           placeholder="Required for absences"
-          @update:model-value="(v) => (remarks[learner.id] = String(v))"
+          @update:model-value="
+            (v: string | number | boolean | null | undefined) =>
+              (remarks[learner.id] = String(v ?? ''))
+          "
         />
       </div>
     </section>

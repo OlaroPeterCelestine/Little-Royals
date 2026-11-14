@@ -1,17 +1,10 @@
-/** Warm common route chunks after first paint so navigation feels instant. */
+/** Warm only the most-used route chunks after first paint. */
 export function prefetchCorePages() {
   const loaders = [
     () => import('../pages/Students.vue'),
-    () => import('../pages/Student360.vue'),
     () => import('../pages/MasterList.vue'),
     () => import('../pages/RecordDetail.vue'),
-    () => import('../pages/RecordForm.vue'),
-    () => import('../pages/AttendanceRegister.vue'),
-    () => import('../pages/Users.vue'),
-    () => import('../pages/UserProfile.vue'),
-    () => import('../pages/ActivityLog.vue'),
-    () => import('../pages/Announcements.vue'),
-    () => import('../pages/Reports.vue'),
+    () => import('../pages/Payments.vue'),
   ]
 
   for (const load of loaders) {

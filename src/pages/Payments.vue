@@ -16,7 +16,8 @@ import { schoolSetup } from '../data/schoolSetup'
 import { canCurrentUser } from '../data/permissions'
 import { logActivity } from '../data/activity'
 import type { CatalogRow } from '../data/catalog'
-import ListStatCards from '../components/ListStatCards.vue'
+import ListToolbar from '../components/ListToolbar.vue'
+import PageIntro from '../components/PageIntro.vue'
 
 const router = useRouter()
 const channelTab = ref('all')
@@ -217,44 +218,45 @@ function reconcile(row: CatalogRow) {
 <template>
   <PageHeader>
     <PageHeaderTitle title="Mobile Money Payments" />
-    <div class="flex flex-wrap gap-2">
-      <Button
-        icon-left="lucide-receipt"
-        label="Fee ledger"
-        @click="router.push('/fees')"
-      />
-      <Button
-        v-if="canCreate"
-        variant="solid"
-        icon-left="lucide-plus"
-        label="Record payment"
-        @click="recordPayment"
-      />
-    </div>
   </PageHeader>
 
-  <div class="school-page max-w-5xl">
-    <p class="text-p-base text-ink-gray-6">
-      Track <strong>MTN MoMo</strong>, <strong>Airtel Money</strong> and bank
-      fee payments for {{ schoolSetup.shortName }}. Live gateway hooks come
-      later — this desk records and reconciles today.
-    </p>
+  <div class="school-page">
+    <PageIntro :stats="stats">
+      <p class="text-p-base text-ink-gray-6">
+        Track MTN MoMo, Airtel Money and bank fee payments for
+        {{ schoolSetup.shortName }}. This desk records and reconciles payments.
+      </p>
+    </PageIntro>
 
-    <ListStatCards :stats="stats" />
+    <TabButtons v-model="channelTab" :options="tabs" class="school-tabs" />
 
-    <TabButtons v-model="channelTab" :options="tabs" />
-
-    <FormControl
-      v-model="query"
-      class="max-w-md"
-      label="Search"
-      placeholder="Search reference, student, phone…"
-    />
+    <ListToolbar>
+      <template #search>
+        <FormControl
+          v-model="query"
+          class="w-full"
+          label="Search"
+          placeholder="Search reference, student, phone…"
+        />
+      </template>
+      <template #actions>
+        <Button
+          icon-left="lucide-receipt"
+          label="Fee ledger"
+          @click="router.push('/fees')"
+        />
+        <Button
+          v-if="canCreate"
+          variant="solid"
+          icon-left="lucide-plus"
+          label="Record payment"
+          @click="recordPayment"
+        />
+      </template>
+    </ListToolbar>
 
     <section class="school-section">
-      <div
-        class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"
-      >
+      <div class="school-table">
         <div
           v-for="row in filtered"
           :key="row.id"
@@ -292,10 +294,7 @@ function reconcile(row: CatalogRow) {
             <Button label="Open" @click="router.push(`/payments/${row.id}`)" />
           </div>
         </div>
-        <p
-          v-if="!filtered.length"
-          class="px-4 py-12 text-center text-sm text-ink-gray-5"
-        >
+        <p v-if="!filtered.length" class="school-table-empty">
           No payments on this filter.
         </p>
       </div>

@@ -9,6 +9,7 @@ export type ActivityAction =
   | 'Login'
   | 'Published'
   | 'Exported'
+  | 'Printed'
 
 export type ActivitySeverity = 'info' | 'success' | 'warning' | 'danger'
 

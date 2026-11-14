@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import {
   Badge,
   Button,
   PageHeader,
   PageHeaderTitle,
 } from 'frappe-ui'
-import { BarChart, DonutChart, NumberCard } from 'frappe-ui/charts'
-import { CircleCheckIcon } from 'frappe-ui/icons'
 import {
   pendingApplicantCount,
   schoolStore,
@@ -22,6 +20,14 @@ import { exportDashboardCsv } from '../composables/useAppActions'
 import { openCreateDialog } from '../composables/useModuleForms'
 import { canCurrentUser } from '../data/permissions'
 import SchoolLogo from '../components/SchoolLogo.vue'
+import ListStatCards from '../components/ListStatCards.vue'
+
+const BarChart = defineAsyncComponent(() =>
+  import('frappe-ui/charts').then((m) => m.BarChart),
+)
+const DonutChart = defineAsyncComponent(() =>
+  import('frappe-ui/charts').then((m) => m.DonutChart),
+)
 
 const canAddStudent = computed(() => canCurrentUser('students', 'create'))
 const canExportDash = computed(() => canCurrentUser('students', 'export'))
@@ -55,6 +61,29 @@ const attendancePct = computed(() =>
       100,
   ),
 )
+
+const keyStats = computed(() => [
+  {
+    title: 'Students enrolled',
+    value: studentCount.value,
+    caption: `${activeStudents.value} active`,
+  },
+  {
+    title: 'Teachers',
+    value: teacherCount.value,
+    caption: `${activeTeachers.value} active`,
+  },
+  {
+    title: 'Attendance today',
+    value: attendancePct.value,
+    caption: `${presentToday.value} present · %`,
+  },
+  {
+    title: 'Fees outstanding',
+    value: unpaidFeeCount.value,
+    caption: 'open invoices',
+  },
+])
 
 const quickLinks = computed(() => [
   {
@@ -161,46 +190,7 @@ const quickLinks = computed(() => [
 
     <section class="school-section">
       <h2 class="school-section-title">Key figures</h2>
-      <div class="school-card-grid sm:grid-cols-2 lg:grid-cols-4">
-        <NumberCard
-          title="Students enrolled"
-          :value="studentCount"
-          :delta="activeStudents"
-          delta-caption="active"
-          :sparkline="{
-            data: [6, 7, 8, 9, 10, studentCount],
-            type: 'area',
-          }"
-        />
-        <NumberCard
-          title="Teachers"
-          :value="teacherCount"
-          :delta="activeTeachers"
-          delta-caption="active"
-          :sparkline="{
-            data: [3, 4, 5, 5, 6, teacherCount],
-            type: 'bar',
-          }"
-        />
-        <NumberCard
-          title="Attendance today"
-          :value="attendancePct"
-          suffix="%"
-          :delta="presentToday"
-          delta-caption="present now"
-        />
-        <NumberCard
-          title="Fees outstanding"
-          :value="unpaidFeeCount"
-          :delta="-2"
-          delta-caption="cleared today"
-          negative-is-better
-        >
-          <template #title-suffix>
-            <CircleCheckIcon class="size-3.5 text-ink-green-5" />
-          </template>
-        </NumberCard>
-      </div>
+      <ListStatCards :stats="keyStats" />
     </section>
 
     <section class="school-section">

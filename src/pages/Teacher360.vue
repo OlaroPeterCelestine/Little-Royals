@@ -51,7 +51,7 @@ function field(key: string, fallback = '—') {
 }
 
 function goBack() {
-  router.push('/teachers')
+  router.push({ path: '/people', query: { tab: 'teachers' } })
 }
 
 function editTeacher() {
@@ -70,7 +70,7 @@ function confirmDelete() {
     onConfirm: async () => {
       deleteRecords('teachers', [row.id])
       toast.warning(`Teacher “${row.name}” deleted`)
-      await router.push('/teachers')
+      await router.push({ path: '/people', query: { tab: 'teachers' } })
     },
   })
 }

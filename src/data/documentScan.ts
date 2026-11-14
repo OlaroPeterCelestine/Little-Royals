@@ -1,4 +1,6 @@
-import { createWorker, type Worker } from 'tesseract.js'
+type Worker = Awaited<
+  ReturnType<typeof import('tesseract.js').createWorker>
+>
 
 export type ScanTarget =
   | 'applicants'
@@ -271,6 +273,7 @@ async function getWorker(onProgress?: (pct: number, status: string) => void) {
   if (worker) return worker
   if (!workerReady) {
     workerReady = (async () => {
+      const { createWorker } = await import('tesseract.js')
       const w = await createWorker('eng', 1, {
         logger: (m) => {
           if (!onProgress) return

@@ -19,6 +19,8 @@ export type DocumentKind =
   | 'receipt'
   | 'admission-letter'
   | 'exam-memo'
+  | 'exam-paper'
+  | 'exam-marksheet'
   | 'report-card'
   | 'attendance-report'
   | 'disciplinary-notice'
@@ -65,6 +67,22 @@ export const documentCatalog: DocumentDef[] = [
     description: 'Assessment / exam result reports for parents',
     icon: 'lucide-scroll-text',
     modules: ['exam-results', 'exams', 'exam-settings'],
+    important: true,
+  },
+  {
+    kind: 'exam-paper',
+    label: 'Exam paper',
+    description: 'Printable blank exam paper for a class assessment',
+    icon: 'lucide-file-pen-line',
+    modules: ['exams', 'gradebook'],
+    important: true,
+  },
+  {
+    kind: 'exam-marksheet',
+    label: 'Exam mark sheet',
+    description: 'Class mark sheet with learners and scores for an exam',
+    icon: 'lucide-table-2',
+    modules: ['exams', 'gradebook', 'exam-results'],
     important: true,
   },
   {
@@ -118,7 +136,8 @@ export function defaultDocumentKind(moduleKey: string): DocumentKind {
     applicants: 'admission-letter',
     'program-enrollments': 'admission-letter',
     'exam-results': 'exam-memo',
-    exams: 'exam-memo',
+    exams: 'exam-paper',
+    gradebook: 'exam-marksheet',
     students: 'report-card',
     attendance: 'attendance-report',
     'disciplinary-cases': 'disciplinary-notice',
@@ -272,6 +291,126 @@ function findStudentByName(name: string) {
   return schoolStore.students?.rows.find((r) => r.name === name)
 }
 
+function examLearners(exam: CatalogRow) {
+  const className = String(exam.className || '')
+  const learners = (schoolStore.students?.rows || []).filter(
+    (s) => String(s.className) === className && s.status === 'Active',
+  )
+  return learners.length
+    ? learners
+    : (schoolStore.students?.rows || []).slice(0, 8)
+}
+
+function buildExamPaper(exam: CatalogRow): { title: string; html: string } {
+  const max = Number(exam.maxScore || 100)
+  const title = `Exam paper · ${exam.name}`
+  const lines = Array.from({ length: 12 })
+    .map(
+      () =>
+        `<div style="border-bottom:1px solid #c5c7e8;height:28px;margin:6px 0;"></div>`,
+    )
+    .join('')
+  const html = wrap(
+    title,
+    `${letterhead('Examination Paper', String(exam.id))}
+    <h2>${esc(exam.name)}</h2>
+    ${fieldTable([
+      ['Class', String(exam.className || '—')],
+      ['Subject', String(exam.course || '—')],
+      ['Type', String(exam.type || 'Assessment')],
+      ['Date', String(exam.date || '—')],
+      ['Maximum marks', String(max)],
+      ['Term', `${schoolSetup.currentTerm} ${schoolSetup.academicYear}`],
+      ['Duration', String(exam.duration || 'As instructed')],
+    ])}
+    <table style="margin-bottom:14px">
+      <tr><th style="width:34%">Learner name</th><td></td></tr>
+      <tr><th>Learner ID</th><td></td></tr>
+      <tr><th>Class / stream</th><td>${esc(String(exam.className || ''))}</td></tr>
+    </table>
+    <p class="muted"><strong>Instructions:</strong> Write clearly. Show working where required. Total marks ${esc(String(max))}. Do not open this paper until told to do so.</p>
+    ${exam.subtitle ? `<p class="block">${escapeHtmlMultiline(String(exam.subtitle))}</p>` : ''}
+    <h2>Questions / answer space</h2>
+    <p class="muted">Teachers may attach typed questions, or learners write answers in the ruled space below.</p>
+    ${lines}
+    ${signatures('Invigilator', 'Subject teacher')}`,
+  )
+  return { title, html }
+}
+
+function buildExamMarksheet(exam: CatalogRow): { title: string; html: string } {
+  const max = Number(exam.maxScore || 100)
+  const examName = String(exam.name)
+  const className = String(exam.className || '')
+  const learners = examLearners(exam)
+  const results = schoolStore['exam-results']?.rows || []
+  const rowsHtml = learners
+    .map((s, i) => {
+      const existing = results.find(
+        (r) =>
+          String(r.exam) === examName &&
+          (String(r.studentId) === s.id || r.name === s.name),
+      )
+      const score = existing ? String(existing.score ?? '') : ''
+      const grade = existing ? String(existing.grade || '') : ''
+      return `<tr>
+        <td>${i + 1}</td>
+        <td>${esc(s.id)}</td>
+        <td>${esc(s.name)}</td>
+        <td>${esc(score)}</td>
+        <td>${esc(grade)}</td>
+        <td></td>
+      </tr>`
+    })
+    .join('')
+  const title = `Mark sheet · ${examName}`
+  const html = wrap(
+    title,
+    `${letterhead('Class Mark Sheet', String(exam.id))}
+    <h2>${esc(examName)}</h2>
+    ${fieldTable([
+      ['Class', className || '—'],
+      ['Subject', String(exam.course || '—')],
+      ['Type', String(exam.type || 'Assessment')],
+      ['Date', String(exam.date || '—')],
+      ['Maximum marks', String(max)],
+      ['Learners', String(learners.length)],
+      ['Term', `${schoolSetup.currentTerm} ${schoolSetup.academicYear}`],
+    ])}
+    <table>
+      <thead>
+        <tr>
+          <th style="width:8%">#</th>
+          <th style="width:14%">ID</th>
+          <th>Learner</th>
+          <th style="width:12%">Score</th>
+          <th style="width:12%">Grade</th>
+          <th style="width:16%">Remark</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml || `<tr><td colspan="6">No learners found for this class.</td></tr>`}
+      </tbody>
+    </table>
+    <p class="muted">Scores use a maximum of ${esc(String(max))}. Blank score cells can be filled by hand if printing before entry.</p>
+    ${signatures('Class / subject teacher', 'Head teacher')}`,
+  )
+  return { title, html }
+}
+
+/** Print exam paper and/or class mark sheet for an examination record. */
+export function printExamPack(
+  exam: CatalogRow,
+  parts: Array<'paper' | 'marksheet'> = ['paper', 'marksheet'],
+) {
+  const printed: string[] = []
+  for (const part of parts) {
+    const kind: DocumentKind = part === 'paper' ? 'exam-paper' : 'exam-marksheet'
+    printed.push(printRecordDocument(kind, 'exams', exam))
+  }
+  return printed
+}
+
 export function buildDocumentHtml(
   kind: DocumentKind,
   moduleKey: string,
@@ -383,6 +522,14 @@ export function buildDocumentHtml(
       ${signatures('Subject / Class teacher', 'Head teacher')}`,
     )
     return { title, html }
+  }
+
+  if (kind === 'exam-paper') {
+    return buildExamPaper(row)
+  }
+
+  if (kind === 'exam-marksheet') {
+    return buildExamMarksheet(row)
   }
 
   if (kind === 'report-card') {

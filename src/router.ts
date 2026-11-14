@@ -21,6 +21,9 @@ const catalogKeys = Object.keys(allModules)
 const specialListPaths = new Set([
   '/students',
   '/teachers',
+  '/staff',
+  '/guardians',
+  '/people',
   '/classes',
   '/attendance',
   '/announcements',
@@ -32,6 +35,20 @@ const specialListPaths = new Set([
   '/gradebook',
   '/report-cards',
   '/parent-portal',
+  '/audit-logs',
+  '/activity-log',
+  '/academics',
+  '/nursery-activities',
+  '/nursery-observations',
+  '/nursery-development',
+  '/schemes-of-work',
+  '/homework',
+  '/lesson-plans',
+  '/inventory',
+  '/inventory-items',
+  '/inventory-stock',
+  '/inventory-issues',
+  '/assets',
 ])
 
 const specialDetailPaths = new Set([
@@ -131,9 +148,24 @@ export const router = createRouter({
       component: () => import('./pages/Student360.vue'),
     },
     {
+      path: '/people',
+      name: 'people',
+      component: () => import('./pages/People.vue'),
+    },
+    {
       path: '/teachers',
       name: 'teachers',
-      component: () => import('./pages/MasterList.vue'),
+      redirect: { path: '/people', query: { tab: 'teachers' } },
+    },
+    {
+      path: '/staff',
+      name: 'staff',
+      redirect: { path: '/people', query: { tab: 'staff' } },
+    },
+    {
+      path: '/guardians',
+      name: 'guardians',
+      redirect: { path: '/people', query: { tab: 'parents' } },
     },
     {
       path: '/teachers/:id',
@@ -183,6 +215,11 @@ export const router = createRouter({
       component: () => import('./pages/PaymentAdmin.vue'),
     },
     {
+      path: '/fees/offset',
+      name: 'fees-offset',
+      component: () => import('./pages/FeeOffset.vue'),
+    },
+    {
       path: '/payments',
       name: 'payments',
       component: () => import('./pages/Payments.vue'),
@@ -196,6 +233,15 @@ export const router = createRouter({
       path: '/report-cards',
       name: 'report-cards',
       component: () => import('./pages/ReportCards.vue'),
+    },
+    {
+      path: '/term-overview',
+      name: 'term-overview',
+      component: () => import('./pages/TermOverview.vue'),
+    },
+    {
+      path: '/gantt',
+      redirect: '/term-overview',
     },
     {
       path: '/calendar',
@@ -239,7 +285,85 @@ export const router = createRouter({
       component: () => import('./pages/ActivityLog.vue'),
     },
     {
+      path: '/audit-logs',
+      name: 'audit-logs',
+      redirect: { path: '/activity-log', query: { tab: 'audit' } },
+    },
+    {
+      path: '/academics',
+      name: 'academics',
+      component: () => import('./pages/Academics.vue'),
+    },
+    {
+      path: '/nursery-activities',
+      redirect: {
+        path: '/academics',
+        query: { section: 'nursery', tool: 'nursery-activities' },
+      },
+    },
+    {
+      path: '/nursery-observations',
+      redirect: {
+        path: '/academics',
+        query: { section: 'nursery', tool: 'nursery-observations' },
+      },
+    },
+    {
+      path: '/nursery-development',
+      redirect: {
+        path: '/academics',
+        query: { section: 'nursery', tool: 'nursery-development' },
+      },
+    },
+    {
+      path: '/schemes-of-work',
+      redirect: {
+        path: '/academics',
+        query: { section: 'primary', tool: 'schemes-of-work' },
+      },
+    },
+    {
+      path: '/homework',
+      redirect: {
+        path: '/academics',
+        query: { section: 'all', tool: 'homework' },
+      },
+    },
+    {
+      path: '/lesson-plans',
+      redirect: {
+        path: '/academics',
+        query: { section: 'all', tool: 'lesson-plans' },
+      },
+    },
+    {
+      path: '/inventory',
+      name: 'inventory',
+      component: () => import('./pages/Inventory.vue'),
+    },
+    {
+      path: '/inventory-items',
+      redirect: { path: '/inventory', query: { tab: 'items' } },
+    },
+    {
+      path: '/inventory-stock',
+      redirect: { path: '/inventory', query: { tab: 'stock' } },
+    },
+    {
+      path: '/inventory-issues',
+      redirect: { path: '/inventory', query: { tab: 'issues' } },
+    },
+    {
+      path: '/assets',
+      name: 'assets-list',
+      redirect: { path: '/inventory', query: { tab: 'assets' } },
+    },
+    {
       path: '/permissions',
+      redirect: { path: '/users', query: { tab: 'roles' } },
+    },
+    {
+      path: '/roles',
       redirect: { path: '/users', query: { tab: 'roles' } },
     },
     {

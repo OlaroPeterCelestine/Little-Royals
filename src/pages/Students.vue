@@ -27,8 +27,8 @@ import { printRecordDocument } from '../data/documents'
 import type { CatalogRow } from '../data/catalog'
 import { useModuleAccess } from '../composables/useModuleAccess'
 import ListPagination from '../components/ListPagination.vue'
-import ListStatCards from '../components/ListStatCards.vue'
 import ListToolbar from '../components/ListToolbar.vue'
+import PageIntro from '../components/PageIntro.vue'
 
 const router = useRouter()
 const sortDir = ref<'asc' | 'desc'>('asc')
@@ -139,29 +139,6 @@ const allFilteredSelected = computed(
 <template>
   <PageHeader>
     <PageHeaderTitle title="Pupils" />
-    <div class="flex items-center gap-2">
-      <Button
-        v-if="selection.length"
-        icon-left="lucide-x"
-        label="Clear"
-        @click="selection = []"
-      />
-      <Button
-        v-if="canDelete"
-        icon-left="lucide-trash-2"
-        label="Delete"
-        theme="red"
-        :disabled="!selection.length"
-        @click="openDeleteDialog('students', [...selection])"
-      />
-      <Button
-        v-if="canCreate"
-        variant="solid"
-        icon-left="lucide-plus"
-        label="Register student"
-        @click="router.push('/students/new')"
-      />
-    </div>
   </PageHeader>
 
   <div class="school-page">
@@ -196,7 +173,10 @@ const allFilteredSelected = computed(
       "
     />
 
-    <ListStatCards :stats="studentStats" />
+    <PageIntro
+      description="Enrolled pupils across nursery and primary — search, filter, and manage from one desk."
+      :stats="studentStats"
+    />
 
     <ListToolbar>
       <template #search>
@@ -249,6 +229,22 @@ const allFilteredSelected = computed(
         label="Clear selection"
         @click="selection = []"
       />
+      <template #actions>
+        <Button
+          v-if="canDelete && selection.length"
+          icon-left="lucide-trash-2"
+          :label="`Delete (${selection.length})`"
+          theme="red"
+          @click="openDeleteDialog('students', [...selection])"
+        />
+        <Button
+          v-if="canCreate"
+          variant="solid"
+          icon-left="lucide-plus"
+          label="Register student"
+          @click="router.push('/students/new')"
+        />
+      </template>
     </ListToolbar>
 
     <div class="school-table">
@@ -257,23 +253,23 @@ const allFilteredSelected = computed(
         v-model:active="active"
         selectable
         :columns="{
-          base: ['minmax(0,1.5fr)', '7.5rem', '9rem'],
+          base: ['minmax(0,1.5fr)', 'minmax(0,0.7fr)', 'minmax(0,5.5rem)'],
           md: [
             'minmax(0,1.5fr)',
-            '7rem',
-            'minmax(0,1fr)',
-            '5rem',
-            '7.5rem',
-            '9rem',
+            'minmax(0,0.75fr)',
+            'minmax(0,0.75fr)',
+            'minmax(0,0.45fr)',
+            'minmax(0,0.7fr)',
+            'minmax(0,5.5rem)',
           ],
           lg: [
             'minmax(0,1.5fr)',
-            '7rem',
-            'minmax(0,1fr)',
-            'minmax(0,0.85fr)',
-            '5rem',
-            '7.5rem',
-            '9rem',
+            'minmax(0,0.75fr)',
+            'minmax(0,0.75fr)',
+            'minmax(0,0.7fr)',
+            'minmax(0,0.45fr)',
+            'minmax(0,0.7fr)',
+            'minmax(0,5.5rem)',
           ],
         }"
       >
@@ -297,36 +293,48 @@ const allFilteredSelected = computed(
             class="cursor-pointer"
             @click="openDetail(item.id)"
           >
-            <ListCell>
-              <div class="flex min-w-0 items-center gap-4 pe-2">
-                <Avatar :label="item.name" size="md" />
-                <div class="min-w-0 flex-1 space-y-1">
-                  <p class="truncate text-sm-medium text-ink-gray-9">
+            <ListCell class="school-list-primary">
+              <div class="school-list-primary flex min-w-0 items-center gap-3 pe-1">
+                <Avatar :label="item.name" size="md" class="shrink-0" />
+                <div class="school-list-primary-text min-w-0 flex-1 space-y-0.5">
+                  <p
+                    class="school-cell-text text-sm-medium text-ink-gray-9"
+                    :title="item.name"
+                  >
                     {{ item.name }}
                   </p>
-                  <p class="truncate text-xs text-ink-gray-5">
+                  <p
+                    class="school-cell-text text-xs text-ink-gray-5"
+                    :title="String(item.subtitle || '')"
+                  >
                     {{ item.subtitle }}
                   </p>
                 </div>
               </div>
             </ListCell>
-            <ListCell class="hidden text-ink-gray-7 md:flex">
-              <span class="block truncate">{{ item.id }}</span>
+            <ListCell class="hidden school-list-nowrap text-ink-gray-7 md:flex">
+              <span class="school-cell-text" :title="item.id">{{ item.id }}</span>
             </ListCell>
-            <ListCell class="hidden text-ink-gray-7 md:flex">
+            <ListCell class="hidden school-list-nowrap text-ink-gray-7 md:flex">
               <span
-                class="block truncate"
-                :title="String(item.className || '')"
+                class="school-cell-text"
+                :title="String(item.className ?? '')"
                 >{{ item.className }}</span
               >
             </ListCell>
-            <ListCell class="hidden text-ink-gray-7 lg:flex">
-              <span class="block truncate">{{ item.program }}</span>
+            <ListCell class="hidden school-list-nowrap text-ink-gray-7 lg:flex">
+              <span
+                class="school-cell-text"
+                :title="String(item.program ?? '')"
+                >{{ item.program }}</span
+              >
             </ListCell>
-            <ListCell class="hidden tabular-nums text-ink-gray-7 md:flex">
-              <span class="block truncate">{{ item.average }}</span>
+            <ListCell
+              class="hidden school-list-nowrap tabular-nums text-ink-gray-7 md:flex"
+            >
+              <span class="school-cell-text">{{ item.average }}</span>
             </ListCell>
-            <ListCell>
+            <ListCell class="school-list-nowrap">
               <Badge
                 :label="item.status || ''"
                 :theme="item.statusTheme || 'gray'"
@@ -364,7 +372,7 @@ const allFilteredSelected = computed(
 
       <p
         v-if="filtered.length === 0"
-        class="px-4 py-10 text-center text-sm text-ink-gray-5"
+        class="school-table-empty"
       >
         No students match your filters.
       </p>

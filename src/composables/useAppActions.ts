@@ -148,8 +148,8 @@ export function openUserMenu(router: Router) {
           { label: 'Open Students', value: 'students' },
           { label: 'School Setup', value: 'school-setup' },
           { label: 'Activity Log', value: 'activity' },
-          { label: 'Users & Roles', value: 'users' },
-          { label: 'Role Permissions', value: 'permissions' },
+          { label: 'Users', value: 'users' },
+          { label: 'Roles', value: 'roles' },
           { label: 'View keyboard shortcuts', value: 'keys' },
           { label: 'Log out', value: 'logout' },
         ],
@@ -164,9 +164,10 @@ export function openUserMenu(router: Router) {
       else if (action === 'students') await router.push('/students')
       else if (action === 'school-setup') await router.push('/school-setup')
       else if (action === 'activity') await router.push('/activity-log')
-      else if (action === 'permissions')
+      else if (action === 'roles')
         await router.push({ path: '/users', query: { tab: 'roles' } })
-      else if (action === 'users') await router.push('/users')
+      else if (action === 'users')
+        await router.push({ path: '/users', query: { tab: 'users' } })
       else if (action === 'keys') openKeyboardShortcuts()
       else if (action === 'logout') {
         logout()

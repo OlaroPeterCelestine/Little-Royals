@@ -12,9 +12,17 @@ import { asString, type RecordValues } from '../types/records'
 function statusTheme(status: string): BadgeTheme {
   const s = status.toLowerCase()
   if (
-    ['active', 'present', 'paid', 'approved', 'published', 'pass', 'available'].some(
-      (x) => s.includes(x),
-    )
+    [
+      'active',
+      'present',
+      'paid',
+      'approved',
+      'published',
+      'pass',
+      'available',
+      'offset',
+      'posted',
+    ].some((x) => s.includes(x))
   )
     return 'green'
   if (['unpaid', 'absent', 'rejected', 'overdue', 'fail'].some((x) => s.includes(x)))
@@ -175,6 +183,65 @@ export const unpaidFeeCount = computed(() =>
     ['Unpaid', 'Overdue', 'Partial'].includes(String(r.status)),
   ).length,
 )
+
+/** Outstanding invoices for learners marked as having left the school. */
+export const leftSchoolOutstandingFees = computed(() =>
+  (schoolStore.fees?.rows || []).filter(
+    (r) =>
+      String(r.leftSchool || '').toLowerCase() === 'yes' &&
+      ['Unpaid', 'Overdue', 'Partial'].includes(String(r.status)),
+  ),
+)
+
+/**
+ * Write off remaining balances for children who left.
+ * Marks fee invoices Offset and posts fee-offsets audit rows.
+ */
+export function offsetFeeDues(
+  feeIds: string[],
+  reason: string,
+  notes?: string,
+): number {
+  if (!feeIds.length) throw new Error('Select at least one invoice to offset')
+  const fees = schoolStore.fees
+  if (!fees) throw new Error('Fees module missing')
+
+  const today = new Date().toISOString().slice(0, 10)
+  let posted = 0
+
+  for (const id of feeIds) {
+    const fee = fees.rows.find((r) => r.id === id)
+    if (!fee) continue
+    if (String(fee.status) === 'Offset' || String(fee.status) === 'Paid') continue
+
+    const balance = String(fee.balance || fee.amount || 'UGX 0')
+    fee.status = 'Offset'
+    fee.statusTheme = statusTheme('Offset')
+    fee.paid = String(fee.amount || fee.paid || '')
+    fee.balance = 'UGX 0'
+    fee.leftSchool = 'Yes'
+    fee.subtitle = notes?.trim()
+      ? `Offset · ${notes.trim()}`
+      : `Offset · ${reason || 'Left school'}`
+
+    addRecord('fee-offsets', {
+      name: `Offset · ${fee.name} · ${fee.invoice || fee.id}`,
+      learner: fee.name,
+      className: String(fee.className || ''),
+      invoice: String(fee.invoice || ''),
+      amount: balance,
+      exitReason: String(fee.exitReason || reason || 'Left school'),
+      offsetDate: today,
+      feeRef: fee.id,
+      subtitle: notes?.trim() || undefined,
+      status: 'Posted',
+    })
+    posted += 1
+  }
+
+  if (!posted) throw new Error('No eligible outstanding invoices to offset')
+  return posted
+}
 
 export const pendingApplicantCount = computed(() =>
   (schoolStore.applicants?.rows || []).filter((r) =>

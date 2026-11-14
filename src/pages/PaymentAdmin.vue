@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Alert,
@@ -8,10 +8,16 @@ import {
   PageHeader,
   PageHeaderTitle,
 } from 'frappe-ui'
-import { BarChart, DonutChart, NumberCard } from 'frappe-ui/charts'
 import { schoolStore, unpaidFeeCount } from '../data/store'
 import { schoolSetup } from '../data/schoolSetup'
 import ListStatCards from '../components/ListStatCards.vue'
+
+const BarChart = defineAsyncComponent(() =>
+  import('frappe-ui/charts').then((m) => m.BarChart),
+)
+const DonutChart = defineAsyncComponent(() =>
+  import('frappe-ui/charts').then((m) => m.DonutChart),
+)
 
 const router = useRouter()
 

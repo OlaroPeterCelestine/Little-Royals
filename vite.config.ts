@@ -24,11 +24,21 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules/vue/') || id.includes('node_modules/vue-router/')) {
+          if (
+            id.includes('node_modules/vue/') ||
+            id.includes('node_modules/vue-router/')
+          ) {
             return 'vue-vendor'
           }
-          if (id.includes('/src/data/')) {
-            return 'school-data'
+          // Keep heavy optional libs out of the main / list-page graph.
+          if (
+            id.includes('node_modules/echarts') ||
+            (id.includes('frappe-ui') && id.includes('charts'))
+          ) {
+            return 'charts'
+          }
+          if (id.includes('node_modules/tesseract.js')) {
+            return 'tesseract'
           }
           return undefined
         },

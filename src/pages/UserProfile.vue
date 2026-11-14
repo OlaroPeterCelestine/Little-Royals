@@ -269,7 +269,7 @@ const totalUsers = computed(() => systemUsers.length)
         />
         <Button
           icon-left="lucide-shield"
-          label="Permissions"
+          label="Roles"
           @click="router.push({ path: '/users', query: { tab: 'roles' } })"
         />
         <Button
@@ -284,7 +284,7 @@ const totalUsers = computed(() => systemUsers.length)
     </div>
   </PageHeader>
 
-  <div class="school-page max-w-4xl">
+  <div class="school-page">
     <div
       v-if="!user"
       class="rounded-6 border border-outline-gray-1 px-4 py-16 text-center text-ink-gray-5"
@@ -294,24 +294,21 @@ const totalUsers = computed(() => systemUsers.length)
     </div>
 
     <template v-else>
-      <section
-        class="flex flex-wrap items-start justify-between gap-4 rounded-6 border border-outline-gray-1 bg-surface-white p-5"
-      >
-        <div class="flex min-w-0 items-start gap-4">
-          <Avatar :label="user.name" size="xl" />
-          <div class="min-w-0 space-y-1.5">
-            <p class="text-xs font-medium uppercase tracking-wide text-ink-gray-5">
+      <section class="school-detail-hero">
+        <div class="school-detail-hero__main">
+          <Avatar :label="user.name" size="xl" class="shrink-0" />
+          <div class="school-detail-hero__text">
+            <p class="school-detail-hero__meta">
               User · {{ user.id }}
               <span v-if="isSelf"> · You</span>
             </p>
-            <h1 class="truncate text-2xl-semibold text-ink-gray-9">
+            <h1 class="school-detail-hero__title" :title="user.name">
               {{ user.name }}
             </h1>
-            <p v-if="user.title" class="text-p-base text-ink-gray-6">
-              {{ user.title }}
+            <p class="school-detail-hero__sub">
+              {{ user.title || user.email }}
             </p>
-            <p v-else class="text-p-base text-ink-gray-6">{{ user.email }}</p>
-            <div class="flex flex-wrap gap-2 pt-1">
+            <div class="school-detail-hero__badges">
               <Badge
                 :label="user.status"
                 :theme="statusTheme(user.status)"
@@ -331,25 +328,21 @@ const totalUsers = computed(() => systemUsers.length)
 
       <section v-if="!editing" class="school-section">
         <h2 class="school-section-title">Profile details</h2>
-        <div
-          class="grid gap-0 overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white sm:grid-cols-2"
-        >
+        <div class="school-detail-grid">
           <div
             v-for="field in detailFields"
             :key="field.label"
-            class="border-b border-outline-gray-1 px-4 py-3.5 sm:odd:border-e"
+            class="school-detail-field"
           >
-            <p class="text-xs font-medium uppercase tracking-wide text-ink-gray-5">
-              {{ field.label }}
-            </p>
-            <div class="mt-1.5">
+            <p class="school-detail-field__label">{{ field.label }}</p>
+            <div class="mt-1.5 min-w-0">
               <Badge
                 v-if="field.badge"
                 :label="field.value"
                 :theme="statusTheme(field.value)"
                 variant="subtle"
               />
-              <p v-else class="text-sm text-ink-gray-9">{{ field.value }}</p>
+              <p v-else class="school-detail-field__value">{{ field.value }}</p>
             </div>
           </div>
         </div>
@@ -409,7 +402,7 @@ const totalUsers = computed(() => systemUsers.length)
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 class="school-section-title mb-0">Role permissions snapshot</h2>
           <Button
-            label="Manage permissions"
+            label="Manage roles"
             icon-left="lucide-shield"
             @click="router.push({ path: '/users', query: { tab: 'roles' } })"
           />

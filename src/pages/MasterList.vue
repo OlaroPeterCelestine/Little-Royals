@@ -3,22 +3,12 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Alert,
-  Avatar,
-  Badge,
   Button,
   FormControl,
   PageHeader,
   PageHeaderTitle,
   toast,
 } from 'frappe-ui'
-import {
-  List,
-  ListCell,
-  ListHeader,
-  ListHeaderCell,
-  ListRow,
-  ListRows,
-} from 'frappe-ui/list'
 import type { CatalogRow } from '../data/catalog'
 import { getLiveModule } from '../data/store'
 import { useListPage } from '../composables/useListPage'
@@ -31,9 +21,10 @@ import {
   printRecordDocument,
 } from '../data/documents'
 import { useModuleAccess } from '../composables/useModuleAccess'
-import ListPagination from '../components/ListPagination.vue'
-import ListStatCards from '../components/ListStatCards.vue'
+import CatalogTable from '../components/CatalogTable.vue'
 import ListToolbar from '../components/ListToolbar.vue'
+import PageIntro from '../components/PageIntro.vue'
+import { buildListColumnTracks } from '../utils/listColumns'
 
 const route = useRoute()
 const router = useRouter()
@@ -104,31 +95,12 @@ watch([query, statusFilter, extraFilter], () => {
   selection.value = []
 })
 
-const columns = computed(() => {
-  const cols = mod.value?.columns || []
-  const tracks = cols.map((c, i) => {
-    if (i === 0) return 'minmax(0, 1.5fr)'
-    if (c.badge) return '7.5rem'
-    if (c.key === 'id') return '7rem'
-    return 'minmax(0, 1fr)'
-  })
-  const actions = '9rem'
-  const last = tracks[tracks.length - 1] || '7.5rem'
-  return {
-    // Below md only primary + status + actions are visible
-    base: [tracks[0] || 'minmax(0,1fr)', last, actions],
-    md: [...tracks, actions],
-  }
-})
-
-function cellValue(row: CatalogRow, key: string) {
-  const value = row[key]
-  return value === undefined || value === null ? '—' : String(value)
-}
+const columns = computed(() =>
+  buildListColumnTracks(mod.value?.columns || []),
+)
 
 function createRecord() {
   if (!requirePerm('create', 'create records')) return
-  // Spec: Create/Edit use the same full-page form (custom schema or column fallback)
   router.push(`/${moduleKey.value}/new`)
 }
 
@@ -198,36 +170,6 @@ const allFilteredSelected = computed(
 <template>
   <PageHeader>
     <PageHeaderTitle :title="mod?.title || 'Module'" />
-    <div class="flex items-center gap-2">
-      <Button
-        v-if="selection.length"
-        icon-left="lucide-x"
-        label="Clear"
-        @click="clearSelection"
-      />
-      <Button
-        v-if="canDelete"
-        icon-left="lucide-trash-2"
-        label="Delete"
-        theme="red"
-        :disabled="!selection.length"
-        @click="deleteSelected"
-      />
-      <Button
-        v-if="moduleKey === 'attendance' && canCreate"
-        variant="solid"
-        icon-left="lucide-user-check"
-        label="Take attendance"
-        @click="router.push('/attendance/take')"
-      />
-      <Button
-        v-else-if="canCreate"
-        variant="solid"
-        icon-left="lucide-plus"
-        :label="`New ${mod?.singular || 'record'}`"
-        @click="createRecord"
-      />
-    </div>
   </PageHeader>
 
   <div class="school-page">
@@ -245,7 +187,7 @@ const allFilteredSelected = computed(
       v-if="selection.length"
       theme="blue"
       :title="`${selection.length} selected`"
-      description="Use row checkboxes or Select page / Select all for bulk actions. Open a record with the eye icon."
+      description="Use row checkboxes or Select page / Select all for bulk actions."
       icon="lucide-list-checks"
       :primary-action="
         canDelete
@@ -260,10 +202,11 @@ const allFilteredSelected = computed(
       "
     />
 
-    <div v-if="mod" class="space-y-3">
-      <p class="text-p-base text-ink-gray-6">{{ mod.description }}</p>
-      <ListStatCards :stats="stats" />
-    </div>
+    <PageIntro
+      v-if="mod"
+      :description="mod.description"
+      :stats="stats"
+    />
 
     <ListToolbar>
       <template #search>
@@ -314,133 +257,63 @@ const allFilteredSelected = computed(
         v-if="selection.length"
         icon-left="lucide-x"
         label="Clear selection"
-        @click="selection = []"
+        @click="clearSelection"
       />
+      <template #actions>
+        <Button
+          v-if="canDelete && selection.length"
+          icon-left="lucide-trash-2"
+          :label="`Delete (${selection.length})`"
+          theme="red"
+          @click="deleteSelected"
+        />
+        <Button
+          v-if="moduleKey === 'fees'"
+          icon-left="lucide-circle-off"
+          label="Offset left dues"
+          @click="router.push('/fees/offset')"
+        />
+        <Button
+          v-if="moduleKey === 'attendance' && canCreate"
+          variant="solid"
+          icon-left="lucide-user-check"
+          label="Take attendance"
+          @click="router.push('/attendance/take')"
+        />
+        <Button
+          v-else-if="canCreate"
+          variant="solid"
+          icon-left="lucide-plus"
+          :label="`New ${mod?.singular || 'record'}`"
+          @click="createRecord"
+        />
+      </template>
     </ListToolbar>
 
-    <div v-if="mod" class="school-table">
-      <List
-        v-model:selection="selection"
-        v-model:active="active"
-        selectable
-        :columns="columns"
-      >
-        <ListHeader>
-          <ListHeaderCell
-            v-for="(col, index) in mod.columns"
-            :key="col.key"
-            :class="
-              index > 0 && index < mod.columns.length - 1 ? 'hidden md:flex' : ''
-            "
-          >
-            {{ col.label }}
-          </ListHeaderCell>
-          <ListHeaderCell class="school-list-actions-head">
-            Actions
-          </ListHeaderCell>
-        </ListHeader>
-
-        <ListRows :items="pageRows" v-slot="{ item }">
-          <ListRow
-            :value="item.id"
-            class="cursor-pointer"
-            @click="openDetail(item)"
-          >
-            <ListCell
-              v-for="(col, index) in mod.columns"
-              :key="col.key"
-              :class="[
-                index > 0 && index < mod.columns.length - 1
-                  ? 'hidden md:flex'
-                  : '',
-                col.badge ? '' : 'text-ink-gray-7',
-              ]"
-            >
-              <div
-                v-if="col.primary"
-                class="flex min-w-0 items-center gap-4 pe-2"
-              >
-                <Avatar :label="item.name" size="md" />
-                <div class="min-w-0 flex-1 space-y-1">
-                  <p class="truncate text-sm-medium text-ink-gray-9">
-                    {{ item.name }}
-                  </p>
-                  <p
-                    v-if="item.subtitle"
-                    class="truncate text-xs text-ink-gray-5"
-                  >
-                    {{ item.subtitle }}
-                  </p>
-                </div>
-              </div>
-              <div
-                v-else-if="col.badge && item.status"
-                class="flex items-center gap-2"
-              >
-                <Badge
-                  :label="item.status"
-                  :theme="item.statusTheme || 'gray'"
-                  variant="subtle"
-                />
-              </div>
-              <span
-                v-else
-                class="block truncate"
-                :title="cellValue(item, col.key)"
-                >{{ cellValue(item, col.key) }}</span
-              >
-            </ListCell>
-            <ListCell class="school-list-actions">
-              <Button
-                v-if="canPrint"
-                class="relative shrink-0"
-                icon="lucide-printer"
-                :tooltip="`Print ${item.name}`"
-                aria-label="Print"
-                @click="printRecord(item, $event)"
-              />
-              <Button
-                class="relative shrink-0"
-                icon="lucide-eye"
-                :tooltip="`Open ${item.name}`"
-                aria-label="Open"
-                @click.stop="openDetail(item)"
-              />
-              <Button
-                v-if="canWrite"
-                class="relative shrink-0"
-                icon="lucide-pencil"
-                :tooltip="`Edit ${item.name}`"
-                aria-label="Edit"
-                @click="editRecord(item, $event)"
-              />
-            </ListCell>
-          </ListRow>
-        </ListRows>
-      </List>
-
-      <p
-        v-if="filtered.length === 0"
-        class="px-4 py-10 text-center text-sm text-ink-gray-5"
-      >
-        No records match your filters.
-      </p>
-
-      <ListPagination
-        v-else
-        :page="page"
-        :total-pages="totalPages"
-        :range-label="rangeLabel"
-        :total="filtered.length"
-        @prev="goToPage(page - 1)"
-        @next="goToPage(page + 1)"
-        @go="goToPage"
-      />
-    </div>
+    <CatalogTable
+      v-if="mod"
+      v-model:selection="selection"
+      v-model:active="active"
+      :columns="mod.columns"
+      :rows="pageRows"
+      :grid-columns="columns"
+      :can-print="canPrint"
+      :can-write="canWrite"
+      :page="page"
+      :total-pages="totalPages"
+      :range-label="rangeLabel"
+      :total="filtered.length"
+      @open="openDetail"
+      @edit="editRecord"
+      @print="printRecord"
+      @prev="goToPage(page - 1)"
+      @next="goToPage(page + 1)"
+      @go="goToPage"
+    />
 
     <div
       v-else
-      class="rounded-6 border border-outline-gray-1 px-4 py-16 text-center text-ink-gray-5"
+      class="school-table-empty rounded-6 border border-outline-gray-1"
     >
       Module not found.
     </div>
