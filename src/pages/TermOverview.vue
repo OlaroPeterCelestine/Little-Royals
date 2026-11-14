@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   Badge,
   Button,
   FormControl,
   PageHeader,
   PageHeaderTitle,
+  TabButtons,
 } from 'frappe-ui'
 import { schoolSetup } from '../data/schoolSetup'
 import { schoolStore } from '../data/store'
@@ -30,6 +31,38 @@ import {
 } from '../data/termTimeline'
 
 const router = useRouter()
+const route = useRoute()
+
+type ViewTab = 'calendar' | 'gantt' | 'schedule'
+
+function parseView(raw: unknown): ViewTab {
+  const v = String(raw || '').toLowerCase()
+  if (v === 'gantt' || v === 'chart') return 'gantt'
+  if (v === 'schedule' || v === 'list') return 'schedule'
+  return 'calendar'
+}
+
+const view = ref<ViewTab>(parseView(route.query.view))
+const viewTabs = [
+  { label: 'Calendar', value: 'calendar' },
+  { label: 'Gantt', value: 'gantt' },
+  { label: 'Schedule', value: 'schedule' },
+]
+
+watch(view, (value) => {
+  router.replace({
+    path: '/term-overview',
+    query: { ...route.query, view: value },
+  })
+})
+
+watch(
+  () => route.query.view,
+  (value) => {
+    const next = parseView(value)
+    if (view.value !== next) view.value = next
+  },
+)
 
 const scale = ref<TimelineScale>('month')
 const kindFilter = ref('All')
@@ -197,9 +230,14 @@ function jumpToday() {
 
 function selectDay(iso: string) {
   anchor.value = iso
+  view.value = 'calendar'
   if (scale.value === 'month' || scale.value === 'term' || scale.value === 'year') {
     scale.value = 'day'
   }
+}
+
+function showCalendarTab() {
+  view.value = 'calendar'
 }
 
 function chipColor(kind: TimelineKind) {
@@ -214,7 +252,7 @@ function chipColor(kind: TimelineKind) {
       <Button
         icon-left="lucide-calendar-days"
         label="Calendar"
-        @click="router.push('/calendar')"
+        @click="showCalendarTab"
       />
       <Button
         icon-left="lucide-party-popper"
@@ -232,46 +270,37 @@ function chipColor(kind: TimelineKind) {
 
   <div class="school-page">
     <p class="text-p-base text-ink-gray-6">
-      Calendar and Gantt for {{ schoolSetup.shortName }} — switch Day, Week,
-      Month, Term, or Year. {{ schoolSetup.currentTerm }}
-      {{ schoolSetup.academicYear }}.
+      Term calendar, Gantt, and schedule for {{ schoolSetup.shortName }} ·
+      {{ schoolSetup.currentTerm }} {{ schoolSetup.academicYear }}.
     </p>
 
     <ListStatCards :stats="stats" />
 
-    <div class="school-scale-bar">
-      <div class="school-scale-tabs" role="tablist" aria-label="Timeline scale">
-        <button
-          v-for="opt in scaleOptions"
-          :key="opt.value"
-          type="button"
-          role="tab"
-          class="school-scale-tab"
-          :aria-selected="scale === opt.value"
-          :data-active="scale === opt.value ? '' : undefined"
-          @click="scale = opt.value"
-        >
-          {{ opt.label }}
-        </button>
-      </div>
-      <div class="school-scale-nav">
-        <Button
-          icon="lucide-chevron-left"
-          variant="subtle"
-          aria-label="Previous"
-          @click="go(-1)"
-        />
-        <button type="button" class="school-scale-period" @click="jumpToday">
-          {{ periodLabel }}
-        </button>
-        <Button
-          icon="lucide-chevron-right"
-          variant="subtle"
-          aria-label="Next"
-          @click="go(1)"
-        />
-        <Button label="Today" variant="subtle" @click="jumpToday" />
-      </div>
+    <TabButtons v-model="view" :options="viewTabs" class="school-tabs" />
+
+    <TabButtons
+      v-model="scale"
+      :options="scaleOptions"
+      class="school-tabs"
+    />
+
+    <div class="school-scale-nav">
+      <Button
+        icon="lucide-chevron-left"
+        variant="subtle"
+        aria-label="Previous"
+        @click="go(-1)"
+      />
+      <button type="button" class="school-scale-period" @click="jumpToday">
+        {{ periodLabel }}
+      </button>
+      <Button
+        icon="lucide-chevron-right"
+        variant="subtle"
+        aria-label="Next"
+        @click="go(1)"
+      />
+      <Button label="Today" variant="subtle" @click="jumpToday" />
     </div>
 
     <div class="grid gap-3 sm:grid-cols-2">
@@ -290,13 +319,11 @@ function chipColor(kind: TimelineKind) {
       />
     </div>
 
-    <section class="school-section">
+    <!-- Calendar -->
+    <section v-if="view === 'calendar'" class="school-section">
       <h2 class="school-section-title">Calendar · {{ periodLabel }}</h2>
 
-      <div
-        v-if="scale === 'day'"
-        class="school-cal school-cal--day"
-      >
+      <div v-if="scale === 'day'" class="school-cal school-cal--day">
         <div
           v-for="cell in days"
           :key="cell.iso"
@@ -331,17 +358,14 @@ function chipColor(kind: TimelineKind) {
         </div>
       </div>
 
-      <div
-        v-else-if="scale === 'week'"
-        class="school-cal school-cal--week"
-      >
+      <div v-else-if="scale === 'week'" class="school-cal school-cal--week">
         <button
           v-for="cell in days"
           :key="cell.iso"
           type="button"
           class="school-cal__cell"
           :data-today="cell.isToday ? '' : undefined"
-          @click="selectDay(cell.iso); scale = 'day'"
+          @click="selectDay(cell.iso)"
         >
           <div class="school-cal__cell-head">
             <span>{{ cell.weekday }}</span>
@@ -400,9 +424,10 @@ function chipColor(kind: TimelineKind) {
       </div>
     </section>
 
-    <section class="school-section">
+    <!-- Gantt -->
+    <section v-else-if="view === 'gantt'" class="school-section">
       <h2 class="school-section-title">
-        Gantt · starts by {{ scale }} · {{ periodLabel }}
+        Gantt · {{ scale }} · {{ periodLabel }}
       </h2>
 
       <div class="school-gantt">
@@ -469,8 +494,9 @@ function chipColor(kind: TimelineKind) {
       </div>
     </section>
 
-    <section class="school-section">
-      <h2 class="school-section-title">Schedule list</h2>
+    <!-- Schedule -->
+    <section v-else class="school-section">
+      <h2 class="school-section-title">Schedule · {{ periodLabel }}</h2>
       <div
         class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"
       >
@@ -499,46 +525,18 @@ function chipColor(kind: TimelineKind) {
             <Badge :label="bar.status" theme="gray" variant="subtle" />
           </div>
         </button>
+        <p
+          v-if="!visibleBars.length"
+          class="px-4 py-12 text-center text-sm text-ink-gray-5"
+        >
+          No items on the schedule for this range.
+        </p>
       </div>
     </section>
   </div>
 </template>
 
 <style scoped>
-.school-scale-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.school-scale-tabs {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0.2rem;
-  padding: 0.2rem;
-  border-radius: 0.65rem;
-  background: var(--surface-gray-2);
-}
-
-.school-scale-tab {
-  border: 0;
-  border-radius: 0.5rem;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--ink-gray-6);
-  background: transparent;
-  cursor: pointer;
-}
-
-.school-scale-tab[data-active] {
-  background: var(--surface-white);
-  color: var(--ink-gray-9);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
-}
-
 .school-scale-nav {
   display: flex;
   flex-wrap: wrap;

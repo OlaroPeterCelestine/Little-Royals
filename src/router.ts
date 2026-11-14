@@ -241,7 +241,7 @@ export const router = createRouter({
     },
     {
       path: '/gantt',
-      redirect: '/term-overview',
+      redirect: { path: '/term-overview', query: { view: 'gantt' } },
     },
     {
       path: '/calendar',

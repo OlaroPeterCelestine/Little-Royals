@@ -218,26 +218,6 @@ function clearSelection() {
   })
 }
 
-function selectPage() {
-  selection.value = pageRows.value.map((r) => r.id)
-}
-
-function selectAllFiltered() {
-  selection.value = filtered.value.map((r) => r.id)
-}
-
-const allPageSelected = computed(
-  () =>
-    pageRows.value.length > 0 &&
-    pageRows.value.every((r) => selection.value.includes(r.id)),
-)
-
-const allFilteredSelected = computed(
-  () =>
-    filtered.value.length > 0 &&
-    selection.value.length === filtered.value.length &&
-    filtered.value.every((r) => selection.value.includes(r.id)),
-)
 </script>
 
 <template>
@@ -313,19 +293,6 @@ const allFilteredSelected = computed(
         label="Clear filters"
         icon-left="lucide-filter-x"
         @click="resetFilters"
-      />
-      <Button
-        v-if="!allPageSelected"
-        icon-left="lucide-list-checks"
-        label="Select page"
-        :disabled="!pageRows.length"
-        @click="selectPage"
-      />
-      <Button
-        v-else-if="!allFilteredSelected && filtered.length > pageRows.length"
-        icon-left="lucide-check-check"
-        :label="`Select all ${filtered.length}`"
-        @click="selectAllFiltered"
       />
       <Button
         v-if="selection.length"

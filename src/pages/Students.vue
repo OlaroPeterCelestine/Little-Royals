@@ -2,7 +2,6 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  Alert,
   Avatar,
   Badge,
   Button,
@@ -67,10 +66,6 @@ const {
   extraFilterLabel: 'Section',
 })
 
-const onLeaveCount = computed(
-  () => mod.value.rows.filter((r) => r.status === 'On Leave').length,
-)
-
 const nurseryCount = computed(
   () => mod.value.rows.filter((r) => r.program === 'Nursery').length,
 )
@@ -114,26 +109,6 @@ function printReportCard(row: CatalogRow, event?: Event) {
   }
 }
 
-function selectPage() {
-  selection.value = pageRows.value.map((r) => r.id)
-}
-
-function selectAllFiltered() {
-  selection.value = filtered.value.map((r) => r.id)
-}
-
-const allPageSelected = computed(
-  () =>
-    pageRows.value.length > 0 &&
-    pageRows.value.every((r) => selection.value.includes(r.id)),
-)
-
-const allFilteredSelected = computed(
-  () =>
-    filtered.value.length > 0 &&
-    selection.value.length === filtered.value.length &&
-    filtered.value.every((r) => selection.value.includes(r.id)),
-)
 </script>
 
 <template>
@@ -142,37 +117,6 @@ const allFilteredSelected = computed(
   </PageHeader>
 
   <div class="school-page">
-    <Alert
-      v-if="onLeaveCount"
-      theme="amber"
-      :title="`${onLeaveCount} student${onLeaveCount === 1 ? '' : 's'} on leave`"
-      description="Review leave status before marking attendance or issuing fees."
-      icon="lucide-alert-triangle"
-      :primary-action="{
-        label: 'Filter on leave',
-        onClick: () => {
-          statusFilter = 'On Leave'
-        },
-      }"
-    />
-
-    <Alert
-      v-if="selection.length"
-      theme="blue"
-      :title="`${selection.length} selected`"
-      description="Use row checkboxes or Select page / Select all for bulk actions."
-      icon="lucide-list-checks"
-      :primary-action="
-        canDelete
-          ? {
-              label: 'Delete selected',
-              theme: 'red',
-              onClick: () => openDeleteDialog('students', [...selection]),
-            }
-          : undefined
-      "
-    />
-
     <PageIntro
       description="Enrolled pupils across nursery and primary — search, filter, and manage from one desk."
       :stats="studentStats"
@@ -209,19 +153,6 @@ const allFilteredSelected = computed(
         label="Clear filters"
         icon-left="lucide-filter-x"
         @click="resetFilters"
-      />
-      <Button
-        v-if="!allPageSelected"
-        icon-left="lucide-list-checks"
-        label="Select page"
-        :disabled="!pageRows.length"
-        @click="selectPage"
-      />
-      <Button
-        v-else-if="!allFilteredSelected && filtered.length > pageRows.length"
-        icon-left="lucide-check-check"
-        :label="`Select all ${filtered.length}`"
-        @click="selectAllFiltered"
       />
       <Button
         v-if="selection.length"

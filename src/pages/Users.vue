@@ -71,7 +71,7 @@ watch(tab, (value) => {
     query: { ...route.query, tab: value },
   })
   if (value === 'users') {
-    rolePanel.value = 'list'
+    roleDialogOpen.value = false
     editingKey.value = null
     dirty.value = false
   }
@@ -335,13 +335,27 @@ function openUser(user: SystemUser) {
 }
 
 /* ——— Roles tab ——— */
-type RolePanel = 'list' | 'editor'
-const rolePanel = ref<RolePanel>('list')
+const roleDialogOpen = ref(false)
 const editingKey = ref<string | null>(null)
 const dirty = ref(false)
 const showExtraFlags = ref(false)
 const moduleGroup = ref('All')
 const moduleQuery = ref('')
+const roleQuery = ref('')
+const roleStatusFilter = ref('All')
+const activeRole = ref<string>()
+
+const roleColumns = {
+  base: ['minmax(0, 1.4fr)', 'minmax(0, 0.7fr)', 'minmax(0, 6.5rem)'],
+  md: [
+    'minmax(0, 1.3fr)',
+    'minmax(0, 1.1fr)',
+    'minmax(0, 0.7fr)',
+    'minmax(0, 0.7fr)',
+    'minmax(0, 1fr)',
+    'minmax(0, 6.5rem)',
+  ],
+}
 
 const roleForm = reactive({
   name: '',
@@ -355,12 +369,42 @@ const roleForm = reactive({
 const matrix = reactive<Record<string, DocPerms>>({})
 
 const isCreating = computed(
-  () => rolePanel.value === 'editor' && !editingKey.value,
+  () => roleDialogOpen.value && !editingKey.value,
 )
 
 const currentRole = computed(
   () => roles.find((r) => r.key === editingKey.value) || null,
 )
+
+const roleDialogTitle = computed(() =>
+  isCreating.value
+    ? 'Create role'
+    : `Edit role · ${currentRole.value?.name || ''}`,
+)
+
+const filteredRoles = computed(() => {
+  const q = roleQuery.value.trim().toLowerCase()
+  return roles.filter((r) => {
+    if (roleStatusFilter.value !== 'All' && r.status !== roleStatusFilter.value)
+      return false
+    if (!q) return true
+    return [r.name, r.description, r.key, roleSummaryLabel(r.key)]
+      .join(' ')
+      .toLowerCase()
+      .includes(q)
+  })
+})
+
+const roleStatusOptions = computed(() => {
+  const statuses = Array.from(new Set(roles.map((r) => r.status)))
+  return [
+    { label: 'All statuses', value: 'All' },
+    ...statuses.map((s) => ({
+      label: `${s} (${roles.filter((r) => r.status === s).length})`,
+      value: s,
+    })),
+  ]
+})
 
 const allModules = computed(() => {
   const mods = { ...catalog, ...catalogExtra }
@@ -453,13 +497,14 @@ function openCreateRole() {
   moduleQuery.value = ''
   showExtraFlags.value = false
   loadMatrix({ copyFrom: '' })
-  rolePanel.value = 'editor'
   tab.value = 'roles'
+  roleDialogOpen.value = true
 }
 
 function openEditRole(roleKey: string) {
   const role = roles.find((r) => r.key === roleKey)
   if (!role) return
+  activeRole.value = role.id
   editingKey.value = role.key
   roleForm.name = role.name
   roleForm.description = role.description
@@ -468,9 +513,10 @@ function openEditRole(roleKey: string) {
   roleForm.copyFrom = ''
   moduleGroup.value = 'All'
   moduleQuery.value = ''
+  showExtraFlags.value = false
   loadMatrix({ roleKey: role.key })
-  rolePanel.value = 'editor'
   tab.value = 'roles'
+  roleDialogOpen.value = true
 }
 
 watch(
@@ -481,6 +527,12 @@ watch(
   },
 )
 
+function forceCloseRoleDialog() {
+  dirty.value = false
+  roleDialogOpen.value = false
+  editingKey.value = null
+}
+
 function closeRoleEditor() {
   if (dirty.value) {
     dialog.confirm({
@@ -490,15 +542,27 @@ function closeRoleEditor() {
       theme: 'amber',
       confirmLabel: 'Discard',
       onConfirm: async () => {
-        dirty.value = false
-        rolePanel.value = 'list'
-        editingKey.value = null
+        forceCloseRoleDialog()
       },
     })
     return
   }
-  rolePanel.value = 'list'
-  editingKey.value = null
+  forceCloseRoleDialog()
+}
+
+function disableRole(roleKey: string) {
+  const role = roles.find((r) => r.key === roleKey)
+  if (!role || role.status === 'Disabled') return
+  dialog.danger({
+    title: `Disable “${role.name}”?`,
+    message:
+      'Users with this role keep their assignment, but the role is marked disabled until re-enabled.',
+    confirmLabel: 'Disable role',
+    onConfirm: async () => {
+      updateRole(role.key, { status: 'Disabled' })
+      toast.success(`Role “${role.name}” disabled`)
+    },
+  })
 }
 
 function toggleCell(docKey: string, flag: PermFlag) {
@@ -566,11 +630,11 @@ function saveRole() {
       status: roleForm.status as 'Active' | 'Disabled',
       matrix: snapshot,
     })
-    editingKey.value = role.key
     dirty.value = false
     toast.success(
       `Role “${role.name}” created from custom CRUD (${matrixSummary.value.read} modules readable)`,
     )
+    forceCloseRoleDialog()
     return
   }
 
@@ -585,6 +649,7 @@ function saveRole() {
   applyPermMatrix(key, snapshot)
   dirty.value = false
   toast.success(`Role “${name}” saved with custom CRUD permissions`)
+  forceCloseRoleDialog()
 }
 
 function roleSummaryLabel(roleKey: string) {
@@ -749,297 +814,378 @@ function roleSummaryLabel(roleKey: string) {
       </div>
     </template>
 
-    <!-- Roles list -->
-    <template v-else-if="rolePanel === 'list'">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <p class="text-sm text-ink-gray-6">
-          Roles are built from custom CRUD permissions (Create, Read, Update,
-          Delete) on each module.
-        </p>
-        <Button
-          variant="solid"
-          icon-left="lucide-plus"
-          label="Create role"
-          @click="openCreateRole"
-        />
-      </div>
-
-      <section
-        class="grid gap-3 rounded-6 border border-outline-gray-1 bg-surface-white p-4 sm:grid-cols-2 lg:grid-cols-3"
-      >
-        <button
-          v-for="role in roles"
-          :key="role.id"
-          type="button"
-          class="rounded-5 border border-outline-gray-1 px-3.5 py-3 text-left transition hover:bg-surface-gray-1"
-          @click="openEditRole(role.key)"
-        >
-          <div class="flex flex-wrap items-center gap-1.5">
-            <p class="text-sm-medium text-ink-gray-9">{{ role.name }}</p>
-            <Badge
-              :label="role.status"
-              :theme="role.status === 'Active' ? 'green' : 'gray'"
-              variant="subtle"
-            />
-            <Badge
-              :label="role.deskAccess ? 'Desk' : 'Portal'"
-              :theme="role.deskAccess ? 'blue' : 'amber'"
-              variant="subtle"
-            />
-          </div>
-          <p class="mt-1 text-xs text-ink-gray-5">{{ role.description }}</p>
-          <p class="mt-2 text-xs font-medium tabular-nums text-ink-gray-7">
-            CRUD · {{ roleSummaryLabel(role.key) }}
-          </p>
-          <div class="mt-3">
-            <Button
-              size="sm"
-              icon-left="lucide-shield"
-              label="Edit CRUD permissions"
-              @click.stop="openEditRole(role.key)"
-            />
-          </div>
-        </button>
-      </section>
-    </template>
-
-    <!-- Create / edit role from CRUD matrix -->
+    <!-- Roles table -->
     <template v-else>
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="space-y-1">
-          <p class="text-sm-medium text-ink-gray-9">
-            {{ isCreating ? 'Create role from CRUD' : `Edit · ${currentRole?.name || ''}` }}
-          </p>
-          <p class="text-sm text-ink-gray-6">
-            Name the role, then tick Create / Read / Update / Delete for each
-            module. That matrix becomes the role.
-          </p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <Button label="Back to roles" @click="closeRoleEditor" />
-          <Button label="Reset" :disabled="!dirty" @click="resetMatrix" />
+      <ListToolbar>
+        <template #search>
+          <FormControl
+            v-model="roleQuery"
+            class="w-full"
+            label="Search"
+            placeholder="Search role, description, CRUD…"
+          />
+        </template>
+        <FormControl
+          v-if="roleStatusOptions.length > 1"
+          v-model="roleStatusFilter"
+          class="school-filter-select"
+          type="select"
+          label="Status"
+          :options="roleStatusOptions"
+        />
+        <template #actions>
           <Button
             variant="solid"
-            icon-left="lucide-check"
-            :label="isCreating ? 'Create role' : 'Save role & CRUD'"
-            @click="saveRole"
+            icon-left="lucide-plus"
+            label="Create role"
+            @click="openCreateRole"
           />
-        </div>
-      </div>
+        </template>
+      </ListToolbar>
 
-      <section
-        class="grid gap-4 rounded-6 border border-outline-gray-1 bg-surface-white p-5 sm:grid-cols-2"
-      >
-        <FormControl
-          v-model="roleForm.name"
-          label="Role name"
-          type="text"
-          placeholder="e.g. Sports Coach"
-        />
-        <FormControl
-          v-model="roleForm.status"
-          label="Status"
-          type="select"
-          :options="[
-            { label: 'Active', value: 'Active' },
-            { label: 'Disabled', value: 'Disabled' },
-          ]"
-        />
-        <FormControl
-          v-model="roleForm.deskAccess"
-          label="Access type"
-          type="select"
-          :options="[
-            { label: 'Desk access', value: 'yes' },
-            { label: 'Portal only', value: 'no' },
-          ]"
-        />
-        <FormControl
-          v-if="isCreating"
-          v-model="roleForm.copyFrom"
-          label="Optional starter"
-          type="select"
-          :options="copyFromOptions"
-        />
-        <FormControl
-          v-model="roleForm.description"
-          class="sm:col-span-2"
-          label="Description"
-          type="textarea"
-          placeholder="What this role can do at Little Royals"
-        />
-        <div class="flex flex-wrap gap-2 sm:col-span-2">
-          <Badge
-            :label="`Create ${matrixSummary.create}`"
-            theme="blue"
-            variant="subtle"
-          />
-          <Badge
-            :label="`Read ${matrixSummary.read}`"
-            theme="green"
-            variant="subtle"
-          />
-          <Badge
-            :label="`Update ${matrixSummary.write}`"
-            theme="amber"
-            variant="subtle"
-          />
-          <Badge
-            :label="`Delete ${matrixSummary.delete}`"
-            theme="red"
-            variant="subtle"
-          />
-          <Badge
-            v-if="dirty"
-            label="Unsaved"
-            theme="amber"
-            variant="subtle"
-          />
-        </div>
-      </section>
+      <div class="school-table">
+        <List v-model:active="activeRole" :columns="roleColumns">
+          <ListHeader>
+            <ListHeaderCell>Role</ListHeaderCell>
+            <ListHeaderCell class="hidden md:flex">Description</ListHeaderCell>
+            <ListHeaderCell>Status</ListHeaderCell>
+            <ListHeaderCell class="hidden md:flex">Access</ListHeaderCell>
+            <ListHeaderCell class="hidden md:flex">CRUD</ListHeaderCell>
+            <ListHeaderCell class="school-list-actions-head">
+              Actions
+            </ListHeaderCell>
+          </ListHeader>
 
-      <section class="school-section">
-        <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
-          <h2 class="school-section-title mb-0">CRUD permissions</h2>
-          <div class="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              label="Clear visible"
-              @click="setVisibleCrud('none')"
-            />
-            <Button
-              size="sm"
-              label="Read-only visible"
-              @click="setVisibleCrud('read')"
-            />
-            <Button
-              size="sm"
-              label="Full CRUD visible"
-              @click="setVisibleCrud('full')"
-            />
-            <Button
-              size="sm"
-              :label="showExtraFlags ? 'Hide export/print' : 'Show export/print'"
-              @click="showExtraFlags = !showExtraFlags"
-            />
-          </div>
-        </div>
+          <ListRows :items="filteredRoles" v-slot="{ item }">
+            <ListRow
+              :value="item.id"
+              class="cursor-pointer"
+              @click="openEditRole(item.key)"
+            >
+              <ListCell class="school-list-primary">
+                <div class="school-list-primary-text space-y-0.5">
+                  <p class="text-sm-medium text-ink-gray-9">{{ item.name }}</p>
+                  <p class="text-xs text-ink-gray-5 md:hidden">
+                    CRUD · {{ roleSummaryLabel(item.key) }}
+                  </p>
+                </div>
+              </ListCell>
+              <ListCell class="hidden school-list-nowrap text-ink-gray-7 md:flex">
+                <span class="school-cell-text" :title="item.description">{{
+                  item.description
+                }}</span>
+              </ListCell>
+              <ListCell class="school-list-nowrap">
+                <Badge
+                  :label="item.status"
+                  :theme="item.status === 'Active' ? 'green' : 'gray'"
+                  variant="subtle"
+                />
+              </ListCell>
+              <ListCell class="hidden school-list-nowrap md:flex">
+                <Badge
+                  :label="item.deskAccess ? 'Desk' : 'Portal'"
+                  :theme="item.deskAccess ? 'blue' : 'amber'"
+                  variant="subtle"
+                />
+              </ListCell>
+              <ListCell class="hidden school-list-nowrap text-ink-gray-7 md:flex">
+                <span class="school-cell-text tabular-nums">{{
+                  roleSummaryLabel(item.key)
+                }}</span>
+              </ListCell>
+              <ListCell class="school-list-actions">
+                <Button
+                  class="relative shrink-0"
+                  icon="lucide-shield"
+                  aria-label="Edit CRUD permissions"
+                  @click.stop="openEditRole(item.key)"
+                />
+                <Button
+                  class="relative shrink-0"
+                  icon="lucide-pencil"
+                  aria-label="Edit role"
+                  @click.stop="openEditRole(item.key)"
+                />
+                <Button
+                  v-if="item.status !== 'Disabled'"
+                  class="relative shrink-0"
+                  icon="lucide-ban"
+                  theme="red"
+                  aria-label="Disable role"
+                  @click.stop="disableRole(item.key)"
+                />
+              </ListCell>
+            </ListRow>
+          </ListRows>
+        </List>
 
-        <div class="mb-3 grid gap-3 sm:grid-cols-2">
-          <FormControl
-            v-model="moduleGroup"
-            type="select"
-            label="Module group"
-            :options="moduleGroups"
-          />
-          <FormControl
-            v-model="moduleQuery"
-            type="text"
-            label="Search modules"
-            placeholder="students, fees, exams…"
-          />
-        </div>
-
-        <div
-          class="school-perm-matrix"
-          :class="showExtraFlags ? 'school-perm-matrix--extra' : ''"
+        <p
+          v-if="!filteredRoles.length"
+          class="px-4 py-10 text-center text-sm text-ink-gray-5"
         >
-          <div class="school-perm-matrix__row school-perm-matrix__row--head">
-            <span class="min-w-0">Module</span>
-            <span
-              v-for="flag in crudFlags"
-              :key="flag"
-              class="school-perm-matrix__cell"
-              :title="crudFlagLabels[flag]"
-              >{{ crudFlagLabels[flag].charAt(0) }}</span
-            >
-            <span
-              v-for="flag in showExtraFlags ? extraPermFlags : []"
-              :key="flag"
-              class="school-perm-matrix__cell"
-              :title="permFlagLabels[flag]"
-              >{{ permFlagLabels[flag].charAt(0) }}</span
-            >
-          </div>
+          No roles match your filters.
+        </p>
+      </div>
+    </template>
 
-          <div
-            v-for="mod in filteredModules"
-            :key="mod.key"
-            class="school-perm-matrix__row"
-          >
+    <Teleport to="body">
+      <div
+        v-if="roleDialogOpen"
+        class="school-side-overlay"
+        role="presentation"
+      >
+        <button
+          type="button"
+          class="school-side-overlay__scrim"
+          aria-label="Close role panel"
+          @click="closeRoleEditor"
+        />
+        <aside
+          class="school-side-panel"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="roleDialogTitle"
+        >
+          <header class="school-side-panel__head">
             <div class="min-w-0">
-              <p class="school-cell-text text-sm-medium text-ink-gray-9">
-                {{ mod.label }}
+              <p class="text-base-medium text-ink-gray-9">{{ roleDialogTitle }}</p>
+              <p class="text-sm text-ink-gray-6">
+                Create / Read / Update / Delete per module
               </p>
-              <p class="school-cell-text text-xs text-ink-gray-5">
-                {{ mod.group }}
-              </p>
-              <div class="school-perm-matrix__quick">
-                <button
-                  type="button"
-                  class="text-[0.65rem] font-semibold uppercase tracking-wide text-ink-gray-5 hover:text-ink-gray-8"
-                  @click="setRowCrud(mod.key, 'read')"
-                >
-                  Read
-                </button>
-                <button
-                  type="button"
-                  class="text-[0.65rem] font-semibold uppercase tracking-wide text-ink-gray-5 hover:text-ink-gray-8"
-                  @click="setRowCrud(mod.key, 'full')"
-                >
-                  Full
-                </button>
-                <button
-                  type="button"
-                  class="text-[0.65rem] font-semibold uppercase tracking-wide text-ink-gray-5 hover:text-ink-gray-8"
-                  @click="setRowCrud(mod.key, 'none')"
-                >
-                  None
-                </button>
+            </div>
+            <Button
+              icon="lucide-x"
+              variant="ghost"
+              aria-label="Close"
+              @click="closeRoleEditor"
+            />
+          </header>
+
+          <div class="school-side-panel__body space-y-4">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <FormControl
+                v-model="roleForm.name"
+                label="Role name"
+                type="text"
+                placeholder="e.g. Sports Coach"
+              />
+              <FormControl
+                v-model="roleForm.status"
+                label="Status"
+                type="select"
+                :options="[
+                  { label: 'Active', value: 'Active' },
+                  { label: 'Disabled', value: 'Disabled' },
+                ]"
+              />
+              <FormControl
+                v-model="roleForm.deskAccess"
+                label="Access type"
+                type="select"
+                :options="[
+                  { label: 'Desk access', value: 'yes' },
+                  { label: 'Portal only', value: 'no' },
+                ]"
+              />
+              <FormControl
+                v-if="isCreating"
+                v-model="roleForm.copyFrom"
+                label="Optional starter"
+                type="select"
+                :options="copyFromOptions"
+              />
+              <FormControl
+                v-model="roleForm.description"
+                class="sm:col-span-2"
+                label="Description"
+                type="textarea"
+                placeholder="What this role can do at Little Royals"
+              />
+              <div class="flex flex-wrap gap-2 sm:col-span-2">
+                <Badge
+                  :label="`Create ${matrixSummary.create}`"
+                  theme="blue"
+                  variant="subtle"
+                />
+                <Badge
+                  :label="`Read ${matrixSummary.read}`"
+                  theme="green"
+                  variant="subtle"
+                />
+                <Badge
+                  :label="`Update ${matrixSummary.write}`"
+                  theme="amber"
+                  variant="subtle"
+                />
+                <Badge
+                  :label="`Delete ${matrixSummary.delete}`"
+                  theme="red"
+                  variant="subtle"
+                />
+                <Badge
+                  v-if="dirty"
+                  label="Unsaved"
+                  theme="amber"
+                  variant="subtle"
+                />
               </div>
             </div>
-            <div
-              v-for="flag in crudFlags"
-              :key="flag"
-              class="school-perm-matrix__cell"
-            >
-              <button
-                type="button"
-                class="school-perm-matrix__toggle"
-                :class="matrix[mod.key]?.[flag] ? 'is-on' : ''"
-                :title="`${crudFlagLabels[flag]} · ${mod.label}`"
-                :aria-pressed="Boolean(matrix[mod.key]?.[flag])"
-                @click="toggleCell(mod.key, flag)"
-              >
-                {{ crudFlagLabels[flag].charAt(0) }}
-              </button>
+
+            <div class="flex flex-wrap items-end justify-between gap-3">
+              <h3 class="text-sm-medium text-ink-gray-9">CRUD permissions</h3>
+              <div class="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  label="Clear"
+                  @click="setVisibleCrud('none')"
+                />
+                <Button
+                  size="sm"
+                  label="Read-only"
+                  @click="setVisibleCrud('read')"
+                />
+                <Button
+                  size="sm"
+                  label="Full CRUD"
+                  @click="setVisibleCrud('full')"
+                />
+                <Button
+                  size="sm"
+                  :label="showExtraFlags ? 'Less' : 'More'"
+                  @click="showExtraFlags = !showExtraFlags"
+                />
+              </div>
             </div>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <FormControl
+                v-model="moduleGroup"
+                type="select"
+                label="Module group"
+                :options="moduleGroups"
+              />
+              <FormControl
+                v-model="moduleQuery"
+                type="text"
+                label="Search modules"
+                placeholder="students, fees, exams…"
+              />
+            </div>
+
             <div
-              v-for="flag in showExtraFlags ? extraPermFlags : []"
-              :key="flag"
-              class="school-perm-matrix__cell"
+              class="school-perm-matrix school-perm-matrix--dialog"
+              :class="showExtraFlags ? 'school-perm-matrix--extra' : ''"
             >
-              <button
-                type="button"
-                class="school-perm-matrix__toggle"
-                :class="matrix[mod.key]?.[flag] ? 'is-on' : ''"
-                :title="`${permFlagLabels[flag]} · ${mod.label}`"
-                :aria-pressed="Boolean(matrix[mod.key]?.[flag])"
-                @click="toggleCell(mod.key, flag)"
+              <div class="school-perm-matrix__row school-perm-matrix__row--head">
+                <span class="min-w-0">Module</span>
+                <span
+                  v-for="flag in crudFlags"
+                  :key="flag"
+                  class="school-perm-matrix__cell"
+                  :title="crudFlagLabels[flag]"
+                  >{{ crudFlagLabels[flag].charAt(0) }}</span
+                >
+                <span
+                  v-for="flag in showExtraFlags ? extraPermFlags : []"
+                  :key="flag"
+                  class="school-perm-matrix__cell"
+                  :title="permFlagLabels[flag]"
+                  >{{ permFlagLabels[flag].charAt(0) }}</span
+                >
+              </div>
+
+              <div
+                v-for="mod in filteredModules"
+                :key="mod.key"
+                class="school-perm-matrix__row"
               >
-                {{ permFlagLabels[flag].charAt(0) }}
-              </button>
+                <div class="min-w-0">
+                  <p class="school-cell-text text-sm-medium text-ink-gray-9">
+                    {{ mod.label }}
+                  </p>
+                  <p class="school-cell-text text-xs text-ink-gray-5">
+                    {{ mod.group }}
+                  </p>
+                  <div class="school-perm-matrix__quick">
+                    <button
+                      type="button"
+                      class="text-[0.65rem] font-semibold uppercase tracking-wide text-ink-gray-5 hover:text-ink-gray-8"
+                      @click="setRowCrud(mod.key, 'read')"
+                    >
+                      Read
+                    </button>
+                    <button
+                      type="button"
+                      class="text-[0.65rem] font-semibold uppercase tracking-wide text-ink-gray-5 hover:text-ink-gray-8"
+                      @click="setRowCrud(mod.key, 'full')"
+                    >
+                      Full
+                    </button>
+                    <button
+                      type="button"
+                      class="text-[0.65rem] font-semibold uppercase tracking-wide text-ink-gray-5 hover:text-ink-gray-8"
+                      @click="setRowCrud(mod.key, 'none')"
+                    >
+                      None
+                    </button>
+                  </div>
+                </div>
+                <div
+                  v-for="flag in crudFlags"
+                  :key="flag"
+                  class="school-perm-matrix__cell"
+                >
+                  <button
+                    type="button"
+                    class="school-perm-matrix__toggle"
+                    :class="matrix[mod.key]?.[flag] ? 'is-on' : ''"
+                    :title="`${crudFlagLabels[flag]} · ${mod.label}`"
+                    :aria-pressed="Boolean(matrix[mod.key]?.[flag])"
+                    @click="toggleCell(mod.key, flag)"
+                  >
+                    {{ crudFlagLabels[flag].charAt(0) }}
+                  </button>
+                </div>
+                <div
+                  v-for="flag in showExtraFlags ? extraPermFlags : []"
+                  :key="flag"
+                  class="school-perm-matrix__cell"
+                >
+                  <button
+                    type="button"
+                    class="school-perm-matrix__toggle"
+                    :class="matrix[mod.key]?.[flag] ? 'is-on' : ''"
+                    :title="`${permFlagLabels[flag]} · ${mod.label}`"
+                    :aria-pressed="Boolean(matrix[mod.key]?.[flag])"
+                    @click="toggleCell(mod.key, flag)"
+                  >
+                    {{ permFlagLabels[flag].charAt(0) }}
+                  </button>
+                </div>
+              </div>
+
+              <p
+                v-if="!filteredModules.length"
+                class="px-4 py-10 text-center text-sm text-ink-gray-5"
+              >
+                No modules match this filter.
+              </p>
             </div>
           </div>
 
-          <p
-            v-if="!filteredModules.length"
-            class="px-4 py-10 text-center text-sm text-ink-gray-5"
-          >
-            No modules match this filter.
-          </p>
-        </div>
-      </section>
-    </template>
+          <footer class="school-side-panel__foot">
+            <Button label="Cancel" @click="closeRoleEditor" />
+            <Button label="Reset" :disabled="!dirty" @click="resetMatrix" />
+            <Button
+              variant="solid"
+              icon-left="lucide-check"
+              :label="isCreating ? 'Create role' : 'Save'"
+              @click="saveRole"
+            />
+          </footer>
+        </aside>
+      </div>
+    </Teleport>
   </div>
 </template>

@@ -1,7 +1,11 @@
+import type { CatalogRow } from './catalog'
 import { schoolSetup, formatSchoolAddress } from './schoolSetup'
 import { brand } from './brand'
 import { schoolStore, unpaidFeeCount, pendingApplicantCount } from './store'
-import { openPrintWindow } from './documents'
+import {
+  openPrintWindow,
+  type DocumentKind,
+} from './documents'
 import { escapeHtml, escapeHtmlMultiline } from '../lib/security'
 
 const esc = escapeHtml
@@ -20,6 +24,11 @@ export interface SchoolReportDef {
   title: string
   description: string
   icon: string
+  /** Live module whose rows appear under this report (like Documents). */
+  moduleKey?: string
+  /** Official document kind for printing a single row. */
+  documentKind?: DocumentKind
+  recordLabel: string
 }
 
 export const schoolReportCatalog: SchoolReportDef[] = [
@@ -28,44 +37,126 @@ export const schoolReportCatalog: SchoolReportDef[] = [
     title: 'School overview',
     description: 'Head-office snapshot of learners, staff, fees and attendance',
     icon: 'lucide-layout-dashboard',
+    recordLabel: 'Summary KPIs',
   },
   {
     id: 'enrollment',
     title: 'Enrollment report',
     description: 'Learners by class, programme and status',
     icon: 'lucide-graduation-cap',
+    moduleKey: 'students',
+    documentKind: 'report-card',
+    recordLabel: 'Learners',
   },
   {
     id: 'attendance',
     title: 'Attendance report',
     description: 'Present, late and absent sessions across the school',
     icon: 'lucide-clipboard-check',
+    moduleKey: 'attendance',
+    documentKind: 'attendance-report',
+    recordLabel: 'Attendance rows',
   },
   {
     id: 'fees',
     title: 'Fees & collections',
     description: 'Paid, partial, unpaid and overdue fee invoices',
     icon: 'lucide-receipt',
+    moduleKey: 'fees',
+    documentKind: 'invoice',
+    recordLabel: 'Invoices',
   },
   {
     id: 'admissions',
     title: 'Admissions funnel',
     description: 'Applicants pending, approved, waitlisted and rejected',
     icon: 'lucide-user-plus',
+    moduleKey: 'applicants',
+    documentKind: 'admission-letter',
+    recordLabel: 'Applicants',
   },
   {
     id: 'academics',
     title: 'Academic results',
     description: 'Posted assessment outcomes and pass rates',
     icon: 'lucide-award',
+    moduleKey: 'exam-results',
+    documentKind: 'exam-memo',
+    recordLabel: 'Results',
   },
   {
     id: 'staff',
     title: 'Staff roster',
     description: 'Teachers and active staffing summary',
     icon: 'lucide-users',
+    moduleKey: 'teachers',
+    recordLabel: 'Teachers',
   },
 ]
+
+export function reportDef(id: SchoolReportId) {
+  return schoolReportCatalog.find((r) => r.id === id) || schoolReportCatalog[0]
+}
+
+/** Rows that back a report — same idea as Documents record picker. */
+export function reportRecords(id: SchoolReportId): CatalogRow[] {
+  const def = reportDef(id)
+  if (!def.moduleKey) return []
+  return [...(schoolStore[def.moduleKey]?.rows || [])]
+}
+
+export function reportRecordColumns(id: SchoolReportId): { key: string; label: string }[] {
+  switch (id) {
+    case 'enrollment':
+      return [
+        { key: 'name', label: 'Learner' },
+        { key: 'id', label: 'ID' },
+        { key: 'className', label: 'Class' },
+        { key: 'program', label: 'Programme' },
+        { key: 'status', label: 'Status' },
+      ]
+    case 'attendance':
+      return [
+        { key: 'name', label: 'Learner' },
+        { key: 'className', label: 'Class' },
+        { key: 'date', label: 'Date' },
+        { key: 'status', label: 'Status' },
+      ]
+    case 'fees':
+      return [
+        { key: 'name', label: 'Learner' },
+        { key: 'invoice', label: 'Invoice' },
+        { key: 'amount', label: 'Amount' },
+        { key: 'paid', label: 'Paid' },
+        { key: 'status', label: 'Status' },
+      ]
+    case 'admissions':
+      return [
+        { key: 'name', label: 'Applicant' },
+        { key: 'program', label: 'Programme' },
+        { key: 'grade', label: 'Class' },
+        { key: 'applied', label: 'Applied' },
+        { key: 'status', label: 'Status' },
+      ]
+    case 'academics':
+      return [
+        { key: 'name', label: 'Learner' },
+        { key: 'exam', label: 'Exam' },
+        { key: 'score', label: 'Score' },
+        { key: 'grade', label: 'Grade' },
+        { key: 'status', label: 'Status' },
+      ]
+    case 'staff':
+      return [
+        { key: 'name', label: 'Teacher' },
+        { key: 'id', label: 'ID' },
+        { key: 'subject', label: 'Subject' },
+        { key: 'status', label: 'Status' },
+      ]
+    default:
+      return []
+  }
+}
 
 function logoSrc() {
   try {
@@ -364,6 +455,11 @@ export function buildSchoolReport(id: SchoolReportId) {
     case 'staff':
       return buildStaff()
   }
+}
+
+/** HTML for in-app preview (Documents-style), without opening print. */
+export function previewSchoolReport(id: SchoolReportId) {
+  return buildSchoolReport(id)
 }
 
 export function printSchoolReport(id: SchoolReportId) {
