@@ -10,12 +10,8 @@ npm install
 npm run dev
 ```
 
-**Local sign-in** (with `VITE_USE_API=false`):
-
-- `admin@littleroyals.school` / `demo`
-- `teacher@littleroyals.school` / `demo`
-- `accountant@littleroyals.school` / `demo`
-- `parent@littleroyals.school` / `demo`
+**Local sign-in** (with `VITE_USE_API=false`): any email and password work.
+Known demo emails keep their roles (Admin, Teacher, Accountant, Parent); other emails sign in as Admin.
 
 To wire the API later, set in `.env`:
 

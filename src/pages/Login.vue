@@ -63,9 +63,7 @@ function askAdmin() {
         <div class="login-form-head">
           <h1>Welcome Back</h1>
           <p>
-            Enter your email and password to access your school account.
-            Local desk: use a demo account and password
-            <code>demo</code>.
+            Enter any email and password to access the local desk.
           </p>
         </div>
 

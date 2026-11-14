@@ -16,8 +16,3 @@ export function apiBaseUrl(): string {
   if (!isApiEnabled()) return ''
   return String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 }
-
-/** Shared local desk password when the API is disabled. */
-export function localDemoPassword(): string {
-  return String(import.meta.env.VITE_DEMO_PASSWORD || 'demo')
-}

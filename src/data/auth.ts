@@ -11,7 +11,7 @@ import {
   writeJsonStorage,
   type AuthSessionShape,
 } from '../lib/security'
-import { apiBaseUrl, isApiEnabled, localDemoPassword } from '../lib/apiMode'
+import { apiBaseUrl, isApiEnabled } from '../lib/apiMode'
 
 const STORAGE_KEY = 'little-royals-auth'
 const BOOT_KEY = 'little-royals-auth-boot'
@@ -57,19 +57,27 @@ function loadSession(): AuthSession | null {
     return null
   }
 
-  // Offline desk: ignore leftover API JWT tokens and use the local user directory.
+  // Offline desk: ignore leftover API JWT tokens; keep any local session.
   if (!isApiEnabled() || !parsed.token) {
     const user = getUserByEmail(parsed.email)
-    if (!user || user.status !== 'Active') {
-      clearStorageKeys([STORAGE_KEY])
-      return null
+    if (user && user.status === 'Active') {
+      return {
+        email: user.email.toLowerCase(),
+        name: user.name,
+        role: user.role,
+        remember: parsed.remember,
+      }
     }
-    return {
-      email: user.email.toLowerCase(),
-      name: user.name,
-      role: user.role,
-      remember: parsed.remember,
+    if (!isApiEnabled() && parsed.email) {
+      return {
+        email: parsed.email.toLowerCase(),
+        name: parsed.name || parsed.email.split('@')[0] || 'Guest',
+        role: normalizeRole(parsed.role) || parsed.role || 'Admin',
+        remember: parsed.remember,
+      }
     }
+    clearStorageKeys([STORAGE_KEY])
+    return null
   }
 
   return {
@@ -197,16 +205,25 @@ function loginLocal(input: {
   password: string
   remember?: boolean
 }): SystemUser {
+  // Offline desk: any non-empty email + password is accepted.
   const email = input.email
-  const user = getUserByEmail(email)
-  if (!user || user.status !== 'Active') {
-    recordLoginFailure(email)
-    throw new Error('Incorrect email or password')
-  }
-  if (input.password !== localDemoPassword()) {
-    recordLoginFailure(email)
-    throw new Error('Incorrect email or password')
-  }
+  const existing = getUserByEmail(email)
+  const user: SystemUser =
+    existing && existing.status === 'Active'
+      ? existing
+      : {
+          id: `LOCAL-${email}`,
+          name:
+            existing?.name ||
+            email
+              .split('@')[0]
+              .replace(/[._-]+/g, ' ')
+              .replace(/\b\w/g, (c) => c.toUpperCase()) ||
+            'Guest',
+          email,
+          role: existing?.role || 'Admin',
+          status: 'Active',
+        }
 
   clearLoginFailures(email)
 
@@ -219,7 +236,7 @@ function loginLocal(input: {
   state.session = session
   persist(session)
   applyUser(user)
-  user.lastLogin = new Date().toISOString()
+  if (existing) existing.lastLogin = new Date().toISOString()
 
   logActivity({
     action: 'Login',
@@ -277,17 +294,21 @@ export function refreshAuthSession() {
     return
   }
   const user = getUserByEmail(state.session.email)
-  if (!user || user.status !== 'Active') {
-    logout()
+  if (user && user.status === 'Active') {
+    state.session = {
+      ...state.session,
+      name: user.name,
+      role: user.role,
+      email: user.email.toLowerCase(),
+      token: undefined,
+    }
+    persist(state.session)
+    applyUser(user)
     return
   }
-  state.session = {
-    ...state.session,
-    name: user.name,
-    role: user.role,
-    email: user.email.toLowerCase(),
-    token: undefined,
+  if (!isApiEnabled() && state.session.email) {
+    applyUser(state.session)
+    return
   }
-  persist(state.session)
-  applyUser(user)
+  logout()
 }
