@@ -60,7 +60,6 @@ export const educationNav: NavGroup[] = [
       { label: 'Students', icon: 'lucide-graduation-cap', route: '/students' },
       { label: 'People', icon: 'lucide-users-round', route: '/people' },
       { label: 'Alumni', icon: 'lucide-graduation-cap', route: '/alumni' },
-      { label: 'Access', icon: 'lucide-shield-check', route: '/users' },
     ],
   },
   {
@@ -237,6 +236,7 @@ export const educationNav: NavGroup[] = [
       { label: 'Activity & audit', icon: 'lucide-history', route: '/activity-log' },
       { label: 'Documents', icon: 'lucide-printer', route: '/documents' },
       { label: 'Reports', icon: 'lucide-bar-chart-3', route: '/reports' },
+      { label: 'Users & roles', icon: 'lucide-shield-check', route: '/users' },
     ],
   },
 ]
@@ -355,7 +355,7 @@ export const commandItems = [
     route: `/${m.key}`,
     group: m.group,
   })),
-  { label: 'Users & Roles', route: '/users', group: 'People' },
+  { label: 'Users & Roles', route: '/users', group: 'Settings' },
   { label: 'Term overview', route: '/term-overview', group: 'Events' },
   { label: 'School setup', route: '/school-setup', group: 'Settings' },
   { label: 'Activity & audit', route: '/activity-log', group: 'Settings' },

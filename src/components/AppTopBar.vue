@@ -26,8 +26,6 @@ import {
   unreadNotificationCount,
   type NotificationTone,
 } from '../data/notifications'
-import SchoolLogo from './SchoolLogo.vue'
-
 const router = useRouter()
 const avatarLabel = computed(() => currentUser.name || 'PC')
 
@@ -179,14 +177,6 @@ async function signOut() {
 
 <template>
   <header class="school-topbar">
-    <RouterLink
-      to="/dashboard"
-      class="school-brand-mark flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full"
-      aria-label="Students home"
-    >
-      <SchoolLogo size="sm" class="!size-8" />
-    </RouterLink>
-
     <div class="relative mx-auto w-full max-w-xl">
       <button
         type="button"
