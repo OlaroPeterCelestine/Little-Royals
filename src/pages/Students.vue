@@ -21,13 +21,19 @@ import {
 } from 'frappe-ui/list'
 import { getLiveModule } from '../data/store'
 import { useListPage } from '../composables/useListPage'
-import { openDeleteDialog } from '../composables/useModuleForms'
+import {
+  openCreateDialog,
+  openDeleteDialog,
+  openEditDialog,
+} from '../composables/useModuleForms'
 import { printRecordDocument } from '../data/documents'
 import type { CatalogRow } from '../data/catalog'
+import { canCurrentUser } from '../data/permissions'
 import { useModuleAccess } from '../composables/useModuleAccess'
 import ListPagination from '../components/ListPagination.vue'
 import ListToolbar from '../components/ListToolbar.vue'
 import PageIntro from '../components/PageIntro.vue'
+import { pushWithReturn } from '../composables/useAppBack'
 
 const router = useRouter()
 const sortDir = ref<'asc' | 'desc'>('asc')
@@ -95,12 +101,19 @@ function toggleSort() {
 }
 
 function openDetail(id: string) {
-  router.push(`/students/${id}`)
+  pushWithReturn(router, `/students/${id}`)
 }
 
 function printReportCard(row: CatalogRow, event?: Event) {
   event?.stopPropagation()
-  if (!requirePerm('print', 'print report cards')) return
+  if (
+    !canPrint.value &&
+    !canCurrentUser('students', 'export') &&
+    !canCurrentUser('students', 'read')
+  ) {
+    toast.error('Your role cannot print report cards')
+    return
+  }
   try {
     printRecordDocument('report-card', 'students', row)
     toast.success(`Report card · ${row.name}`)
@@ -173,7 +186,7 @@ function printReportCard(row: CatalogRow, event?: Event) {
           variant="solid"
           icon-left="lucide-plus"
           label="Register student"
-          @click="router.push('/students/new')"
+          @click="openCreateDialog('students')"
         />
       </template>
     </ListToolbar>
@@ -274,11 +287,11 @@ function printReportCard(row: CatalogRow, event?: Event) {
             </ListCell>
             <ListCell class="school-list-actions">
               <Button
-                v-if="canPrint"
+                v-if="canPrint || canWrite"
                 class="relative shrink-0"
                 icon="lucide-printer"
                 tooltip="Print report card"
-                aria-label="Print"
+                aria-label="Print report card"
                 @click="printReportCard(item, $event)"
               />
               <Button
@@ -294,7 +307,7 @@ function printReportCard(row: CatalogRow, event?: Event) {
                 icon="lucide-pencil"
                 tooltip="Edit student"
                 aria-label="Edit"
-                @click.stop="router.push(`/students/${item.id}/edit`)"
+                @click.stop="openEditDialog('students', item)"
               />
             </ListCell>
           </ListRow>

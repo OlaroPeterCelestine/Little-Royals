@@ -14,6 +14,33 @@ const genderOpts = [
   { label: 'Male', value: 'Male' },
   { label: 'Other', value: 'Other' },
 ]
+const religionOpts = [
+  { label: 'Christian', value: 'Christian' },
+  { label: 'Catholic', value: 'Catholic' },
+  { label: 'Anglican / Protestant', value: 'Anglican' },
+  { label: 'Pentecostal', value: 'Pentecostal' },
+  { label: 'Muslim', value: 'Muslim' },
+  { label: 'Seventh-day Adventist', value: 'SDA' },
+  { label: 'Traditional', value: 'Traditional' },
+  { label: 'Other', value: 'Other' },
+]
+const tribeOpts = [
+  { label: 'Baganda', value: 'Baganda' },
+  { label: 'Basoga', value: 'Basoga' },
+  { label: 'Banyankole', value: 'Banyankole' },
+  { label: 'Bakiga', value: 'Bakiga' },
+  { label: 'Batooro', value: 'Batooro' },
+  { label: 'Banyoro', value: 'Banyoro' },
+  { label: 'Acholi', value: 'Acholi' },
+  { label: 'Lango', value: 'Lango' },
+  { label: 'Iteso', value: 'Iteso' },
+  { label: 'Lugbara', value: 'Lugbara' },
+  { label: 'Jopadhola', value: 'Jopadhola' },
+  { label: 'Bagisu', value: 'Bagisu' },
+  { label: 'Bafumbira', value: 'Bafumbira' },
+  { label: 'Alur', value: 'Alur' },
+  { label: 'Other', value: 'Other' },
+]
 const yesNo = [
   { label: 'Yes', value: 'Yes' },
   { label: 'No', value: 'No' },
@@ -36,9 +63,31 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'name', label: 'Full name', type: 'readonly', auto: true, help: 'Built from first and last name' },
           { name: 'dateOfBirth', label: 'Date of birth', type: 'date', required: true },
           { name: 'gender', label: 'Gender', type: 'select', required: true, options: genderOpts },
+          { name: 'placeOfBirth', label: 'Place of birth', type: 'text' },
           { name: 'nationality', label: 'Nationality', type: 'text', placeholder: 'Ugandan' },
+          {
+            name: 'tribe',
+            label: 'Tribe',
+            type: 'select',
+            options: tribeOpts,
+          },
+          {
+            name: 'religion',
+            label: 'Religion',
+            type: 'select',
+            options: religionOpts,
+          },
+          { name: 'homeLanguage', label: 'Home language', type: 'text' },
           { name: 'address', label: 'Residential address', type: 'textarea' },
           { name: 'photo', label: 'Learner photograph', type: 'file' },
+        ],
+      },
+      {
+        title: 'Contact',
+        fields: [
+          { name: 'phone', label: 'Home phone', type: 'phone' },
+          { name: 'email', label: 'Learner email', type: 'email' },
+          { name: 'emergencyContact', label: 'Emergency contact', type: 'text', placeholder: 'Name · phone' },
         ],
       },
       {
@@ -48,7 +97,27 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'className', label: 'Class', type: 'select', required: true, options: classOpts },
           { name: 'stream', label: 'Stream', type: 'text', placeholder: 'A / Blue' },
           { name: 'admissionDate', label: 'Admission date', type: 'date', required: true },
-          { name: 'id', label: 'Learner ID', type: 'readonly', auto: true },
+          {
+            name: 'learnerNumber',
+            label: 'Learner number',
+            type: 'text',
+            placeholder: 'LN-LR26001',
+            help: 'EMIS / national learner number',
+          },
+          {
+            name: 'id',
+            label: 'Student number',
+            type: 'readonly',
+            auto: true,
+            help: 'School admission number (e.g. LR26001)',
+          },
+          {
+            name: 'schoolPayAccount',
+            label: 'School Pay account',
+            type: 'text',
+            placeholder: 'LR-0001',
+            help: 'School Pay code for fee payments (MTN / Airtel)',
+          },
           { name: 'status', label: 'Status', type: 'readonly', auto: true },
         ],
       },
@@ -58,17 +127,21 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           {
             name: 'parentId',
             label: 'Existing parent',
-            type: 'search',
+            type: 'select',
             optionsFrom: 'guardians',
+            optionsValue: 'id',
             help: 'Select a registered parent — do not retype family details',
           },
           { name: 'relationship', label: 'Relationship', type: 'select', options: relationOpts },
         ],
       },
       {
-        title: 'Additional information',
+        title: 'Health & notes',
         fields: [
+          { name: 'bloodGroup', label: 'Blood group', type: 'text' },
           { name: 'medicalAlerts', label: 'Medical alerts', type: 'textarea', placeholder: 'Allergies or health alerts' },
+          { name: 'specialNeeds', label: 'Special needs', type: 'textarea' },
+          { name: 'dietaryNotes', label: 'Dietary notes', type: 'textarea' },
           { name: 'previousSchool', label: 'Previous school', type: 'text' },
           { name: 'documents', label: 'Supporting documents', type: 'file' },
           { name: 'subtitle', label: 'Notes', type: 'textarea' },
@@ -103,19 +176,49 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
     module: 'staff',
     title: 'Add Staff',
     singular: 'Staff member',
+    draft: true,
     sections: [
       {
-        title: 'Employee record',
+        title: 'Personal biodata',
         fields: [
-          { name: 'name', label: 'Full name', type: 'text', required: true },
-          { name: 'id', label: 'Employee number', type: 'readonly', auto: true },
+          { name: 'firstName', label: 'First name', type: 'text', required: true },
+          { name: 'lastName', label: 'Last name', type: 'text', required: true },
+          { name: 'otherNames', label: 'Other names', type: 'text' },
+          { name: 'name', label: 'Full name', type: 'readonly', auto: true, help: 'Built from first and last name' },
+          { name: 'gender', label: 'Gender', type: 'select', required: true, options: genderOpts },
+          { name: 'dateOfBirth', label: 'Date of birth', type: 'date', required: true },
+          { name: 'nationality', label: 'Nationality', type: 'text', placeholder: 'Ugandan' },
+          { name: 'nationalId', label: 'National ID / NIN', type: 'text' },
+          {
+            name: 'maritalStatus',
+            label: 'Marital status',
+            type: 'select',
+            options: [
+              { label: 'Single', value: 'Single' },
+              { label: 'Married', value: 'Married' },
+              { label: 'Other', value: 'Other' },
+            ],
+          },
+          { name: 'languages', label: 'Languages spoken', type: 'text' },
+          { name: 'address', label: 'Residential address', type: 'textarea' },
+          { name: 'photo', label: 'Photograph', type: 'file' },
+        ],
+      },
+      {
+        title: 'Contact',
+        fields: [
           { name: 'phone', label: 'Phone', type: 'phone', required: true },
+          { name: 'altPhone', label: 'Alternative phone', type: 'phone' },
           { name: 'email', label: 'Email', type: 'email' },
-          { name: 'gender', label: 'Gender', type: 'select', options: genderOpts },
-          { name: 'dateOfBirth', label: 'Date of birth', type: 'date' },
-          { name: 'department', label: 'Department', type: 'select', required: true, optionsFrom: 'departments' },
+          { name: 'emergencyContact', label: 'Emergency contact', type: 'text', placeholder: 'Name · phone' },
+        ],
+      },
+      {
+        title: 'Employment',
+        fields: [
+          { name: 'id', label: 'Employee number', type: 'readonly', auto: true },
           { name: 'jobTitle', label: 'Job title', type: 'text', required: true },
-          { name: 'qualification', label: 'Qualification', type: 'text' },
+          { name: 'department', label: 'Department', type: 'select', required: true, optionsFrom: 'departments' },
           {
             name: 'employmentType',
             label: 'Employment type',
@@ -127,9 +230,29 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
             ],
           },
           { name: 'startDate', label: 'Start date', type: 'date', required: true },
+          { name: 'yearsExperience', label: 'Years of experience', type: 'number' },
+          { name: 'qualification', label: 'Highest qualification', type: 'text', required: true },
+          { name: 'additionalQualifications', label: 'Additional qualifications', type: 'textarea' },
           { name: 'salary', label: 'Salary', type: 'currency', help: 'Restricted — payroll only' },
           { name: 'documents', label: 'Documents', type: 'file' },
-          { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'Active' }, { label: 'On Leave', value: 'On Leave' }] },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            options: [
+              { label: 'Active', value: 'Active' },
+              { label: 'On Leave', value: 'On Leave' },
+              { label: 'Inactive', value: 'Inactive' },
+            ],
+          },
+        ],
+      },
+      {
+        title: 'Health',
+        fields: [
+          { name: 'bloodGroup', label: 'Blood group', type: 'text' },
+          { name: 'medicalAlerts', label: 'Medical alerts', type: 'textarea' },
+          { name: 'bio', label: 'Short bio', type: 'textarea' },
         ],
       },
     ],
@@ -302,7 +425,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'materials', label: 'Materials needed', type: 'textarea' },
           { name: 'duration', label: 'Duration (minutes)', type: 'number' },
           { name: 'activityDate', label: 'Activity date', type: 'date' },
-          { name: 'teacher', label: 'Teacher', type: 'search', optionsFrom: 'teachers' },
+          { name: 'teacher', label: 'Teacher', type: 'select', optionsFrom: 'teachers' },
           { name: 'expectedOutcome', label: 'Expected outcome', type: 'textarea' },
           { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Planned', value: 'Planned' }, { label: 'Completed', value: 'Completed' }] },
         ],
@@ -318,7 +441,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Observation',
         fields: [
-          { name: 'learner', label: 'Learner', type: 'search', required: true, optionsFrom: 'students' },
+          { name: 'learner', label: 'Learner', type: 'select', required: true, optionsFrom: 'students' },
           { name: 'name', label: 'Summary title', type: 'text', required: true },
           {
             name: 'learningArea',
@@ -400,9 +523,9 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Invoice',
         fields: [
-          { name: 'learner', label: 'Learner', type: 'search', required: true, optionsFrom: 'students' },
+          { name: 'learner', label: 'Learner', type: 'select', required: true, optionsFrom: 'students' },
           { name: 'name', label: 'Invoice title', type: 'text', required: true },
-          { name: 'feeStructure', label: 'Fee structure', type: 'search', required: true, optionsFrom: 'fee-structures' },
+          { name: 'feeStructure', label: 'Fee structure', type: 'select', required: true, optionsFrom: 'fee-structures' },
           { name: 'invoiceDate', label: 'Invoice date', type: 'date' },
           { name: 'dueDate', label: 'Due date', type: 'date', required: true },
           { name: 'amount', label: 'Amount payable', type: 'currency', help: 'Calculated from fee structure when wired' },
@@ -420,17 +543,18 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
     sections: [
       {
         title: 'Term',
+        description: 'Always link a term to its academic year (prefer Years & terms desk).',
         fields: [
-          { name: 'year', label: 'Academic year', type: 'search', required: true, optionsFrom: 'academic-years' },
+          { name: 'year', label: 'Academic year', type: 'select', required: true, optionsFrom: 'academic-years' },
           {
             name: 'name',
             label: 'Term name',
             type: 'select',
             required: true,
             options: [
-              { label: 'Term 1', value: 'Term 1' },
-              { label: 'Term 2', value: 'Term 2' },
-              { label: 'Term 3', value: 'Term 3' },
+              { label: 'Term I', value: 'Term I' },
+              { label: 'Term II', value: 'Term II' },
+              { label: 'Term III', value: 'Term III' },
             ],
           },
           { name: 'start', label: 'Start date', type: 'date', required: true },
@@ -443,7 +567,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
             type: 'select',
             options: [
               { label: 'Planned', value: 'Planned' },
-              { label: 'Active', value: 'Active' },
+              { label: 'Open', value: 'Open' },
               { label: 'Closed', value: 'Closed' },
             ],
           },
@@ -464,9 +588,9 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'program', label: 'Section', type: 'select', required: true, options: sectionOpts },
           { name: 'grade', label: 'Level / order', type: 'number', required: true },
           { name: 'capacity', label: 'Capacity', type: 'number' },
-          { name: 'teacher', label: 'Class teacher', type: 'search', optionsFrom: 'staff' },
-          { name: 'year', label: 'Academic year', type: 'search', optionsFrom: 'academic-years' },
-          { name: 'room', label: 'Classroom', type: 'search', optionsFrom: 'rooms' },
+          { name: 'teacher', label: 'Class teacher', type: 'select', optionsFrom: 'staff' },
+          { name: 'year', label: 'Academic year', type: 'select', optionsFrom: 'academic-years' },
+          { name: 'room', label: 'Classroom', type: 'select', optionsFrom: 'rooms' },
           { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }] },
         ],
       },
@@ -495,7 +619,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
               { label: 'Observation', value: 'Observation' },
             ],
           },
-          { name: 'instructor', label: 'Teacher', type: 'search', optionsFrom: 'staff' },
+          { name: 'instructor', label: 'Teacher', type: 'select', optionsFrom: 'staff' },
           { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }] },
         ],
       },
@@ -540,25 +664,76 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Lesson allocation',
         fields: [
-          { name: 'year', label: 'Academic year', type: 'search', optionsFrom: 'academic-years' },
-          { name: 'term', label: 'Term', type: 'search', optionsFrom: 'academic-terms' },
-          { name: 'group', label: 'Class', type: 'search', required: true, optionsFrom: 'classes' },
+          {
+            name: 'year',
+            label: 'Academic year',
+            type: 'select',
+            optionsFrom: 'academic-years',
+          },
+          {
+            name: 'term',
+            label: 'Term',
+            type: 'select',
+            optionsFrom: 'academic-terms',
+          },
+          {
+            name: 'group',
+            label: 'Class',
+            type: 'select',
+            required: true,
+            optionsFrom: 'classes',
+            help: 'From Classes list',
+          },
           { name: 'stream', label: 'Stream', type: 'text' },
           {
             name: 'day',
             label: 'Day',
             type: 'select',
             required: true,
-            options: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((d) => ({
-              label: d,
-              value: d,
-            })),
+            options: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(
+              (d) => ({
+                label: d,
+                value: d,
+              }),
+            ),
           },
-          { name: 'name', label: 'Period', type: 'search', required: true, optionsFrom: 'periods' },
-          { name: 'course', label: 'Subject / Activity', type: 'search', required: true, optionsFrom: 'courses' },
-          { name: 'teacher', label: 'Teacher', type: 'search', required: true, optionsFrom: 'staff' },
-          { name: 'room', label: 'Room', type: 'search', optionsFrom: 'rooms' },
-          { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'Active' }, { label: 'Draft', value: 'Draft' }] },
+          {
+            name: 'name',
+            label: 'Period',
+            type: 'select',
+            required: true,
+            optionsFrom: 'periods',
+          },
+          {
+            name: 'course',
+            label: 'Subject',
+            type: 'select',
+            required: true,
+            optionsFrom: 'courses',
+            help: 'From Subjects list',
+          },
+          {
+            name: 'teacher',
+            label: 'Teacher',
+            type: 'select',
+            required: true,
+            optionsFrom: 'teachers',
+          },
+          {
+            name: 'room',
+            label: 'Room',
+            type: 'select',
+            optionsFrom: 'rooms',
+          },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            options: [
+              { label: 'Scheduled', value: 'Scheduled' },
+              { label: 'Draft', value: 'Draft' },
+            ],
+          },
         ],
       },
     ],
@@ -582,16 +757,18 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           {
             name: 'className',
             label: 'Class',
-            type: 'search',
+            type: 'select',
             optionsFrom: 'classes',
             required: true,
+            help: 'From Classes list',
           },
           {
             name: 'course',
-            label: 'Subject / learning area',
-            type: 'search',
+            label: 'Subject',
+            type: 'select',
             optionsFrom: 'courses',
             required: true,
+            help: 'From Subjects list',
           },
           {
             name: 'type',
@@ -625,13 +802,13 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           {
             name: 'year',
             label: 'Academic year',
-            type: 'search',
+            type: 'select',
             optionsFrom: 'academic-years',
           },
           {
             name: 'term',
             label: 'Term',
-            type: 'search',
+            type: 'select',
             optionsFrom: 'academic-terms',
           },
           { name: 'subtitle', label: 'Notes for teachers', type: 'textarea' },
@@ -663,7 +840,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'name', label: 'Title', type: 'text', required: true },
           { name: 'program', label: 'Section', type: 'select', required: true, options: sectionOpts },
           { name: 'className', label: 'Class', type: 'select', required: true, options: classOpts },
-          { name: 'course', label: 'Subject / Learning area', type: 'search', optionsFrom: 'courses' },
+          { name: 'course', label: 'Subject / Learning area', type: 'select', optionsFrom: 'courses' },
           { name: 'subtitle', label: 'Instructions', type: 'textarea', required: true },
           { name: 'attachment', label: 'Attachment', type: 'file' },
           { name: 'assignedDate', label: 'Assigned date', type: 'date', required: true },
@@ -706,11 +883,11 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
             ],
           },
           { name: 'subject', label: 'Subject', type: 'text', required: true },
-          { name: 'teacher', label: 'Teacher', type: 'search', required: true, optionsFrom: 'teachers' },
+          { name: 'teacher', label: 'Teacher', type: 'select', required: true, optionsFrom: 'teachers' },
           { name: 'week', label: 'Week', type: 'text', required: true, help: 'e.g. Week 8' },
           { name: 'lessonDate', label: 'Lesson date', type: 'date', required: true },
-          { name: 'scheme', label: 'Scheme of work', type: 'search', optionsFrom: 'schemes-of-work' },
-          { name: 'period', label: 'Period', type: 'search', optionsFrom: 'periods' },
+          { name: 'scheme', label: 'Scheme of work', type: 'select', optionsFrom: 'schemes-of-work' },
+          { name: 'period', label: 'Period', type: 'select', optionsFrom: 'periods' },
           { name: 'duration', label: 'Lesson duration (minutes)', type: 'number' },
           { name: 'objectives', label: 'Lesson objectives', type: 'textarea', required: true },
           { name: 'subtitle', label: 'Teaching activities', type: 'textarea', required: true },
@@ -741,12 +918,12 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Scheme of work',
         fields: [
-          { name: 'year', label: 'Academic year', type: 'search', required: true, optionsFrom: 'academic-years' },
-          { name: 'term', label: 'Term', type: 'search', required: true, optionsFrom: 'academic-terms' },
+          { name: 'year', label: 'Academic year', type: 'select', required: true, optionsFrom: 'academic-years' },
+          { name: 'term', label: 'Term', type: 'select', required: true, optionsFrom: 'academic-terms' },
           { name: 'className', label: 'Class', type: 'select', required: true, options: classOpts },
-          { name: 'course', label: 'Subject', type: 'search', required: true, optionsFrom: 'courses' },
-          { name: 'teacher', label: 'Teacher', type: 'search', required: true, optionsFrom: 'staff' },
-          { name: 'topic', label: 'Topic', type: 'search', required: true, optionsFrom: 'topics' },
+          { name: 'course', label: 'Subject', type: 'select', required: true, optionsFrom: 'courses' },
+          { name: 'teacher', label: 'Teacher', type: 'select', required: true, optionsFrom: 'staff' },
+          { name: 'topic', label: 'Topic', type: 'select', required: true, optionsFrom: 'topics' },
           { name: 'subtopic', label: 'Subtopic', type: 'text' },
           { name: 'week', label: 'Week number', type: 'number', required: true },
           { name: 'name', label: 'Title', type: 'text', required: true },
@@ -779,8 +956,8 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
         fields: [
           { name: 'name', label: 'Structure name', type: 'text', required: true },
           { name: 'program', label: 'Section', type: 'select', required: true, options: sectionOpts },
-          { name: 'year', label: 'Academic year', type: 'search', required: true, optionsFrom: 'academic-years' },
-          { name: 'term', label: 'Term', type: 'search', optionsFrom: 'academic-terms' },
+          { name: 'year', label: 'Academic year', type: 'select', required: true, optionsFrom: 'academic-years' },
+          { name: 'term', label: 'Term', type: 'select', optionsFrom: 'academic-terms' },
           { name: 'amount', label: 'Base amount', type: 'currency', required: true },
           { name: 'deadline', label: 'Payment deadline', type: 'date' },
           { name: 'subtitle', label: 'Fee items notes', type: 'textarea', help: 'Tuition, registration, meals, transport…' },
@@ -798,7 +975,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Payment',
         fields: [
-          { name: 'invoice', label: 'Invoice', type: 'search', required: true, optionsFrom: 'invoices' },
+          { name: 'invoice', label: 'Invoice', type: 'select', required: true, optionsFrom: 'invoices' },
           { name: 'name', label: 'Payment label', type: 'text', required: true },
           { name: 'amount', label: 'Amount', type: 'currency', required: true },
           { name: 'paidOn', label: 'Payment date', type: 'date', required: true },
@@ -830,7 +1007,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Refund',
         fields: [
-          { name: 'payment', label: 'Original payment', type: 'search', required: true, optionsFrom: 'payments' },
+          { name: 'payment', label: 'Original payment', type: 'select', required: true, optionsFrom: 'payments' },
           { name: 'name', label: 'Refund title', type: 'text', required: true },
           { name: 'amount', label: 'Refund amount', type: 'currency', required: true },
           { name: 'reason', label: 'Reason', type: 'textarea', required: true },
@@ -889,7 +1066,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
         title: 'Scholarship',
         fields: [
           { name: 'name', label: 'Name', type: 'text', required: true },
-          { name: 'learner', label: 'Learner', type: 'search', required: true, optionsFrom: 'students' },
+          { name: 'learner', label: 'Learner', type: 'select', required: true, optionsFrom: 'students' },
           { name: 'amount', label: 'Amount / percentage', type: 'text', required: true },
           { name: 'period', label: 'Period', type: 'text' },
           { name: 'subtitle', label: 'Reason', type: 'textarea' },
@@ -935,7 +1112,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
         title: 'Bursary',
         fields: [
           { name: 'name', label: 'Title', type: 'text', required: true },
-          { name: 'learner', label: 'Learner', type: 'search', required: true, optionsFrom: 'students' },
+          { name: 'learner', label: 'Learner', type: 'select', required: true, optionsFrom: 'students' },
           { name: 'fundingSource', label: 'Funding source', type: 'text', required: true },
           { name: 'amount', label: 'Approved amount', type: 'currency', required: true },
           { name: 'period', label: 'Period', type: 'text' },
@@ -977,7 +1154,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Issue',
         fields: [
-          { name: 'book', label: 'Book copy', type: 'search', required: true, optionsFrom: 'library-books' },
+          { name: 'book', label: 'Book copy', type: 'select', required: true, optionsFrom: 'library-books' },
           {
             name: 'borrowerType',
             label: 'Borrower type',
@@ -988,7 +1165,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
               { label: 'Staff', value: 'Staff' },
             ],
           },
-          { name: 'borrower', label: 'Borrower', type: 'search', required: true, optionsFrom: 'students' },
+          { name: 'borrower', label: 'Borrower', type: 'select', required: true, optionsFrom: 'students' },
           { name: 'name', label: 'Issue label', type: 'text', required: true },
           { name: 'issueDate', label: 'Issue date', type: 'date', required: true },
           { name: 'dueDate', label: 'Due date', type: 'date', required: true },
@@ -1022,7 +1199,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           },
           { name: 'model', label: 'Make and model', type: 'text' },
           { name: 'capacity', label: 'Capacity', type: 'number', required: true },
-          { name: 'driver', label: 'Driver', type: 'search', optionsFrom: 'staff' },
+          { name: 'driver', label: 'Driver', type: 'select', optionsFrom: 'staff' },
           { name: 'insuranceExpiry', label: 'Insurance expiry', type: 'date' },
           { name: 'inspectionExpiry', label: 'Inspection expiry', type: 'date' },
           {
@@ -1052,8 +1229,8 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'start', label: 'Starting location', type: 'text', required: true },
           { name: 'end', label: 'Destination', type: 'text', required: true },
           { name: 'stops', label: 'Stops (ordered)', type: 'textarea' },
-          { name: 'vehicle', label: 'Assigned vehicle', type: 'search', optionsFrom: 'transport-vehicles' },
-          { name: 'driver', label: 'Assigned driver', type: 'search', optionsFrom: 'staff' },
+          { name: 'vehicle', label: 'Assigned vehicle', type: 'select', optionsFrom: 'transport-vehicles' },
+          { name: 'driver', label: 'Assigned driver', type: 'select', optionsFrom: 'staff' },
           { name: 'pickupTime', label: 'Pickup time', type: 'time' },
           { name: 'returnTime', label: 'Return time', type: 'time' },
           { name: 'days', label: 'Applicable days', type: 'text' },
@@ -1071,7 +1248,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Health profile',
         fields: [
-          { name: 'learner', label: 'Learner', type: 'search', required: true, optionsFrom: 'students' },
+          { name: 'learner', label: 'Learner', type: 'select', required: true, optionsFrom: 'students' },
           { name: 'name', label: 'Record title', type: 'text', required: true },
           { name: 'allergies', label: 'Allergies / alerts', type: 'textarea' },
           { name: 'conditions', label: 'Medical conditions', type: 'textarea' },
@@ -1091,7 +1268,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Clinic visit',
         fields: [
-          { name: 'learner', label: 'Learner', type: 'search', required: true, optionsFrom: 'students' },
+          { name: 'learner', label: 'Learner', type: 'select', required: true, optionsFrom: 'students' },
           { name: 'name', label: 'Visit summary', type: 'text', required: true },
           { name: 'visitAt', label: 'Visit date/time', type: 'readonly', auto: true },
           { name: 'concern', label: 'Reported concern', type: 'textarea', required: true },
@@ -1118,12 +1295,12 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
         fields: [
           { name: 'incidentAt', label: 'Incident date/time', type: 'date', required: true },
           { name: 'location', label: 'Location', type: 'text', required: true },
-          { name: 'learner', label: 'Learner involved', type: 'search', required: true, optionsFrom: 'students' },
+          { name: 'learner', label: 'Learner involved', type: 'select', required: true, optionsFrom: 'students' },
           { name: 'category', label: 'Incident category', type: 'text', required: true },
           { name: 'name', label: 'Short title', type: 'text', required: true },
           { name: 'account', label: 'Factual account', type: 'textarea', required: true },
           { name: 'protectiveAction', label: 'Immediate protective action', type: 'textarea', required: true },
-          { name: 'receivedBy', label: 'Person receiving report', type: 'search', optionsFrom: 'staff' },
+          { name: 'receivedBy', label: 'Person receiving report', type: 'select', optionsFrom: 'staff' },
           { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Open', value: 'Open' }, { label: 'Under review', value: 'Under review' }, { label: 'Closed', value: 'Closed' }] },
         ],
       },
@@ -1138,7 +1315,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Incident',
         fields: [
-          { name: 'student', label: 'Learner', type: 'search', required: true, optionsFrom: 'students' },
+          { name: 'student', label: 'Learner', type: 'select', required: true, optionsFrom: 'students' },
           { name: 'date', label: 'Incident date', type: 'date', required: true },
           { name: 'location', label: 'Location', type: 'text' },
           { name: 'category', label: 'Category', type: 'text', required: true },
@@ -1162,7 +1339,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Positive recognition',
         fields: [
-          { name: 'learner', label: 'Learner', type: 'search', required: true, optionsFrom: 'students' },
+          { name: 'learner', label: 'Learner', type: 'select', required: true, optionsFrom: 'students' },
           { name: 'type', label: 'Recognition type', type: 'text', required: true },
           { name: 'name', label: 'Title', type: 'text', required: true },
           { name: 'subtitle', label: 'Description', type: 'textarea', required: true },
@@ -1200,7 +1377,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'endDate', label: 'End date/time', type: 'date' },
           { name: 'location', label: 'Location', type: 'text', required: true },
           { name: 'program', label: 'Applicable section', type: 'select', options: [...sectionOpts, { label: 'Both', value: 'Both' }] },
-          { name: 'host', label: 'Responsible staff', type: 'search', optionsFrom: 'staff' },
+          { name: 'host', label: 'Responsible staff', type: 'select', optionsFrom: 'staff' },
           { name: 'cost', label: 'Estimated cost', type: 'currency' },
           { name: 'consentRequired', label: 'Parent consent required', type: 'toggle' },
           { name: 'attachment', label: 'Attachments', type: 'file' },
@@ -1220,7 +1397,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
         fields: [
           { name: 'name', label: 'Club name', type: 'text', required: true },
           { name: 'program', label: 'Section', type: 'select', options: sectionOpts },
-          { name: 'teacher', label: 'Responsible staff', type: 'search', optionsFrom: 'staff' },
+          { name: 'teacher', label: 'Responsible staff', type: 'select', optionsFrom: 'staff' },
           { name: 'subtitle', label: 'Description', type: 'textarea' },
           { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }] },
         ],
@@ -1240,10 +1417,10 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'phone', label: 'Phone', type: 'phone', required: true },
           { name: 'idType', label: 'Identification type', type: 'text' },
           { name: 'purpose', label: 'Purpose of visit', type: 'textarea', required: true },
-          { name: 'host', label: 'Person being visited', type: 'search', optionsFrom: 'staff' },
+          { name: 'host', label: 'Person being visited', type: 'select', optionsFrom: 'staff' },
           { name: 'timeIn', label: 'Arrival time', type: 'time' },
           { name: 'timeOut', label: 'Departure time', type: 'time' },
-          { name: 'authorizedBy', label: 'Authorized staff', type: 'search', optionsFrom: 'staff' },
+          { name: 'authorizedBy', label: 'Authorized staff', type: 'select', optionsFrom: 'staff' },
           { name: 'status', label: 'Status', type: 'select', options: [{ label: 'On site', value: 'On site' }, { label: 'Departed', value: 'Departed' }] },
         ],
       },
@@ -1258,7 +1435,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Leave application',
         fields: [
-          { name: 'employee', label: 'Employee', type: 'search', optionsFrom: 'staff', help: 'Auto-filled for self-service when wired' },
+          { name: 'employee', label: 'Employee', type: 'select', optionsFrom: 'staff', help: 'Auto-filled for self-service when wired' },
           {
             name: 'leaveType',
             label: 'Leave type',
@@ -1291,7 +1468,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Payroll',
         fields: [
-          { name: 'employee', label: 'Employee', type: 'search', required: true, optionsFrom: 'staff' },
+          { name: 'employee', label: 'Employee', type: 'select', required: true, optionsFrom: 'staff' },
           { name: 'name', label: 'Pay slip label', type: 'text', required: true },
           { name: 'month', label: 'Pay period', type: 'text', required: true, placeholder: '2026-03' },
           { name: 'basic', label: 'Basic salary', type: 'currency', required: true },
@@ -1346,9 +1523,9 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'name', label: 'Asset name', type: 'text', required: true },
           { name: 'tag', label: 'Asset tag', type: 'text' },
           { name: 'category', label: 'Category', type: 'text' },
-          { name: 'department', label: 'Department', type: 'search', optionsFrom: 'departments' },
+          { name: 'department', label: 'Department', type: 'select', optionsFrom: 'departments' },
           { name: 'className', label: 'Class', type: 'select', options: classOpts },
-          { name: 'location', label: 'Location', type: 'search', optionsFrom: 'rooms' },
+          { name: 'location', label: 'Location', type: 'select', optionsFrom: 'rooms' },
           {
             name: 'condition',
             label: 'Condition',
@@ -1381,29 +1558,49 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
 
   'inventory-items': {
     module: 'inventory-items',
-    title: 'Create Inventory Item',
+    title: 'Register school store item',
     singular: 'Item',
     sections: [
       {
-        title: 'Item',
+        title: 'Catalogue item',
         fields: [
-          { name: 'name', label: 'Item name', type: 'text', required: true },
-          { name: 'sku', label: 'SKU', type: 'text', required: true },
+          { name: 'name', label: 'Item name', type: 'text', required: true, placeholder: 'e.g. Exercise book A4 (96pg)' },
+          { name: 'sku', label: 'SKU / code', type: 'text', required: true },
           {
             name: 'category',
-            label: 'Category',
+            label: 'School category',
             type: 'select',
+            required: true,
             options: [
               { label: 'Uniform', value: 'Uniform' },
               { label: 'Stationery', value: 'Stationery' },
+              { label: 'Textbooks', value: 'Textbooks' },
               { label: 'Lab', value: 'Lab' },
-              { label: 'Medical', value: 'Medical' },
-              { label: 'Sports', value: 'Sports' },
+              { label: 'Medical / sick bay', value: 'Medical' },
+              { label: 'Sports / PE', value: 'Sports' },
+              { label: 'Cleaning', value: 'Cleaning' },
+              { label: 'ICT', value: 'ICT' },
+              { label: 'Furniture', value: 'Furniture' },
+              { label: 'Feeding / kitchen', value: 'Feeding' },
             ],
           },
-          { name: 'department', label: 'Department', type: 'search', optionsFrom: 'departments' },
-          { name: 'className', label: 'Class', type: 'select', options: [...classOpts, { label: 'All classes', value: 'All classes' }] },
-          { name: 'unit', label: 'Unit', type: 'text' },
+          { name: 'department', label: 'Section / department', type: 'select', optionsFrom: 'departments' },
+          { name: 'className', label: 'Class (if class-specific)', type: 'select', options: [...classOpts, { label: 'All classes', value: 'All classes' }, { label: 'P.1–P.7', value: 'P.1–P.7' }] },
+          {
+            name: 'unit',
+            label: 'Unit',
+            type: 'select',
+            options: [
+              { label: 'Pcs', value: 'Pcs' },
+              { label: 'Pack', value: 'Pack' },
+              { label: 'Box', value: 'Box' },
+              { label: 'Set', value: 'Set' },
+              { label: 'Ream', value: 'Ream' },
+              { label: 'Litre', value: 'Litre' },
+              { label: 'Kg', value: 'Kg' },
+            ],
+          },
+          { name: 'subtitle', label: 'Notes (sizes, brand, supplier tip)', type: 'textarea' },
           { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }] },
         ],
       },
@@ -1412,18 +1609,49 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
 
   'inventory-stock': {
     module: 'inventory-stock',
-    title: 'Record Stock Level',
+    title: 'Record school stock level',
     singular: 'Stock',
     sections: [
       {
-        title: 'Stock',
+        title: 'On-hand stock',
         fields: [
-          { name: 'name', label: 'Item', type: 'search', required: true, optionsFrom: 'inventory-items' },
-          { name: 'store', label: 'Store / location', type: 'text', required: true },
-          { name: 'department', label: 'Department', type: 'search', optionsFrom: 'departments' },
-          { name: 'className', label: 'Class', type: 'select', options: [...classOpts, { label: 'All classes', value: 'All classes' }] },
-          { name: 'qty', label: 'Quantity', type: 'number', required: true },
-          { name: 'reorder', label: 'Reorder at', type: 'number' },
+          { name: 'name', label: 'Item', type: 'select', required: true, optionsFrom: 'inventory-items' },
+          {
+            name: 'store',
+            label: 'Store / cupboard',
+            type: 'select',
+            required: true,
+            options: [
+              { label: 'Main store', value: 'Main store' },
+              { label: 'Nursery store', value: 'Nursery store' },
+              { label: 'Staff room', value: 'Staff room' },
+              { label: 'Lab cupboard', value: 'Lab cupboard' },
+              { label: 'Sick bay', value: 'Sick bay' },
+              { label: 'Library store', value: 'Library store' },
+              { label: 'Kitchen store', value: 'Kitchen store' },
+            ],
+          },
+          { name: 'department', label: 'Section / department', type: 'select', optionsFrom: 'departments' },
+          { name: 'className', label: 'Class', type: 'select', options: [...classOpts, { label: 'All classes', value: 'All classes' }, { label: 'P.1–P.7', value: 'P.1–P.7' }] },
+          { name: 'qty', label: 'Quantity on hand', type: 'number', required: true },
+          {
+            name: 'critical',
+            label: 'Critical at (qty)',
+            type: 'number',
+            help: 'At or below — stop issuing; buy urgently',
+          },
+          {
+            name: 'reorder',
+            label: 'Reorder at (qty)',
+            type: 'number',
+            help: 'At or below — raise a purchase request for the term',
+          },
+          {
+            name: 'maxStock',
+            label: 'Max shelf level',
+            type: 'number',
+            help: 'Target when filling from supplier',
+          },
           {
             name: 'status',
             label: 'Status',
@@ -1431,7 +1659,69 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
             options: [
               { label: 'Available', value: 'Available' },
               { label: 'Low stock', value: 'Low stock' },
+              { label: 'Critical', value: 'Critical' },
               { label: 'Out of stock', value: 'Out of stock' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  'purchase-requests': {
+    module: 'purchase-requests',
+    title: 'Request Purchase',
+    singular: 'Purchase request',
+    sections: [
+      {
+        title: 'Request',
+        fields: [
+          {
+            name: 'name',
+            label: 'Item',
+            type: 'select',
+            required: true,
+            optionsFrom: 'inventory-items',
+          },
+          { name: 'qty', label: 'Quantity to buy', type: 'number', required: true },
+          { name: 'store', label: 'Store / location', type: 'text' },
+          {
+            name: 'department',
+            label: 'Department',
+            type: 'select',
+            optionsFrom: 'departments',
+          },
+          {
+            name: 'className',
+            label: 'Class',
+            type: 'select',
+            options: [...classOpts, { label: 'All classes', value: 'All classes' }],
+          },
+          { name: 'requestedBy', label: 'Requested by', type: 'text', required: true },
+          { name: 'neededBy', label: 'Needed by', type: 'date' },
+          {
+            name: 'priority',
+            label: 'Priority',
+            type: 'select',
+            options: [
+              { label: 'Normal', value: 'Normal' },
+              { label: 'High', value: 'High' },
+              { label: 'Urgent', value: 'Urgent' },
+            ],
+          },
+          { name: 'estimatedCost', label: 'Estimated cost (UGX)', type: 'currency' },
+          { name: 'reason', label: 'Reason', type: 'textarea' },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            options: [
+              { label: 'Draft', value: 'Draft' },
+              { label: 'Submitted', value: 'Submitted' },
+              { label: 'Approved', value: 'Approved' },
+              { label: 'Ordered', value: 'Ordered' },
+              { label: 'Received', value: 'Received' },
+              { label: 'Rejected', value: 'Rejected' },
             ],
           },
         ],
@@ -1441,19 +1731,20 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
 
   'inventory-issues': {
     module: 'inventory-issues',
-    title: 'Issue Stock',
+    title: 'Issue to class / teacher',
     singular: 'Issue',
     sections: [
       {
-        title: 'Issue',
+        title: 'Classroom / staff issue',
         fields: [
-          { name: 'name', label: 'Issue reference', type: 'text', required: true },
-          { name: 'item', label: 'Item', type: 'search', required: true, optionsFrom: 'inventory-items' },
-          { name: 'qty', label: 'Quantity', type: 'number', required: true },
-          { name: 'department', label: 'Department', type: 'search', optionsFrom: 'departments' },
-          { name: 'className', label: 'Class', type: 'select', options: [...classOpts, { label: 'All classes', value: 'All classes' }] },
-          { name: 'issuedTo', label: 'Issued to', type: 'text', required: true },
-          { name: 'date', label: 'Date', type: 'date', required: true },
+          { name: 'name', label: 'Issue reference', type: 'text', required: true, placeholder: 'e.g. Issue · Chalk · P.5 Blue' },
+          { name: 'item', label: 'Item', type: 'select', required: true, optionsFrom: 'inventory-items' },
+          { name: 'qty', label: 'Quantity issued', type: 'number', required: true },
+          { name: 'department', label: 'Section / department', type: 'select', optionsFrom: 'departments' },
+          { name: 'className', label: 'Class receiving', type: 'select', options: [...classOpts, { label: 'All classes', value: 'All classes' }] },
+          { name: 'issuedTo', label: 'Issued to (teacher / staff)', type: 'select', required: true, optionsFrom: 'teachers' },
+          { name: 'date', label: 'Issue date', type: 'date', required: true },
+          { name: 'subtitle', label: 'Purpose / notes', type: 'textarea', placeholder: 'e.g. Term III MOT exam papers' },
           {
             name: 'status',
             label: 'Status',
@@ -1479,9 +1770,9 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
         fields: [
           { name: 'name', label: 'Name', type: 'text', required: true },
           { name: 'program', label: 'Section', type: 'select', required: true, options: sectionOpts },
-          { name: 'academicYear', label: 'Academic year', type: 'search', optionsFrom: 'academic-years' },
+          { name: 'academicYear', label: 'Academic year', type: 'select', optionsFrom: 'academic-years' },
           { name: 'className', label: 'Class', type: 'select', options: classOpts },
-          { name: 'course', label: 'Subject / learning area', type: 'search', optionsFrom: 'courses' },
+          { name: 'course', label: 'Subject / learning area', type: 'select', optionsFrom: 'courses' },
           { name: 'subtitle', label: 'Description', type: 'textarea' },
           { name: 'effectiveDate', label: 'Effective date', type: 'date' },
           { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'Active' }, { label: 'Draft', value: 'Draft' }] },
@@ -1532,7 +1823,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Waiting list',
         fields: [
-          { name: 'application', label: 'Application', type: 'search', optionsFrom: 'applicants' },
+          { name: 'application', label: 'Application', type: 'select', optionsFrom: 'applicants' },
           { name: 'name', label: 'Applicant name', type: 'text', required: true },
           { name: 'program', label: 'Section', type: 'select', options: sectionOpts },
           { name: 'className', label: 'Class', type: 'select', options: classOpts },
@@ -1551,7 +1842,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
         title: 'Development summary',
         description: 'Built from existing observations — do not re-enter the same notes.',
         fields: [
-          { name: 'learner', label: 'Learner', type: 'search', required: true, optionsFrom: 'students' },
+          { name: 'learner', label: 'Learner', type: 'select', required: true, optionsFrom: 'students' },
           { name: 'name', label: 'Report title', type: 'text', required: true },
           { name: 'period', label: 'Reporting period', type: 'text', required: true },
           { name: 'observations', label: 'Reviewed observations', type: 'textarea', help: 'Reference observation IDs or summaries' },
@@ -1571,7 +1862,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Dietary requirement',
         fields: [
-          { name: 'learner', label: 'Learner', type: 'search', required: true, optionsFrom: 'students' },
+          { name: 'learner', label: 'Learner', type: 'select', required: true, optionsFrom: 'students' },
           { name: 'name', label: 'Restriction / allergy', type: 'text', required: true },
           { name: 'subtitle', label: 'Description', type: 'textarea', required: true },
           { name: 'parentConfirmed', label: 'Parent confirmation', type: 'checkbox' },
@@ -1589,12 +1880,12 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Early departure',
         fields: [
-          { name: 'learner', label: 'Learner', type: 'search', required: true, optionsFrom: 'students' },
+          { name: 'learner', label: 'Learner', type: 'select', required: true, optionsFrom: 'students' },
           { name: 'name', label: 'Summary', type: 'text', required: true },
           { name: 'departureTime', label: 'Departure time', type: 'time', required: true },
           { name: 'reason', label: 'Reason', type: 'textarea', required: true },
-          { name: 'collector', label: 'Authorized collector', type: 'search', optionsFrom: 'guardians' },
-          { name: 'verifiedBy', label: 'Staff verification', type: 'search', optionsFrom: 'staff' },
+          { name: 'collector', label: 'Authorized collector', type: 'select', optionsFrom: 'guardians' },
+          { name: 'verifiedBy', label: 'Staff verification', type: 'select', optionsFrom: 'staff' },
           { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Recorded', value: 'Recorded' }] },
         ],
       },
@@ -1642,7 +1933,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'code', label: 'Campus code', type: 'text' },
           { name: 'address', label: 'Physical address', type: 'textarea', required: true },
           { name: 'phone', label: 'Contact number', type: 'phone' },
-          { name: 'manager', label: 'Campus manager', type: 'search', optionsFrom: 'staff' },
+          { name: 'manager', label: 'Campus manager', type: 'select', optionsFrom: 'staff' },
           { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }] },
         ],
       },
@@ -1669,8 +1960,63 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
   },
 }
 
+/** Map common FK-like column names → catalog module for dropdown options. */
+const FALLBACK_OPTIONS_FROM: Record<string, string> = {
+  classname: 'classes',
+  class: 'classes',
+  group: 'classes',
+  course: 'courses',
+  subject: 'courses',
+  teacher: 'teachers',
+  instructor: 'teachers',
+  classteacher: 'teachers',
+  student: 'students',
+  learner: 'students',
+  pupil: 'students',
+  room: 'rooms',
+  classroom: 'rooms',
+  location: 'rooms',
+  department: 'departments',
+  year: 'academic-years',
+  academicyear: 'academic-years',
+  term: 'academic-terms',
+  period: 'periods',
+  employee: 'staff',
+  host: 'staff',
+  staff: 'staff',
+  receivedby: 'staff',
+  verifiedby: 'staff',
+  authorizedby: 'staff',
+  driver: 'staff',
+  manager: 'staff',
+  guardian: 'guardians',
+  parent: 'guardians',
+  collector: 'guardians',
+  parentid: 'guardians',
+  invoice: 'invoices',
+  payment: 'payments',
+  item: 'inventory-items',
+  vehicle: 'transport-vehicles',
+  book: 'library-books',
+  topic: 'topics',
+  scheme: 'schemes-of-work',
+  application: 'applicants',
+  feestructure: 'fee-structures',
+  program: 'programs',
+  day: '__weekdays__',
+}
+
+const WEEKDAY_OPTIONS = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+].map((d) => ({ label: d, value: d }))
+
 function fieldTypeForColumn(key: string): ModuleFormSpec['sections'][0]['fields'][0]['type'] {
   const k = key.toLowerCase()
+  if (FALLBACK_OPTIONS_FROM[k.replace(/[^a-z]/g, '')]) return 'select'
   if (k.includes('date') || k === 'start' || k === 'end') return 'date'
   if (k.includes('time')) return 'time'
   if (k.includes('email')) return 'email'
@@ -1707,6 +2053,18 @@ export function buildFallbackForm(
           { label: 'Draft', value: 'Draft' },
           { label: 'Inactive', value: 'Inactive' },
         ]
+      } else {
+        const lookup = FALLBACK_OPTIONS_FROM[c.key.toLowerCase().replace(/[^a-z]/g, '')]
+        if (lookup === '__weekdays__') {
+          field.type = 'select'
+          field.options = WEEKDAY_OPTIONS
+        } else if (lookup) {
+          field.type = 'select'
+          field.optionsFrom = lookup
+          if (lookup === 'guardians' && c.key.toLowerCase().includes('id')) {
+            field.optionsValue = 'id'
+          }
+        }
       }
       return field
     })

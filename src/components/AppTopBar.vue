@@ -1,23 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  Avatar,
-  Button,
-  Dropdown,
-  TextInput,
-  toast,
-} from 'frappe-ui'
-import { HelpIcon } from 'frappe-ui/icons'
-import { commandItems } from '../data/workspace'
+import { Button, Dropdown, toast } from 'frappe-ui'
 import { currentUser } from '../data/activity'
 import { getCurrentSystemUser } from '../data/permissions'
-import {
-  openDocumentation,
-  openKeyboardShortcuts,
-  openUserMenu,
-} from '../composables/useAppActions'
-import { logout } from '../data/auth'
+import { openUserMenu } from '../composables/useAppActions'
+import { canAccessPath } from '../lib/accessControl'
 import {
   markAllNotificationsRead,
   markNotificationRead,
@@ -26,13 +14,26 @@ import {
   unreadNotificationCount,
   type NotificationTone,
 } from '../data/notifications'
-const router = useRouter()
-const avatarLabel = computed(() => currentUser.name || 'PC')
 
-const query = ref('')
-const open = ref(false)
+const router = useRouter()
+
+/** Two initials with a gap, e.g. "C O" from Celestine Olaro. */
+const avatarInitials = computed(() => {
+  const name = String(currentUser.name || '').trim()
+  const parts = name.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    const a = parts[0][0] || ''
+    const b = parts[parts.length - 1][0] || ''
+    return `${a} ${b}`.toUpperCase()
+  }
+  const one = parts[0] || String(currentUser.email || 'PC').split('@')[0] || 'PC'
+  const letters = one.replace(/[^a-zA-Z0-9]/g, '')
+  if (letters.length >= 2) return `${letters[0]} ${letters[1]}`.toUpperCase()
+  if (letters.length === 1) return `${letters[0]} U`.toUpperCase()
+  return 'P C'
+})
+
 const notifOpen = ref(false)
-const inputEl = ref<{ focus?: () => void } | null>(null)
 const bellEl = ref<HTMLElement | null>(null)
 const notifPanelStyle = ref<Record<string, string>>({})
 
@@ -59,22 +60,12 @@ watch(notifOpen, async (isOpen) => {
   placeNotifPanel()
 })
 
-const results = computed(() => {
-  const q = query.value.trim().toLowerCase()
-  if (!q) return commandItems.slice(0, 8)
-  return commandItems
-    .filter((item) => item.label.toLowerCase().includes(q))
-    .slice(0, 10)
-})
-
 const unreadCount = unreadNotificationCount
 const badgeLabel = notificationBadgeLabel
 const items = notifications
 
 function go(route: string) {
-  open.value = false
   notifOpen.value = false
-  query.value = ''
   router.push(route)
 }
 
@@ -97,16 +88,7 @@ function toneDot(tone: NotificationTone) {
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') {
-    e.preventDefault()
-    open.value = true
-    notifOpen.value = false
-    queueMicrotask(() => inputEl.value?.focus?.())
-  }
-  if (e.key === 'Escape') {
-    open.value = false
-    notifOpen.value = false
-  }
+  if (e.key === 'Escape') notifOpen.value = false
 }
 
 function onWindowReposition() {
@@ -124,115 +106,44 @@ onUnmounted(() => {
   window.removeEventListener('scroll', onWindowReposition, true)
 })
 
-const helpItems = computed(() => [
-  {
-    label: 'Documentation',
-    icon: 'lucide-book-open',
-    onClick: () => openDocumentation(),
-  },
-  {
-    label: 'Keyboard shortcuts',
-    icon: 'lucide-keyboard',
-    onClick: () => openKeyboardShortcuts(),
-  },
-])
-
-const accountItems = computed(() => [
-  {
-    label: 'My profile',
-    icon: 'lucide-user',
-    onClick: () => {
-      const me = getCurrentSystemUser()
-      router.push(me ? `/users/${me.id}` : '/me')
+const accountItems = computed(() => {
+  void currentUser.role
+  const items = [
+    {
+      label: 'My profile',
+      icon: 'lucide-user',
+      onClick: () => {
+        const me = getCurrentSystemUser()
+        router.push(me ? `/users/${me.id}` : '/me')
+      },
     },
-  },
-  {
-    label: 'Account actions',
-    icon: 'lucide-settings',
-    onClick: () => openUserMenu(router),
-  },
-  {
-    label: 'School Setup',
-    icon: 'lucide-building-2',
-    onClick: () => router.push('/school-setup'),
-  },
-  {
-    label: 'Users & Roles',
-    icon: 'lucide-users',
-    onClick: () => router.push('/users'),
-  },
-  {
-    label: 'Log out',
-    icon: 'lucide-log-out',
-    onClick: () => signOut(),
-  },
-])
-
-async function signOut() {
-  logout()
-  toast.success('Signed out')
-  await router.push('/login')
-}
+    {
+      label: 'Account actions',
+      icon: 'lucide-settings',
+      onClick: () => openUserMenu(router),
+    },
+  ]
+  if (canAccessPath('/school-setup', 'read')) {
+    items.push({
+      label: 'School Setup',
+      icon: 'lucide-building-2',
+      onClick: () => router.push('/school-setup'),
+    })
+  }
+  if (canAccessPath('/users', 'read')) {
+    items.push({
+      label: 'Users & Roles',
+      icon: 'lucide-users',
+      onClick: () => router.push('/users'),
+    })
+  }
+  return items
+})
 </script>
 
 <template>
-  <header class="school-topbar">
-    <div class="relative mx-auto w-full max-w-xl">
-      <button
-        type="button"
-        class="flex h-9 w-full items-center gap-2.5 rounded-5 border border-outline-gray-2 bg-surface-gray-1 px-3.5 text-left text-sm text-ink-gray-5 transition hover:border-outline-gray-3 hover:bg-surface-white"
-        @click="open = true"
-      >
-        <span class="lucide-search size-3.5 shrink-0" aria-hidden="true" />
-        <span class="flex-1 truncate">Search or type a command</span>
-        <kbd
-          class="hidden rounded-3 border border-outline-gray-2 bg-surface-white px-1.5 py-0.5 text-xs text-ink-gray-5 sm:inline"
-          >⌘G</kbd
-        >
-      </button>
-
-      <div
-        v-if="open"
-        class="absolute inset-x-0 top-0 z-50 overflow-hidden rounded-6 border border-outline-gray-2 bg-white shadow-xl"
-      >
-        <div class="border-b border-outline-gray-1 bg-white p-2">
-          <TextInput
-            ref="inputEl"
-            v-model="query"
-            placeholder="Search students, fees, programs…"
-          >
-            <template #prefix>
-              <span class="lucide-search size-4 text-ink-gray-5" />
-            </template>
-          </TextInput>
-        </div>
-        <ul class="max-h-72 overflow-y-auto bg-white p-1">
-          <li v-for="item in results" :key="item.route + item.label">
-            <button
-              type="button"
-              class="flex w-full items-center justify-between rounded-4 px-3 py-2 text-left hover:bg-surface-gray-1"
-              @click="go(item.route)"
-            >
-              <span class="text-sm text-ink-gray-9">{{ item.label }}</span>
-              <span class="text-xs text-ink-gray-5">{{ item.group }}</span>
-            </button>
-          </li>
-          <li
-            v-if="results.length === 0"
-            class="px-3 py-6 text-center text-sm text-ink-gray-5"
-          >
-            No matches
-          </li>
-        </ul>
-      </div>
-      <button
-        v-if="open"
-        type="button"
-        class="fixed inset-0 z-40 cursor-default bg-ink-gray-9/20"
-        aria-label="Close search"
-        @click="open = false"
-      />
-    </div>
+  <header class="school-topbar school-topbar--compact">
+    <div class="flex-1" aria-hidden="true" />
 
     <div class="flex shrink-0 items-center gap-1">
       <div class="relative">
@@ -258,40 +169,17 @@ async function signOut() {
         </button>
       </div>
 
-      <Dropdown :options="helpItems">
-        <Button>
-          <template #default>
-            <span class="flex items-center gap-1.5 px-1">
-              <HelpIcon class="size-4" />
-              <span class="hidden text-sm sm:inline">Help</span>
-              <span class="lucide-chevron-down size-3.5 text-ink-gray-5" />
-            </span>
-          </template>
-        </Button>
-      </Dropdown>
       <Dropdown :options="accountItems">
         <button
           type="button"
-          class="ms-1 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-outline-gray-4"
-          aria-label="Account menu"
+          class="school-topbar-avatar ms-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-outline-gray-4"
+          :aria-label="`Account menu · ${currentUser.name || 'User'}`"
         >
-          <Avatar :label="avatarLabel" size="md" />
+          <span class="school-topbar-avatar-text" aria-hidden="true">{{
+            avatarInitials
+          }}</span>
         </button>
       </Dropdown>
-      <Button
-        class="ms-1"
-        variant="subtle"
-        theme="red"
-        aria-label="Log out"
-        @click="signOut"
-      >
-        <template #default>
-          <span class="flex items-center gap-1.5 px-1">
-            <span class="lucide-log-out size-4" aria-hidden="true" />
-            <span class="hidden text-sm sm:inline">Log out</span>
-          </span>
-        </template>
-      </Button>
     </div>
 
     <Teleport to="body">

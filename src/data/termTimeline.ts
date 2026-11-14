@@ -2,6 +2,7 @@ import { computed } from 'vue'
 import { schoolStore } from './store'
 import { schoolSetup } from './schoolSetup'
 import type { CatalogRow } from './catalog'
+import { publicHolidayBars, yearsAround } from './publicHolidays'
 
 export type TimelineKind =
   | 'term'
@@ -166,6 +167,10 @@ export function buildTimelineBars(): TimelineBar[] {
       source: 'exams',
     })
   }
+
+  const yearHint =
+    String(schoolSetup.academicYear || '').slice(0, 4) || todayIso()
+  bars.push(...publicHolidayBars(yearsAround(yearHint, 1)))
 
   return bars.sort((a, b) => a.start.localeCompare(b.start))
 }
@@ -431,9 +436,10 @@ export function barWidthPct(
   const e = parseDay(bar.end) ?? s
   if (s == null || e == null || rangeEnd <= rangeStart) return 2
   const left = Math.max(s, rangeStart)
-  const right = Math.min(Math.max(e, s) + DAY_MS * 0.35, rangeEnd)
+  const right = Math.min(Math.max(e, s) + DAY_MS * 0.85, rangeEnd)
   const width = ((right - left) / (rangeEnd - rangeStart)) * 100
-  return Math.max(1.2, Math.min(100, width))
+  // Keep short (single-day) bars visible without overlapping neighbours too hard
+  return Math.max(2.6, Math.min(100, width))
 }
 
 export function todayPct(rangeStart: number, rangeEnd: number) {
@@ -452,12 +458,92 @@ export const kindThemes: Record<
   TimelineKind,
   { label: string; color: string; soft: string }
 > = {
-  term: { label: 'Term', color: '#3d3f8c', soft: '#e8e9f8' },
-  exam: { label: 'Exams', color: '#b45309', soft: '#fef3c7' },
+  term: { label: 'Term', color: '#2e3192', soft: '#e8e9f6' },
+  exam: { label: 'Exams', color: '#c2410c', soft: '#ffedd5' },
   activity: { label: 'Activities', color: '#0f766e', soft: '#ccfbf1' },
-  parents: { label: 'Parents', color: '#7c3aed', soft: '#ede9fe' },
-  holiday: { label: 'Holidays', color: '#be123c', soft: '#ffe4e6' },
-  school: { label: 'School day', color: '#475569', soft: '#e2e8f0' },
+  parents: { label: 'Parents', color: '#6d28d9', soft: '#ede9fe' },
+  holiday: { label: 'Public holidays', color: '#be123c', soft: '#ffe4e6' },
+  school: { label: 'School days', color: '#334155', soft: '#e2e8f0' },
+}
+
+export interface GanttLane {
+  id: string
+  label: string
+  kind: TimelineKind
+  bars: TimelineBar[]
+}
+
+const KIND_ORDER: TimelineKind[] = [
+  'term',
+  'exam',
+  'school',
+  'activity',
+  'parents',
+  'holiday',
+]
+
+/** Pack bars into kind lanes so the chart is dense instead of one row per event. */
+export function packGanttLanes(bars: TimelineBar[]): GanttLane[] {
+  const byKind = new Map<TimelineKind, TimelineBar[]>()
+  for (const bar of bars) {
+    const list = byKind.get(bar.kind) || []
+    list.push(bar)
+    byKind.set(bar.kind, list)
+  }
+
+  const lanes: GanttLane[] = []
+  for (const kind of KIND_ORDER) {
+    const group = (byKind.get(kind) || [])
+      .slice()
+      .sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end))
+    if (!group.length) continue
+
+    const laneEnds: number[] = []
+    const laneBars: TimelineBar[][] = []
+
+    for (const bar of group) {
+      const start = parseDay(bar.start) ?? 0
+      const end = (parseDay(bar.end) ?? start) + DAY_MS
+      let placed = false
+      for (let i = 0; i < laneEnds.length; i++) {
+        if (start >= laneEnds[i]) {
+          laneBars[i].push(bar)
+          laneEnds[i] = end
+          placed = true
+          break
+        }
+      }
+      if (!placed) {
+        laneBars.push([bar])
+        laneEnds.push(end)
+      }
+    }
+
+    laneBars.forEach((items, idx) => {
+      const base = kindThemes[kind].label
+      lanes.push({
+        id: `${kind}-${idx}`,
+        label: idx === 0 ? base : `${base} · ${idx + 1}`,
+        kind,
+        bars: items,
+      })
+    })
+  }
+  return lanes
+}
+
+export function formatBarDate(iso: string) {
+  const t = parseDay(iso)
+  if (t == null) return iso
+  return new Date(t).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+  })
+}
+
+export function formatBarRange(start: string, end: string) {
+  if (start === end) return formatBarDate(start)
+  return `${formatBarDate(start)} – ${formatBarDate(end)}`
 }
 
 export const scaleOptions: { label: string; value: TimelineScale }[] = [

@@ -58,7 +58,6 @@ export const educationNav: NavGroup[] = [
     title: 'People',
     items: [
       { label: 'Students', icon: 'lucide-graduation-cap', route: '/students' },
-      { label: 'People', icon: 'lucide-users-round', route: '/people' },
       { label: 'Alumni', icon: 'lucide-graduation-cap', route: '/alumni' },
     ],
   },
@@ -67,63 +66,46 @@ export const educationNav: NavGroup[] = [
     items: [
       { label: 'Applications', icon: 'lucide-user-plus', route: '/applicants' },
       { label: 'Admissions', icon: 'lucide-clipboard-list', route: '/admissions' },
-      { label: 'Waiting list', icon: 'lucide-list-ordered', route: '/waiting-list' },
-      { label: 'Enrollments', icon: 'lucide-badge-check', route: '/program-enrollments' },
-      { label: 'Subject enrollment', icon: 'lucide-list-checks', route: '/course-enrollments' },
       { label: 'Scan to data', icon: 'lucide-scan-text', route: '/scan' },
     ],
   },
   {
     title: 'Academics',
     items: [
-      { label: 'Academic years', icon: 'lucide-calendar-range', route: '/academic-years' },
-      { label: 'Terms', icon: 'lucide-calendar-days', route: '/academic-terms' },
+      { label: 'Academics desk', icon: 'lucide-layout-grid', route: '/academics' },
+      { label: 'Years & terms', icon: 'lucide-calendar-range', route: '/years-and-terms' },
       { label: 'Classes', icon: 'lucide-users', route: '/classes' },
-      { label: 'Sections', icon: 'lucide-book-marked', route: '/programs' },
       { label: 'Subjects', icon: 'lucide-book-open', route: '/courses' },
       { label: 'Curriculum', icon: 'lucide-book-copy', route: '/curriculum' },
       { label: 'Topics', icon: 'lucide-list-tree', route: '/topics' },
+      { label: 'Timetable', icon: 'lucide-calendar-clock', route: '/timetable' },
       { label: 'Rooms', icon: 'lucide-door-open', route: '/rooms' },
       { label: 'Batches', icon: 'lucide-layers', route: '/batches' },
     ],
   },
   {
-    title: 'School',
-    items: [
-      { label: 'Academics', icon: 'lucide-book-open', route: '/academics' },
-    ],
-  },
-  {
-    title: 'Timetable',
-    items: [
-      { label: 'Timetable', icon: 'lucide-calendar-clock', route: '/timetable' },
-      { label: 'Periods', icon: 'lucide-clock-3', route: '/periods' },
-    ],
-  },
-  {
     title: 'Attendance',
     items: [
-      { label: 'Registers', icon: 'lucide-clipboard-check', route: '/attendance' },
-      { label: 'Take attendance', icon: 'lucide-user-check', route: '/attendance/take' },
-      { label: 'Early departures', icon: 'lucide-log-out', route: '/early-departures' },
-      { label: 'Staff attendance', icon: 'lucide-user-round-check', route: '/staff-attendance' },
+      {
+        label: 'Attendance',
+        icon: 'lucide-clipboard-check',
+        route: '/attendance',
+      },
     ],
   },
   {
     title: 'Exams & Results',
     items: [
       {
-        label: 'Set exams & marks',
+        label: 'Exams & marks',
         icon: 'lucide-table-2',
         route: '/gradebook',
       },
-      { label: 'Examinations', icon: 'lucide-file-check-2', route: '/exams' },
-      { label: 'Results', icon: 'lucide-award', route: '/exam-results' },
-      { label: 'Report cards', icon: 'lucide-file-badge', route: '/report-cards' },
-      { label: 'Assessment groups', icon: 'lucide-folders', route: '/assessment-groups' },
-      { label: 'Assessment criteria', icon: 'lucide-list-checks', route: '/assessment-criteria' },
-      { label: 'Grading scales', icon: 'lucide-sliders-horizontal', route: '/grading-scales' },
-      { label: 'Exam settings', icon: 'lucide-settings-2', route: '/exam-settings' },
+      {
+        label: 'Report cards',
+        icon: 'lucide-file-badge',
+        route: '/report-cards',
+      },
     ],
   },
   {
@@ -134,10 +116,8 @@ export const educationNav: NavGroup[] = [
       { label: 'Fee schedules', icon: 'lucide-calendar-range', route: '/fee-schedules' },
       { label: 'Invoices', icon: 'lucide-file-spreadsheet', route: '/invoices' },
       { label: 'Fees', icon: 'lucide-receipt', route: '/fees' },
-      { label: 'Offset left dues', icon: 'lucide-circle-off', route: '/fees/offset' },
-      { label: 'Fee offsets', icon: 'lucide-history', route: '/fee-offsets' },
-      { label: 'Payments', icon: 'lucide-smartphone-nfc', route: '/payments' },
-      { label: 'Payment desk', icon: 'lucide-wallet', route: '/payment' },
+      { label: 'Fee offsets', icon: 'lucide-circle-off', route: '/fees/offset' },
+      { label: 'Payments', icon: 'lucide-wallet', route: '/payment' },
       { label: 'Refunds', icon: 'lucide-undo-2', route: '/refunds' },
       { label: 'Scholarships', icon: 'lucide-award', route: '/scholarships' },
       { label: 'Discounts', icon: 'lucide-percent', route: '/discounts' },
@@ -148,7 +128,7 @@ export const educationNav: NavGroup[] = [
   {
     title: 'HR',
     items: [
-      { label: 'Staff directory', icon: 'lucide-id-card', route: '/people?tab=staff' },
+      { label: 'People', icon: 'lucide-users-round', route: '/people' },
       { label: 'Departments', icon: 'lucide-building', route: '/departments' },
       { label: 'Payroll', icon: 'lucide-wallet-cards', route: '/payroll' },
       { label: 'Leave', icon: 'lucide-calendar-off', route: '/staff-leave' },
@@ -159,66 +139,53 @@ export const educationNav: NavGroup[] = [
     items: [
       { label: 'Announcements', icon: 'lucide-megaphone', route: '/announcements' },
       { label: 'Messages', icon: 'lucide-messages-square', route: '/communications' },
-      { label: 'SMS', icon: 'lucide-message-square-text', route: '/sms-messages' },
-      { label: 'Templates', icon: 'lucide-file-text', route: '/message-templates' },
       { label: 'Calendar', icon: 'lucide-calendar-days', route: '/calendar' },
     ],
   },
   {
     title: 'Library',
     items: [
-      { label: 'Books', icon: 'lucide-library', route: '/library-books' },
-      { label: 'Issues', icon: 'lucide-book-up', route: '/library-issues' },
+      { label: 'Library', icon: 'lucide-library', route: '/library' },
     ],
   },
   {
     title: 'Transport',
     items: [
-      { label: 'Routes', icon: 'lucide-route', route: '/transport-routes' },
-      { label: 'Vehicles', icon: 'lucide-bus', route: '/transport-vehicles' },
+      { label: 'Transport', icon: 'lucide-bus', route: '/transport' },
     ],
   },
   {
     title: 'Meals',
     items: [
-      { label: 'Menus', icon: 'lucide-utensils', route: '/meals-menus' },
-      { label: 'Meal attendance', icon: 'lucide-clipboard-list', route: '/meal-attendance' },
-      { label: 'Dietary requirements', icon: 'lucide-salad', route: '/dietary-requirements' },
+      { label: 'Meals', icon: 'lucide-utensils', route: '/meals' },
     ],
   },
   {
     title: 'Health & Safety',
     items: [
-      { label: 'Health records', icon: 'lucide-heart-pulse', route: '/health-records' },
-      { label: 'Clinic visits', icon: 'lucide-stethoscope', route: '/clinic-visits' },
-      { label: 'Safeguarding', icon: 'lucide-shield-alert', route: '/safeguarding-incidents' },
-      { label: 'Visitor log', icon: 'lucide-clipboard-pen-line', route: '/visitor-log' },
+      { label: 'Health & safety', icon: 'lucide-heart-pulse', route: '/health' },
     ],
   },
   {
     title: 'Discipline',
     items: [
-      { label: 'Cases', icon: 'lucide-shield-alert', route: '/disciplinary-cases' },
-      { label: 'Positive recognition', icon: 'lucide-star', route: '/positive-recognition' },
-      { label: 'Pupil log', icon: 'lucide-notebook-pen', route: '/student-log' },
+      { label: 'Discipline', icon: 'lucide-shield-alert', route: '/discipline' },
     ],
   },
   {
     title: 'Events',
     items: [
-      {
-        label: 'Term overview',
-        icon: 'lucide-calendar-range',
-        route: '/term-overview',
-      },
-      { label: 'School events', icon: 'lucide-party-popper', route: '/school-events' },
       { label: 'Clubs', icon: 'lucide-trophy', route: '/clubs' },
     ],
   },
   {
     title: 'Inventory',
     items: [
-      { label: 'Inventory', icon: 'lucide-package', route: '/inventory' },
+      {
+        label: 'School store',
+        icon: 'lucide-package',
+        route: '/inventory',
+      },
     ],
   },
   {
@@ -226,7 +193,7 @@ export const educationNav: NavGroup[] = [
     items: [
       { label: 'Campuses', icon: 'lucide-map-pin', route: '/campuses' },
       { label: 'Boarding', icon: 'lucide-bed-double', route: '/hostel' },
-      { label: 'Fee categories', icon: 'lucide-tags', route: '/student-categories' },
+      { label: 'Student categories', icon: 'lucide-tags', route: '/student-categories' },
     ],
   },
   {
@@ -278,7 +245,7 @@ export const shortcuts: ShortcutItem[] = [
   },
   {
     label: 'Take attendance',
-    route: '/attendance/take',
+    route: '/attendance?tab=take',
     icon: 'lucide-clipboard-check',
     description: 'Class register',
   },
@@ -301,7 +268,7 @@ export const shortcuts: ShortcutItem[] = [
 export const tools: ToolItem[] = [
   {
     label: 'Take attendance',
-    route: '/attendance/take',
+    route: '/attendance?tab=take',
     icon: 'lucide-clipboard-check',
     description: 'Mark a class register',
   },
@@ -337,11 +304,24 @@ export const masterGroups: MasterGroup[] = Array.from(
 ).map(([title, mods]) => ({
   title,
   icon: 'lucide-folder',
-  links: mods.map((m) => ({
-    label: m.title,
-    route: `/${m.key}`,
-  })),
+  links: mods
+    .filter(
+      (m) =>
+        m.key !== 'academic-terms' &&
+        m.key !== 'program-enrollments' &&
+        m.key !== 'course-enrollments',
+    )
+    .map((m) => ({
+      label: m.key === 'academic-years' ? 'Years & terms' : m.title,
+      route: m.key === 'academic-years' ? '/years-and-terms' : `/${m.key}`,
+    })),
 }))
+
+const hiddenCommandModules = new Set([
+  'academic-terms',
+  'program-enrollments',
+  'course-enrollments',
+])
 
 export const commandItems = [
   ...shortcuts.map((s) => ({
@@ -350,11 +330,13 @@ export const commandItems = [
     group: 'Shortcuts',
   })),
   ...tools.map((t) => ({ label: t.label, route: t.route, group: 'Tools' })),
-  ...Object.values(allCatalog).map((m) => ({
-    label: m.title,
-    route: `/${m.key}`,
-    group: m.group,
-  })),
+  ...Object.values(allCatalog)
+    .filter((m) => !hiddenCommandModules.has(m.key))
+    .map((m) => ({
+      label: m.key === 'academic-years' ? 'Years & terms' : m.title,
+      route: m.key === 'academic-years' ? '/years-and-terms' : `/${m.key}`,
+      group: m.group,
+    })),
   { label: 'Users & Roles', route: '/users', group: 'Settings' },
   { label: 'Term overview', route: '/term-overview', group: 'Events' },
   { label: 'School setup', route: '/school-setup', group: 'Settings' },

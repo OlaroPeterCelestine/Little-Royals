@@ -15,8 +15,10 @@ import { getLiveModule, schoolStore } from '../data/store'
 import { isNurseryClass, isPrimaryClass } from '../data/grades'
 import { useListPage } from '../composables/useListPage'
 import {
+  openCreateDialog,
   openDeleteDialog,
   openDiscardSelectionDialog,
+  openEditDialog,
 } from '../composables/useModuleForms'
 import {
   defaultDocumentKind,
@@ -302,13 +304,13 @@ function createRecord() {
     return
   }
   if (!moduleKey.value || !requirePerm('create', 'create records')) return
-  router.push(`/${moduleKey.value}/new`)
+  openCreateDialog(moduleKey.value)
 }
 
 function editRecord(row: CatalogRow, event?: Event) {
   event?.stopPropagation()
   if (!moduleKey.value || !requirePerm('write', 'edit records')) return
-  router.push(`/${moduleKey.value}/${row.id}/edit`)
+  openEditDialog(moduleKey.value, row)
 }
 
 function openDetail(row: CatalogRow) {

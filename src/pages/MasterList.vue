@@ -13,18 +13,25 @@ import type { CatalogRow } from '../data/catalog'
 import { getLiveModule } from '../data/store'
 import { useListPage } from '../composables/useListPage'
 import {
+  openCreateDialog,
   openDeleteDialog,
   openDiscardSelectionDialog,
+  openEditDialog,
 } from '../composables/useModuleForms'
 import {
   defaultDocumentKind,
+  documentsForModule,
   printRecordDocument,
 } from '../data/documents'
+import { canCurrentUser } from '../data/permissions'
 import { useModuleAccess } from '../composables/useModuleAccess'
 import CatalogTable from '../components/CatalogTable.vue'
 import ListToolbar from '../components/ListToolbar.vue'
 import PageIntro from '../components/PageIntro.vue'
 import { buildListColumnTracks } from '../utils/listColumns'
+import { sortSchoolClassRows } from '../data/grades'
+import AppBackButton from '../components/AppBackButton.vue'
+import { pushWithReturn } from '../composables/useAppBack'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,7 +48,11 @@ const moduleKey = computed(() => {
 })
 
 const mod = computed(() => getLiveModule(moduleKey.value))
-const rows = computed(() => mod.value?.rows || [])
+const rows = computed(() => {
+  const list = mod.value?.rows || []
+  if (moduleKey.value === 'classes') return sortSchoolClassRows(list)
+  return list
+})
 const { canCreate, canWrite, canDelete, canPrint, requirePerm } =
   useModuleAccess(moduleKey)
 
@@ -101,24 +112,47 @@ const columns = computed(() =>
 
 function createRecord() {
   if (!requirePerm('create', 'create records')) return
-  router.push(`/${moduleKey.value}/new`)
+  openCreateDialog(moduleKey.value)
 }
 
 function editRecord(row: CatalogRow, event?: Event) {
   event?.stopPropagation()
   if (!requirePerm('write', 'edit records')) return
-  router.push(`/${moduleKey.value}/${row.id}/edit`)
+  openEditDialog(moduleKey.value, row)
 }
 
 function openDetail(row: CatalogRow) {
-  router.push(`/${moduleKey.value}/${row.id}`)
+  pushWithReturn(router, `/${moduleKey.value}/${row.id}`)
 }
+
+const showPrint = computed(
+  () =>
+    documentsForModule(moduleKey.value).length > 0 ||
+    defaultDocumentKind(moduleKey.value) !== 'generic',
+)
+
+const allowPrint = computed(
+  () =>
+    showPrint.value &&
+    (canPrint.value ||
+      canCurrentUser(moduleKey.value, 'export') ||
+      canCurrentUser(moduleKey.value, 'read')),
+)
 
 function printRecord(row: CatalogRow, event?: Event) {
   event?.stopPropagation()
-  if (!requirePerm('print', 'print')) return
+  if (!allowPrint.value) {
+    toast.error('Your role cannot print this document')
+    return
+  }
   try {
-    const kind = defaultDocumentKind(moduleKey.value)
+    let kind = defaultDocumentKind(moduleKey.value)
+    if (
+      moduleKey.value === 'fees' &&
+      ['Paid', 'Partial'].includes(String(row.status || ''))
+    ) {
+      kind = 'receipt'
+    }
     const title = printRecordDocument(kind, moduleKey.value, row)
     toast.success(`Print preview · ${title}`)
   } catch (err) {
@@ -150,6 +184,7 @@ function clearSelection() {
 <template>
   <PageHeader>
     <PageHeaderTitle :title="mod?.title || 'Module'" />
+    <AppBackButton only-when-from fallback="/term-overview" />
   </PageHeader>
 
   <div class="school-page">
@@ -264,7 +299,7 @@ function clearSelection() {
       :columns="mod.columns"
       :rows="pageRows"
       :grid-columns="columns"
-      :can-print="canPrint"
+      :can-print="allowPrint"
       :can-write="canWrite"
       :page="page"
       :total-pages="totalPages"

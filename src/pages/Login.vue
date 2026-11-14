@@ -6,6 +6,7 @@ import { loginWithCredentials } from '../data/auth'
 import { brand } from '../data/brand'
 import { isParentRole } from '../data/permissions'
 import { safeInternalPath } from '../lib/security'
+import { sanitizeText } from '../lib/sanitize'
 import SchoolLogo from '../components/SchoolLogo.vue'
 
 const router = useRouter()
@@ -23,8 +24,8 @@ async function submit() {
   loading.value = true
   try {
     const user = await loginWithCredentials({
-      email: email.value,
-      password: password.value,
+      email: sanitizeText(email.value, 'email'),
+      password: sanitizeText(password.value, 'text', 128),
       remember: remember.value,
     })
     toast.success('Welcome back')

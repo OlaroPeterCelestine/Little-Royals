@@ -90,14 +90,4 @@ export function getTeacher360(teacherId: string): Teacher360Bundle | null {
   }
 }
 
-export function teacherAge(dateOfBirth?: string | number): string {
-  const raw = String(dateOfBirth || '')
-  if (!raw) return '—'
-  const dob = new Date(raw)
-  if (Number.isNaN(dob.getTime())) return '—'
-  const today = new Date()
-  let age = today.getFullYear() - dob.getFullYear()
-  const m = today.getMonth() - dob.getMonth()
-  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age -= 1
-  return String(age)
-}
+export { personAge as teacherAge } from './biodata'

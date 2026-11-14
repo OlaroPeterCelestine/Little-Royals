@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from 'vue'
+import { useRoute } from 'vue-router'
 import {
+  Alert,
   Badge,
-  Button,
   PageHeader,
   PageHeaderTitle,
 } from 'frappe-ui'
@@ -16,11 +17,16 @@ import {
   enrollmentByGrade,
 } from '../data/school'
 import { schoolSetup } from '../data/schoolSetup'
-import { exportDashboardCsv } from '../composables/useAppActions'
-import { openCreateDialog } from '../composables/useModuleForms'
-import { canCurrentUser } from '../data/permissions'
+import { currentUser } from '../data/activity'
+import {
+  canAccessModule,
+  filterRoutesByPermissions,
+} from '../lib/accessControl'
 import SchoolLogo from '../components/SchoolLogo.vue'
 import ListStatCards from '../components/ListStatCards.vue'
+
+const route = useRoute()
+const accessDenied = computed(() => String(route.query.denied || '') === '1')
 
 const BarChart = defineAsyncComponent(() =>
   import('frappe-ui/charts').then((m) => m.BarChart),
@@ -28,9 +34,6 @@ const BarChart = defineAsyncComponent(() =>
 const DonutChart = defineAsyncComponent(() =>
   import('frappe-ui/charts').then((m) => m.DonutChart),
 )
-
-const canAddStudent = computed(() => canCurrentUser('students', 'create'))
-const canExportDash = computed(() => canCurrentUser('students', 'export'))
 
 const studentCount = computed(() => schoolStore.students.rows.length)
 const activeStudents = computed(
@@ -62,93 +65,101 @@ const attendancePct = computed(() =>
   ),
 )
 
-const keyStats = computed(() => [
-  {
-    title: 'Students enrolled',
-    value: studentCount.value,
-    caption: `${activeStudents.value} active`,
-  },
-  {
-    title: 'Teachers',
-    value: teacherCount.value,
-    caption: `${activeTeachers.value} active`,
-  },
-  {
-    title: 'Attendance today',
-    value: attendancePct.value,
-    caption: `${presentToday.value} present · %`,
-  },
-  {
-    title: 'Fees outstanding',
-    value: unpaidFeeCount.value,
-    caption: 'open invoices',
-  },
-])
+const keyStats = computed(() => {
+  void currentUser.role
+  const stats = []
+  if (canAccessModule('students', 'read')) {
+    stats.push({
+      title: 'Students enrolled',
+      value: studentCount.value,
+      caption: `${activeStudents.value} active`,
+    })
+  }
+  if (canAccessModule('teachers', 'read')) {
+    stats.push({
+      title: 'Teachers',
+      value: teacherCount.value,
+      caption: `${activeTeachers.value} active`,
+    })
+  }
+  if (canAccessModule('attendance', 'read')) {
+    stats.push({
+      title: 'Attendance today',
+      value: attendancePct.value,
+      caption: `${presentToday.value} present · %`,
+    })
+  }
+  if (canAccessModule('fees', 'read')) {
+    stats.push({
+      title: 'Fees outstanding',
+      value: unpaidFeeCount.value,
+      caption: 'open invoices',
+    })
+  }
+  return stats
+})
 
-const quickLinks = computed(() => [
-  {
-    label: 'Students',
-    description: `${activeStudents.value} active learners`,
-    route: '/students',
-    icon: 'lucide-graduation-cap',
-  },
-  {
-    label: 'Payment',
-    description:
-      unpaidFeeCount.value > 0
-        ? `${unpaidFeeCount.value} invoices open · MoMo desk`
-        : 'Collections clear',
-    route: '/payment',
-    icon: 'lucide-wallet',
-  },
-  {
-    label: 'Fees',
-    description:
-      unpaidFeeCount.value > 0
-        ? `${unpaidFeeCount.value} need attention`
-        : 'All clear',
-    route: '/fees',
-    icon: 'lucide-receipt',
-  },
-  {
-    label: 'Attendance',
-    description: `${attendancePct.value}% present today`,
-    route: '/attendance',
-    icon: 'lucide-clipboard-check',
-  },
-  {
-    label: 'Admissions',
-    description:
-      pendingApplicantCount.value > 0
-        ? `${pendingApplicantCount.value} pending review`
-        : 'No pending applications',
-    route: '/applicants',
-    icon: 'lucide-user-plus',
-  },
-])
+const quickLinks = computed(() => {
+  void currentUser.role
+  return filterRoutesByPermissions([
+    {
+      label: 'Students',
+      description: `${activeStudents.value} active learners`,
+      route: '/students',
+      icon: 'lucide-graduation-cap',
+    },
+    {
+      label: 'Payment',
+      description:
+        unpaidFeeCount.value > 0
+          ? `${unpaidFeeCount.value} invoices open · MoMo desk`
+          : 'Collections clear',
+      route: '/payment',
+      icon: 'lucide-wallet',
+    },
+    {
+      label: 'Fees',
+      description:
+        unpaidFeeCount.value > 0
+          ? `${unpaidFeeCount.value} need attention`
+          : 'All clear',
+      route: '/fees',
+      icon: 'lucide-receipt',
+    },
+    {
+      label: 'Attendance',
+      description: `${attendancePct.value}% present today`,
+      route: '/attendance',
+      icon: 'lucide-clipboard-check',
+    },
+    {
+      label: 'Admissions',
+      description:
+        pendingApplicantCount.value > 0
+          ? `${pendingApplicantCount.value} pending review`
+          : 'No pending applications',
+      route: '/applicants',
+      icon: 'lucide-user-plus',
+    },
+  ])
+})
 </script>
 
 <template>
   <PageHeader>
     <PageHeaderTitle title="Dashboard" />
-    <div class="flex items-center gap-2">
-      <Button
-        v-if="canExportDash"
-        icon-left="lucide-download"
-        label="Export"
-        @click="exportDashboardCsv()"
-      />
-      <Button
-        v-if="canAddStudent"
-        variant="solid"
-        icon-left="lucide-plus"
-        label="Add student"
-        @click="openCreateDialog('students')"
-      />
-    </div>
   </PageHeader>
 
   <div class="school-page school-page--workspace">
+    <Alert
+      v-if="accessDenied"
+      theme="amber"
+      title="Access restricted"
+      description="Your role does not have permission to open that page. Sidebar and actions only show what you can use."
+      icon="lucide-shield-alert"
+      class="mb-4"
+    />
+
     <section class="school-hero">
       <div class="flex items-start gap-4">
         <div
@@ -188,15 +199,21 @@ const quickLinks = computed(() => [
       </div>
     </section>
 
-    <section class="school-section">
+    <section v-if="keyStats.length" class="school-section">
       <h2 class="school-section-title">Key figures</h2>
       <ListStatCards :stats="keyStats" />
     </section>
 
-    <section class="school-section">
+    <section
+      v-if="
+        canAccessModule('students', 'read') ||
+        canAccessModule('attendance', 'read')
+      "
+      class="school-section"
+    >
       <h2 class="school-section-title">Charts</h2>
       <div class="school-card-grid lg:grid-cols-2">
-        <div class="school-chart-card">
+        <div v-if="canAccessModule('students', 'read')" class="school-chart-card">
           <BarChart
             title="Enrollment by class"
             subtitle="Nursery + Primary · Term III"
@@ -206,7 +223,10 @@ const quickLinks = computed(() => [
             class="min-h-[280px]"
           />
         </div>
-        <div class="school-chart-card">
+        <div
+          v-if="canAccessModule('attendance', 'read')"
+          class="school-chart-card"
+        >
           <DonutChart
             title="Attendance today"
             subtitle="Baby Class–P.7"
@@ -220,7 +240,7 @@ const quickLinks = computed(() => [
       </div>
     </section>
 
-    <section class="school-section">
+    <section v-if="quickLinks.length" class="school-section">
       <h2 class="school-section-title">Jump to</h2>
       <div class="school-tile-grid">
         <RouterLink

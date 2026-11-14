@@ -4,6 +4,8 @@ import { useRoute } from 'vue-router'
 import { FrappeUIProvider } from 'frappe-ui'
 import AppTopBar from './components/AppTopBar.vue'
 import ModuleSidebar from './components/ModuleSidebar.vue'
+import PageShimmer from './components/PageShimmer.vue'
+import RecordFormModal from './components/RecordFormModal.vue'
 import { isAuthenticated } from './data/auth'
 import {
   startRealtimeNotifications,
@@ -19,6 +21,16 @@ const showDesk = computed(
     route.name !== 'login' &&
     route.meta.public !== true,
 )
+
+/** Keep list shells warm; remount each detail id for fresh data. */
+function viewKey(r: {
+  name?: string | symbol | null
+  fullPath: string
+  params: Record<string, unknown>
+}) {
+  if (r.params && (r.params.id || r.params.kind)) return r.fullPath
+  return String(r.name || r.fullPath)
+}
 
 watch(
   showDesk,
@@ -46,14 +58,21 @@ watch(
         >
           <RouterView v-slot="{ Component, route: r }">
             <Suspense timeout="0">
-              <component :is="Component" :key="r.path" />
+              <KeepAlive :max="12">
+                <component
+                  :is="Component"
+                  :key="viewKey(r)"
+                  class="school-page-enter"
+                />
+              </KeepAlive>
               <template #fallback>
-                <div class="school-page-loading">Loading…</div>
+                <PageShimmer />
               </template>
             </Suspense>
           </RouterView>
         </main>
       </div>
     </div>
+    <RecordFormModal />
   </FrappeUIProvider>
 </template>

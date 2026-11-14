@@ -56,6 +56,7 @@ export const FRONTEND_MODULES = [
   'inventory-issues',
   'inventory-items',
   'inventory-stock',
+  'purchase-requests',
   'invoices',
   'lesson-plans',
   'library-books',

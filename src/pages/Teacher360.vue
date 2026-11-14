@@ -18,6 +18,8 @@ import { printRecordDocument } from '../data/documents'
 import type { CatalogRow } from '../data/catalog'
 import { useModuleAccess } from '../composables/useModuleAccess'
 import { canCurrentUser } from '../data/permissions'
+import { personEditPath, personListPath } from '../lib/personRoutes'
+import { pushWithReturn, useAppBack } from '../composables/useAppBack'
 
 const route = useRoute()
 const router = useRouter()
@@ -33,9 +35,10 @@ const canPrintDiscipline = computed(() =>
 const teacherId = computed(() => String(route.params.id || ''))
 const bundle = computed(() => getTeacher360(teacherId.value))
 const teacher = computed(() => bundle.value?.teacher)
+const { goBack } = useAppBack(() => personListPath('teachers'))
 
 const tabs = [
-  { label: 'Profile', value: 'profile' },
+  { label: 'Biodata', value: 'profile' },
   { label: 'Employment', value: 'employment' },
   { label: 'Teaching', value: 'teaching' },
   { label: 'Leave & attendance', value: 'leave' },
@@ -50,33 +53,30 @@ function field(key: string, fallback = '—') {
   return String(v)
 }
 
-function goBack() {
-  router.push({ path: '/people', query: { tab: 'teachers' } })
-}
 
 function editTeacher() {
   if (!teacher.value) return
-  router.push(`/teachers/${teacher.value.id}/edit`)
+  pushWithReturn(router, personEditPath('teachers', teacher.value.id))
 }
 
 function confirmDelete() {
   const row = teacher.value
   if (!row) return
   dialog.danger({
-    title: 'Delete teacher?',
-    message: `You are about to permanently delete “${row.name}” (${row.id}). Disciplinary cases they reported stay in the list.\n\nThis cannot be undone.`,
+    title: '⚠️ Delete teacher?',
+    message: `Warning: you are about to permanently delete “${row.name}” (${row.id}). Disciplinary cases they reported stay in the list.\n\nThis cannot be undone.`,
     confirmLabel: 'Yes, delete forever',
     cancelLabel: 'Keep teacher',
     onConfirm: async () => {
       deleteRecords('teachers', [row.id])
       toast.warning(`Teacher “${row.name}” deleted`)
-      await router.push({ path: '/people', query: { tab: 'teachers' } })
+      await router.push(personListPath('teachers'))
     },
   })
 }
 
 function openRow(moduleKey: string, row: CatalogRow) {
-  router.push(`/${moduleKey}/${row.id}`)
+  pushWithReturn(router, `/${moduleKey}/${row.id}`)
 }
 
 function printCase(row: CatalogRow) {
@@ -142,30 +142,24 @@ const healthFields = computed(() => [
 
 <template>
   <PageHeader>
-    <PageHeaderTitle :title="teacher?.name || 'Teacher'" />
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="flex min-w-0 flex-wrap items-center gap-2">
       <Button icon-left="lucide-arrow-left" label="Back" @click="goBack" />
-      <template v-if="bundle">
-        <Button
-          v-if="canWrite"
-          icon-left="lucide-pencil"
-          label="Edit biodata"
-          @click="editTeacher"
-        />
-        <Button
-          v-if="canCreateCase"
-          icon-left="lucide-shield-alert"
-          label="New case"
-          @click="openCreateDialog('disciplinary-cases')"
-        />
-        <Button
-          v-if="canDelete"
-          icon-left="lucide-trash-2"
-          label="Delete"
-          theme="red"
-          @click="confirmDelete"
-        />
-      </template>
+      <PageHeaderTitle :title="teacher?.name || 'Teacher'" />
+    </div>
+    <div v-if="bundle" class="flex flex-wrap items-center gap-2">
+      <Button
+        v-if="canWrite"
+        icon-left="lucide-pencil"
+        label="Edit"
+        @click="editTeacher"
+      />
+      <Button
+        v-if="canDelete"
+        icon-left="lucide-trash-2"
+        label="Delete"
+        theme="red"
+        @click="confirmDelete"
+      />
     </div>
   </PageHeader>
 
@@ -186,7 +180,7 @@ const healthFields = computed(() => [
           <Avatar :label="teacher!.name" size="xl" />
           <div class="min-w-0 space-y-1.5">
             <p class="text-xs font-medium uppercase tracking-wide text-ink-gray-5">
-              Teacher · {{ field('employeeNumber', teacher!.id) }}
+              Teacher biodata · {{ field('employeeNumber', teacher!.id) }}
             </p>
             <h1 class="text-2xl-semibold text-ink-gray-9">
               {{ teacher!.name }}

@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import frappeui from 'frappe-ui/vite'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     // The parts that talk to a Frappe server are off. The rest keeps the dev
     // server fast and loads one copy of the modules behind toast() and dialog.
@@ -16,17 +16,29 @@ export default defineConfig({
     exclude: ['frappe-ui'],
     include: ['vue', 'vue-router'],
   },
+  esbuild: {
+    legalComments: 'none',
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
+  },
   build: {
     target: 'es2022',
     cssCodeSplit: true,
+    cssMinify: true,
+    minify: 'esbuild',
     sourcemap: false,
-    chunkSizeWarningLimit: 900,
+    reportCompressedSize: false,
+    assetsInlineLimit: 2048,
+    chunkSizeWarningLimit: 800,
+    modulePreload: {
+      polyfill: true,
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (
             id.includes('node_modules/vue/') ||
-            id.includes('node_modules/vue-router/')
+            id.includes('node_modules/vue-router/') ||
+            id.includes('node_modules/@vue/')
           ) {
             return 'vue-vendor'
           }
@@ -40,9 +52,22 @@ export default defineConfig({
           if (id.includes('node_modules/tesseract.js')) {
             return 'tesseract'
           }
+          // Seed / schema payloads — cache separately from UI chrome.
+          if (
+            id.includes('/src/data/catalog.ts') ||
+            id.includes('/src/data/catalogExtra.ts')
+          ) {
+            return 'catalog-data'
+          }
+          if (id.includes('/src/data/formSchemas.ts')) {
+            return 'form-schemas'
+          }
+          if (id.includes('/src/data/documents.ts')) {
+            return 'documents-lib'
+          }
           return undefined
         },
       },
     },
   },
-})
+}))

@@ -1,5 +1,19 @@
 import type { CatalogRow } from './catalog'
 import { schoolStore } from './store'
+import {
+  attendanceRowsForStudent,
+  buildAttendanceSummary,
+  type StudentAttendanceSummary,
+} from './studentAttendance'
+import {
+  buildExamReports,
+  buildSubjectAggregates,
+  buildSubjectReports,
+  subjectsForStudent,
+  type ExamReport,
+  type StudentAcademicSummary,
+  type SubjectReport,
+} from './studentSubjects'
 
 function byStudentNameOrId(row: CatalogRow, student: CatalogRow) {
   const studentId = String(row.studentId || '')
@@ -14,8 +28,13 @@ export interface Student360Bundle {
   discipline: CatalogRow[]
   logs: CatalogRow[]
   attendance: CatalogRow[]
+  attendanceSummary: StudentAttendanceSummary
   fees: CatalogRow[]
   results: CatalogRow[]
+  subjects: CatalogRow[]
+  subjectReports: SubjectReport[]
+  examReports: ExamReport[]
+  academicSummary: StudentAcademicSummary
   classInfo: CatalogRow | undefined
   stats: {
     guardianCount: number
@@ -23,8 +42,15 @@ export interface Student360Bundle {
     closedCases: number
     attendancePresent: number
     attendanceTotal: number
+    attendancePercent: number | null
     unpaidFees: number
     average: number | null
+    subjectCount: number
+    examCount: number
+    totalAggregate: number | null
+    divisionOrBand: string
+    classPosition: string | null
+    classPositionOutOf: number | null
   }
 }
 
@@ -41,9 +67,8 @@ export function getStudent360(studentId: string): Student360Bundle | null {
   const logs = (schoolStore['student-log']?.rows || []).filter((r) =>
     byStudentNameOrId(r, student),
   )
-  const attendance = (schoolStore.attendance?.rows || []).filter(
-    (r) => r.name === student.name,
-  )
+  const attendance = attendanceRowsForStudent(student)
+  const attendanceSummary = buildAttendanceSummary(student)
   const fees = (schoolStore.fees?.rows || []).filter(
     (r) => r.name === student.name,
   )
@@ -53,19 +78,22 @@ export function getStudent360(studentId: string): Student360Bundle | null {
   const classInfo = (schoolStore.classes?.rows || []).find(
     (r) => r.name === String(student.className || ''),
   )
+  const subjects = subjectsForStudent(student)
+  const subjectReports = buildSubjectReports(student)
+  const examReports = buildExamReports(student)
+  const academicSummary = buildSubjectAggregates(student)
 
   const openCases = discipline.filter((r) =>
     ['Open', 'Monitoring'].includes(String(r.status)),
   ).length
   const closedCases = discipline.filter((r) => r.status === 'Closed').length
-  const attendancePresent = attendance.filter((r) =>
-    ['Present', 'Late'].includes(String(r.status)),
-  ).length
+  const attendancePresent = attendanceSummary.overall.present
   const unpaidFees = fees.filter((r) =>
     ['Unpaid', 'Overdue', 'Partial'].includes(String(r.status)),
   ).length
   const average =
-    typeof student.average === 'number' ? student.average : null
+    academicSummary.overallAverage ??
+    (typeof student.average === 'number' ? student.average : null)
 
   return {
     student,
@@ -73,17 +101,29 @@ export function getStudent360(studentId: string): Student360Bundle | null {
     discipline,
     logs,
     attendance,
+    attendanceSummary,
     fees,
     results,
+    subjects,
+    subjectReports,
+    examReports,
+    academicSummary,
     classInfo,
     stats: {
       guardianCount: guardians.length,
       openCases,
       closedCases,
       attendancePresent,
-      attendanceTotal: attendance.length,
+      attendanceTotal: attendanceSummary.overall.total,
+      attendancePercent: attendanceSummary.overall.percent,
       unpaidFees,
       average,
+      subjectCount: subjects.length,
+      examCount: examReports.length,
+      totalAggregate: academicSummary.totalAggregate,
+      divisionOrBand: academicSummary.divisionOrBand,
+      classPosition: academicSummary.classPosition?.label || null,
+      classPositionOutOf: academicSummary.classPosition?.outOf ?? null,
     },
   }
 }

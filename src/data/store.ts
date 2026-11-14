@@ -6,8 +6,59 @@ import {
   type BadgeTheme,
 } from './catalog'
 import { catalogExtra } from './catalogExtra'
-import { logActivity } from './activity'
+import {
+  changesFromCreate,
+  changesFromDelete,
+  clientIp,
+  currentUser,
+  diffRecords,
+  formatActivityTime,
+  formatChangeTrail,
+  logActivity,
+  snapshotRecord,
+  type FieldChange,
+} from './activity'
+import {
+  learnerNumberFromStudentNumber,
+  nextStudentNumber,
+  schoolPayAccountFromStudentNumber,
+} from './studentNumber'
+import { sortSchoolClassRows } from './grades'
 import { asString, type RecordValues } from '../types/records'
+import { sanitizeFieldValue, sanitizeText } from '../lib/sanitize'
+
+function appendAuditLog(input: {
+  action: string
+  module: string
+  recordId?: string
+  recordName?: string
+  changes?: FieldChange[]
+  result?: string
+}) {
+  const audit = schoolStore['audit-logs']
+  if (!audit) return
+  const n = audit.rows.length + 1
+  const id = `AUD-${String(n).padStart(3, '0')}`
+  const trail = formatChangeTrail(input.changes)
+  const first = input.changes?.[0]
+  const when = formatActivityTime(new Date().toISOString())
+  audit.rows.unshift({
+    id,
+    name: input.action,
+    status: input.result || 'Success',
+    statusTheme: 'green',
+    subtitle: when,
+    user: currentUser.name || currentUser.email || 'System',
+    module: input.module,
+    recordId: input.recordId || '',
+    recordName: input.recordName || '',
+    ip: clientIp(),
+    when,
+    before: first?.before || '',
+    after: first?.after || '',
+    changes: trail,
+  })
+}
 
 function statusTheme(status: string): BadgeTheme {
   const s = status.toLowerCase()
@@ -53,6 +104,16 @@ export const schoolStore = reactive(
   ),
 ) as Record<string, CatalogModule>
 
+function keepModuleOrder(key: string) {
+  const mod = schoolStore[key]
+  if (!mod) return
+  if (key === 'classes') {
+    mod.rows = sortSchoolClassRows(mod.rows)
+  }
+}
+
+keepModuleOrder('classes')
+
 export function getLiveModule(key: string) {
   return schoolStore[key]
 }
@@ -73,15 +134,22 @@ function assignRowFields(row: CatalogRow, mod: CatalogModule, values: RecordValu
     if (reserved.has(key)) continue
     const raw = values[key]
     if (raw === undefined || raw === null || raw === '') continue
-    row[key] = typeof raw === 'boolean' ? String(raw) : (raw as string | number)
+    if (typeof raw === 'boolean') {
+      row[key] = String(raw)
+      continue
+    }
+    const cleaned = sanitizeFieldValue(key, raw)
+    if (cleaned === '' || cleaned == null) continue
+    row[key] = cleaned as string | number
   }
 }
 
 export function addRecord(key: string, values: RecordValues): CatalogRow {
   const mod = schoolStore[key]
   if (!mod) throw new Error(`Unknown module: ${key}`)
-  const name = asString(values.name).trim()
+  const name = sanitizeText(asString(values.name), 'name')
   if (!name) throw new Error('Name is required')
+  values.name = name
 
   const duplicate = mod.rows.some(
     (r) => r.name.toLowerCase() === name.toLowerCase(),
@@ -90,7 +158,22 @@ export function addRecord(key: string, values: RecordValues): CatalogRow {
 
   const id =
     asString(values.id).trim() ||
-    nextId(key, mod.key.slice(0, 3).toUpperCase())
+    (key === 'students'
+      ? nextStudentNumber(
+          mod.rows.map((r) => r.id),
+          asString(values.admissionDate) || null,
+        )
+      : nextId(key, mod.key.slice(0, 3).toUpperCase()))
+
+  if (key === 'students') {
+    if (!asString(values.studentNumber).trim()) values.studentNumber = id
+    if (!asString(values.learnerNumber).trim()) {
+      values.learnerNumber = learnerNumberFromStudentNumber(id)
+    }
+    if (!asString(values.schoolPayAccount).trim()) {
+      values.schoolPayAccount = schoolPayAccountFromStudentNumber(id)
+    }
+  }
 
   const status = values.status ? asString(values.status) : 'Active'
   const row: CatalogRow = {
@@ -104,6 +187,8 @@ export function addRecord(key: string, values: RecordValues): CatalogRow {
   assignRowFields(row, mod, values)
 
   mod.rows.unshift(row)
+  keepModuleOrder(key)
+  const changes = changesFromCreate(snapshotRecord(row))
   logActivity({
     action: 'Created',
     module: key,
@@ -112,6 +197,14 @@ export function addRecord(key: string, values: RecordValues): CatalogRow {
     recordName: row.name,
     summary: `Created ${mod.singular.toLowerCase()} ${row.name}`,
     severity: 'success',
+    changes,
+  })
+  appendAuditLog({
+    action: `Created ${mod.singular}`,
+    module: key,
+    recordId: row.id,
+    recordName: row.name,
+    changes,
   })
   return row
 }
@@ -126,13 +219,16 @@ export function updateRecord(
   const row = mod.rows.find((r) => r.id === id)
   if (!row) throw new Error('Record not found')
 
-  const name = asString(values.name).trim()
+  const name = sanitizeText(asString(values.name), 'name')
   if (!name) throw new Error('Name is required')
+  values.name = name
 
   const duplicate = mod.rows.some(
     (r) => r.id !== id && r.name.toLowerCase() === name.toLowerCase(),
   )
   if (duplicate) throw new Error(`“${name}” already exists in ${mod.title}`)
+
+  const before = snapshotRecord(row)
 
   row.name = name
   if (values.status) {
@@ -144,6 +240,10 @@ export function updateRecord(
     row.subtitle = values.subtitle ? asString(values.subtitle) : undefined
   }
   assignRowFields(row, mod, values)
+  keepModuleOrder(key)
+
+  const after = snapshotRecord(row)
+  const changes = diffRecords(before, after)
   logActivity({
     action: 'Updated',
     module: key,
@@ -152,6 +252,14 @@ export function updateRecord(
     recordName: row.name,
     summary: `Updated ${mod.singular.toLowerCase()} ${row.name}`,
     severity: 'info',
+    changes,
+  })
+  appendAuditLog({
+    action: `Updated ${mod.singular}`,
+    module: key,
+    recordId: row.id,
+    recordName: row.name,
+    changes,
   })
   return row
 }
@@ -161,10 +269,11 @@ export function deleteRecords(key: string, ids: string[]) {
   if (!mod) throw new Error(`Unknown module: ${key}`)
   if (!ids.length) throw new Error('Select at least one record to delete')
   const doomed = mod.rows.filter((r) => ids.includes(r.id))
-  const before = mod.rows.length
+  const countBefore = mod.rows.length
   mod.rows = mod.rows.filter((r) => !ids.includes(r.id))
-  const removed = before - mod.rows.length
+  const removed = countBefore - mod.rows.length
   for (const row of doomed) {
+    const changes = changesFromDelete(snapshotRecord(row))
     logActivity({
       action: 'Deleted',
       module: key,
@@ -173,6 +282,14 @@ export function deleteRecords(key: string, ids: string[]) {
       recordName: row.name,
       summary: `Deleted ${mod.singular.toLowerCase()} ${row.name}`,
       severity: 'danger',
+      changes,
+    })
+    appendAuditLog({
+      action: `Deleted ${mod.singular}`,
+      module: key,
+      recordId: row.id,
+      recordName: row.name,
+      changes,
     })
   }
   return removed

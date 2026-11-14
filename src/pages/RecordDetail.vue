@@ -1,27 +1,29 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Avatar,
   Badge,
   Button,
-  FormControl,
   PageHeader,
   PageHeaderTitle,
-  dialog,
   toast,
 } from 'frappe-ui'
-import { getLiveModule, updateRecord, deleteRecords } from '../data/store'
-import { openEditDialog } from '../composables/useModuleForms'
+import { getLiveModule } from '../data/store'
+import {
+  openDeleteDialog,
+  openEditDialog,
+} from '../composables/useModuleForms'
 import {
   defaultDocumentKind,
   printExamPack,
   printRecordDocument,
   type DocumentKind,
 } from '../data/documents'
-import { asOptionalNumber, type RecordValues } from '../types/records'
 import { useModuleAccess } from '../composables/useModuleAccess'
 import { logActivity } from '../data/activity'
+import { personListPath } from '../lib/personRoutes'
+import { useAppBack } from '../composables/useAppBack'
 
 const route = useRoute()
 const router = useRouter()
@@ -40,56 +42,7 @@ const row = computed(() =>
 const { canWrite, canDelete, canPrint, requirePerm } =
   useModuleAccess(moduleKey)
 
-const editing = ref(false)
-const saving = ref(false)
-const form = reactive<Record<string, string>>({})
-
 const isExam = computed(() => moduleKey.value === 'exams')
-
-const statusOptions = computed(() => {
-  const statuses = Array.from(
-    new Set(
-      (mod.value?.rows || [])
-        .map((r) => r.status)
-        .filter((s): s is string => Boolean(s)),
-    ),
-  )
-  const extras = [
-    'Active',
-    'Draft',
-    'Pending',
-    'Open',
-    'Scheduled',
-    'Closed',
-    'On Leave',
-    'Alumni',
-    'Paid',
-    'Unpaid',
-    'Partial',
-    'Overdue',
-  ]
-  return Array.from(new Set([...statuses, ...extras])).map((value) => ({
-    label: value,
-    value,
-  }))
-})
-
-function syncForm() {
-  const current = row.value
-  const module = mod.value
-  if (!current || !module) return
-  form.name = current.name || ''
-  form.status = current.status || 'Active'
-  form.subtitle = current.subtitle || ''
-  for (const col of module.columns) {
-    if (col.key === 'name' || col.key === 'status' || col.key === 'id') continue
-    const value = current[col.key]
-    form[col.key] =
-      value === undefined || value === null ? '' : String(value)
-  }
-}
-
-watch([row, mod], syncForm, { immediate: true })
 
 const displayFields = computed(() => {
   if (!mod.value || !row.value) return []
@@ -123,80 +76,19 @@ const displayFields = computed(() => {
   return fields
 })
 
-const editableColumns = computed(() =>
-  (mod.value?.columns || []).filter((c) => c.key !== 'id'),
-)
-
 function startEdit() {
-  syncForm()
-  editing.value = true
-}
-
-function cancelEdit() {
-  syncForm()
-  editing.value = false
-}
-
-async function saveUpdate() {
-  if (!mod.value || !row.value) return
-  const name = form.name?.trim()
-  if (!name) {
-    toast.error('Name is required')
-    return
-  }
-  saving.value = true
-  try {
-    const values: RecordValues = {
-      name,
-      status: form.status || 'Active',
-      subtitle: form.subtitle || '',
-    }
-    for (const col of editableColumns.value) {
-      if (col.key === 'name' || col.key === 'status') continue
-      const raw = form[col.key]
-      const sample = mod.value.rows[0]?.[col.key]
-      values[col.key] =
-        typeof sample === 'number' && raw !== ''
-          ? (asOptionalNumber(raw) ?? raw)
-          : raw
-    }
-    updateRecord(moduleKey.value, row.value.id, values)
-    editing.value = false
-    toast.success(`${mod.value.singular} “${name}” updated`)
-  } catch (err) {
-    toast.error(err instanceof Error ? err.message : 'Could not update')
-  } finally {
-    saving.value = false
-  }
-}
-
-function openQuickEdit() {
   if (!row.value) return
   openEditDialog(moduleKey.value, row.value)
 }
 
 function confirmDelete() {
-  if (!mod.value || !row.value) return
-  const current = row.value
-  const singular = mod.value.singular
-  const title = mod.value.title
-
-  dialog.danger({
-    title: `Delete ${singular}?`,
-    message: `You are about to permanently delete “${current.name}” (${current.id}) from ${title}.\n\nThis cannot be undone. Related lists will no longer show this record.`,
-    confirmLabel: 'Yes, delete forever',
-    cancelLabel: 'Keep record',
-    onConfirm: async () => {
-      deleteRecords(moduleKey.value, [current.id])
-      toast.warning(`${singular} “${current.name}” deleted`)
-      await router.push(`/${moduleKey.value}`)
-    },
+  if (!row.value) return
+  openDeleteDialog(moduleKey.value, [row.value.id], () => {
+    void router.push(personListPath(moduleKey.value))
   })
 }
 
-function goBack() {
-  router.push(`/${moduleKey.value}`)
-}
+const { goBack } = useAppBack(() => personListPath(moduleKey.value))
 
 function printDoc(kind?: DocumentKind) {
   if (!row.value) return
@@ -250,75 +142,54 @@ const showReceiptPrint = computed(
 
 <template>
   <PageHeader>
-    <PageHeaderTitle :title="row?.name || 'Record'" />
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="flex min-w-0 flex-wrap items-center gap-2">
       <Button icon-left="lucide-arrow-left" label="Back" @click="goBack" />
-      <template v-if="row && mod">
-        <Button
-          v-if="!editing && isExam"
-          icon-left="lucide-pen-line"
-          label="Enter marks"
-          @click="openMarks"
-        />
-        <Button
-          v-if="!editing && canPrint && isExam"
-          icon-left="lucide-printer"
-          label="Print paper"
-          @click="printExam(['paper'])"
-        />
-        <Button
-          v-if="!editing && canPrint && isExam"
-          icon-left="lucide-table-2"
-          label="Mark sheet"
-          @click="printExam(['marksheet'])"
-        />
-        <Button
-          v-if="!editing && canPrint && !isExam"
-          icon-left="lucide-printer"
-          label="Print"
-          @click="printDoc()"
-        />
-        <Button
-          v-if="!editing && canPrint && showReceiptPrint"
-          icon-left="lucide-receipt"
-          label="Receipt"
-          @click="printDoc('receipt')"
-        />
-        <Button
-          v-if="!editing && canWrite"
-          icon-left="lucide-pencil"
-          label="Edit"
-          @click="startEdit"
-        />
-        <Button
-          v-if="!editing && canWrite"
-          icon-left="lucide-pen-line"
-          label="Quick edit"
-          @click="openQuickEdit"
-        />
-        <Button
-          v-if="editing"
-          label="Cancel"
-          :disabled="saving"
-          @click="cancelEdit"
-        />
-        <Button
-          v-if="editing"
-          variant="solid"
-          icon-left="lucide-check"
-          label="Update"
-          :loading="saving"
-          @click="saveUpdate"
-        />
-        <Button
-          v-if="canDelete"
-          icon-left="lucide-trash-2"
-          label="Delete"
-          theme="red"
-          :disabled="editing"
-          @click="confirmDelete"
-        />
-      </template>
+      <PageHeaderTitle :title="row?.name || 'Record'" />
+    </div>
+    <div v-if="row && mod" class="flex flex-wrap items-center gap-2">
+      <Button
+        v-if="isExam"
+        icon-left="lucide-pen-line"
+        label="Enter marks"
+        @click="openMarks"
+      />
+      <Button
+        v-if="canPrint && isExam"
+        icon-left="lucide-printer"
+        label="Print paper"
+        @click="printExam(['paper'])"
+      />
+      <Button
+        v-if="canPrint && isExam"
+        icon-left="lucide-table-2"
+        label="Mark sheet"
+        @click="printExam(['marksheet'])"
+      />
+      <Button
+        v-if="canPrint && !isExam"
+        icon-left="lucide-printer"
+        label="Print"
+        @click="printDoc()"
+      />
+      <Button
+        v-if="canPrint && showReceiptPrint"
+        icon-left="lucide-receipt"
+        label="Receipt"
+        @click="printDoc('receipt')"
+      />
+      <Button
+        v-if="canWrite"
+        icon-left="lucide-pencil"
+        label="Edit"
+        @click="startEdit"
+      />
+      <Button
+        v-if="canDelete"
+        icon-left="lucide-trash-2"
+        label="Delete"
+        theme="red"
+        @click="confirmDelete"
+      />
     </div>
   </PageHeader>
 
@@ -368,8 +239,7 @@ const showReceiptPrint = computed(
         </div>
       </section>
 
-      <!-- View mode -->
-      <section v-if="!editing" class="school-section">
+      <section class="school-section">
         <h2 class="school-section-title">Details</h2>
         <div class="school-detail-grid">
           <div
@@ -393,53 +263,6 @@ const showReceiptPrint = computed(
                 {{ field.value }}
               </p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Edit / update mode -->
-      <section v-else class="school-section">
-        <h2 class="school-section-title">
-          Update {{ mod.singular.toLowerCase() }}
-        </h2>
-        <div class="school-detail-form">
-          <FormControl
-            v-model="form.name"
-            class="school-detail-form__full"
-            :label="`${mod.singular} name`"
-            type="text"
-            required
-          />
-          <FormControl
-            v-for="col in editableColumns.filter(
-              (c) => c.key !== 'name' && c.key !== 'status',
-            )"
-            :key="col.key"
-            v-model="form[col.key]"
-            :label="col.label"
-            type="text"
-          />
-          <FormControl
-            v-model="form.status"
-            label="Status"
-            type="select"
-            :options="statusOptions"
-          />
-          <FormControl
-            v-model="form.subtitle"
-            class="school-detail-form__full"
-            label="Note / subtitle"
-            type="textarea"
-          />
-          <div class="school-detail-form__actions">
-            <Button
-              variant="solid"
-              icon-left="lucide-check"
-              label="Save update"
-              :loading="saving"
-              @click="saveUpdate"
-            />
-            <Button label="Cancel" :disabled="saving" @click="cancelEdit" />
           </div>
         </div>
       </section>

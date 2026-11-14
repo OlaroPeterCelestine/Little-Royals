@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   Button,
   Sidebar,
@@ -8,16 +8,31 @@ import {
   SidebarItem,
   SidebarLabel,
   Tooltip,
+  toast,
 } from 'frappe-ui'
 import { educationNav, parentNav } from '../data/workspace'
 import { currentUser } from '../data/activity'
+import { logout } from '../data/auth'
 import { getCurrentSystemUser, isParentRole } from '../data/permissions'
 import { schoolSetup } from '../data/schoolSetup'
 import SchoolLogo from './SchoolLogo.vue'
 import { useSidebarCollapse } from '../composables/useSidebarCollapse'
+import {
+  isPeopleNavActive,
+  isStudentsNavActive,
+} from '../lib/personRoutes'
+import { filterNavByPermissions } from '../lib/accessControl'
+import { prefetchRoute } from '../utils/prefetch'
 
 const route = useRoute()
+const router = useRouter()
 const { collapsed, toggle: toggleSidebar } = useSidebarCollapse()
+
+async function signOut() {
+  logout()
+  toast.success('Signed out')
+  await router.push('/login')
+}
 
 const profileRoute = computed(() => {
   const me = getCurrentSystemUser()
@@ -25,9 +40,11 @@ const profileRoute = computed(() => {
 })
 
 const isParent = computed(() => isParentRole(currentUser.role))
-const navGroups = computed(() =>
-  isParent.value ? parentNav : educationNav,
-)
+const navGroups = computed(() => {
+  void currentUser.role
+  const base = isParent.value ? parentNav : educationNav
+  return filterNavByPermissions(base)
+})
 
 const sidebarToggleIcon = computed(() =>
   collapsed.value ? 'lucide-panel-left-open' : 'lucide-panel-left-close',
@@ -39,17 +56,24 @@ function isActive(path?: string) {
   if (base === '/users') {
     return route.path === '/users' || route.path.startsWith('/users/')
   }
-  if (base === '/attendance/take') {
-    return route.path === '/attendance/take'
+  if (base === '/attendance') {
+    return route.path === '/attendance' || route.path.startsWith('/attendance/')
+  }
+  if (base === '/students') {
+    return isStudentsNavActive(route.path)
   }
   if (base === '/people') {
-    return route.path === '/people' || route.path.startsWith('/teachers/')
+    return isPeopleNavActive(route.path, route.query.tab, path)
   }
   if (base === '/academics') {
     return route.path === '/academics'
   }
   if (base === '/inventory') {
     return route.path === '/inventory'
+  }
+  // Do not treat /staff-attendance or /staff-leave as Staff 360
+  if (base === '/staff') {
+    return false
   }
   return route.path === base || route.path.startsWith(`${base}/`)
 }
@@ -96,14 +120,19 @@ function isActive(path?: string) {
       >
         <SidebarLabel divider>{{ group.title }}</SidebarLabel>
         <div class="school-sidebar-items">
-          <SidebarItem
+          <div
             v-for="mod in group.items"
             :key="mod.label"
-            :label="mod.label"
-            :icon="mod.icon"
-            :route="mod.route"
-            :active="isActive(mod.route)"
-          />
+            @pointerenter="prefetchRoute(mod.route)"
+            @focusin="prefetchRoute(mod.route)"
+          >
+            <SidebarItem
+              :label="mod.label"
+              :icon="mod.icon"
+              :route="mod.route"
+              :active="isActive(mod.route)"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -115,6 +144,15 @@ function isActive(path?: string) {
         :route="profileRoute"
         :active="route.path.startsWith('/users/') || route.path === '/me'"
       />
+      <button
+        type="button"
+        class="school-sidebar-logout"
+        :aria-label="collapsed ? 'Log out' : undefined"
+        @click="signOut"
+      >
+        <span class="lucide-log-out size-4 shrink-0" aria-hidden="true" />
+        <span v-if="!collapsed" class="truncate">Log out</span>
+      </button>
     </div>
   </Sidebar>
 </template>

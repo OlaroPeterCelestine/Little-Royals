@@ -14,8 +14,10 @@ import type { CatalogRow } from '../data/catalog'
 import { getLiveModule, schoolStore } from '../data/store'
 import { useListPage } from '../composables/useListPage'
 import {
+  openCreateDialog,
   openDeleteDialog,
   openDiscardSelectionDialog,
+  openEditDialog,
 } from '../composables/useModuleForms'
 import {
   defaultDocumentKind,
@@ -26,6 +28,10 @@ import CatalogTable from '../components/CatalogTable.vue'
 import ListToolbar from '../components/ListToolbar.vue'
 import PageIntro from '../components/PageIntro.vue'
 import { buildListColumnTracks } from '../utils/listColumns'
+import { personDetailPath } from '../lib/personRoutes'
+import { pushWithReturn } from '../composables/useAppBack'
+import { canAccessModule } from '../lib/accessControl'
+import { currentUser } from '../data/activity'
 
 type PeopleTab = 'teachers' | 'staff' | 'parents'
 
@@ -53,30 +59,45 @@ const TAB_META: Record<
   },
 }
 
+function allowedPeopleTabs(): PeopleTab[] {
+  void currentUser.role
+  const out: PeopleTab[] = []
+  if (canAccessModule('teachers', 'read')) out.push('teachers')
+  if (canAccessModule('staff', 'read')) out.push('staff')
+  if (canAccessModule('guardians', 'read')) out.push('parents')
+  return out
+}
+
 function parseTab(raw: unknown): PeopleTab {
+  const allowed = allowedPeopleTabs()
   const v = String(raw || '').toLowerCase()
-  if (v === 'staff' || v === 'employees') return 'staff'
-  if (v === 'parents' || v === 'guardians' || v === 'parent') return 'parents'
-  if (v === 'teachers' || v === 'teacher') return 'teachers'
-  return 'teachers'
+  let next: PeopleTab = 'teachers'
+  if (v === 'staff' || v === 'employees') next = 'staff'
+  else if (v === 'parents' || v === 'guardians' || v === 'parent') next = 'parents'
+  else if (v === 'teachers' || v === 'teacher') next = 'teachers'
+  if (allowed.includes(next)) return next
+  return allowed[0] || 'teachers'
 }
 
 const tab = ref<PeopleTab>(parseTab(route.query.tab))
 
-const tabs = computed(() => [
-  {
-    label: `Teachers (${schoolStore.teachers?.rows.length || 0})`,
-    value: 'teachers',
-  },
-  {
-    label: `Staff (${schoolStore.staff?.rows.length || 0})`,
-    value: 'staff',
-  },
-  {
-    label: `Parents (${schoolStore.guardians?.rows.length || 0})`,
-    value: 'parents',
-  },
-])
+const tabs = computed(() => {
+  const allowed = new Set(allowedPeopleTabs())
+  return [
+    {
+      label: `Teachers (${schoolStore.teachers?.rows.length || 0})`,
+      value: 'teachers' as const,
+    },
+    {
+      label: `Staff (${schoolStore.staff?.rows.length || 0})`,
+      value: 'staff' as const,
+    },
+    {
+      label: `Parents (${schoolStore.guardians?.rows.length || 0})`,
+      value: 'parents' as const,
+    },
+  ].filter((t) => allowed.has(t.value))
+})
 
 watch(tab, (value) => {
   router.replace({ path: '/people', query: { ...route.query, tab: value } })
@@ -86,6 +107,14 @@ watch(
   () => route.query.tab,
   (value) => {
     const next = parseTab(value)
+    if (tab.value !== next) tab.value = next
+  },
+)
+
+watch(
+  () => currentUser.role,
+  () => {
+    const next = parseTab(tab.value)
     if (tab.value !== next) tab.value = next
   },
 )
@@ -174,17 +203,17 @@ const overviewStats = computed(() => [
 
 function createRecord() {
   if (!requirePerm('create', 'create records')) return
-  router.push(`/${moduleKey.value}/new`)
+  openCreateDialog(moduleKey.value)
 }
 
 function editRecord(row: CatalogRow, event?: Event) {
   event?.stopPropagation()
   if (!requirePerm('write', 'edit records')) return
-  router.push(`/${moduleKey.value}/${row.id}/edit`)
+  openEditDialog(moduleKey.value, row)
 }
 
 function openDetail(row: CatalogRow) {
-  router.push(`/${moduleKey.value}/${row.id}`)
+  pushWithReturn(router, personDetailPath(moduleKey.value, row.id))
 }
 
 function printRecord(row: CatalogRow, event?: Event) {
@@ -256,7 +285,7 @@ function clearSelection() {
     />
 
     <PageIntro
-      description="Teachers, staff, and parents in one place — switch tabs to filter."
+      description="Teachers, staff directory, and parents in one place — switch tabs to filter."
       :stats="overviewStats"
     />
 

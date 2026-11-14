@@ -243,44 +243,44 @@ const totalUsers = computed(() => systemUsers.length)
 
 <template>
   <PageHeader>
-    <PageHeaderTitle :title="user?.name || 'User profile'" />
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="flex min-w-0 flex-wrap items-center gap-2">
       <Button icon-left="lucide-arrow-left" label="Back" @click="goBack" />
-      <template v-if="user">
-        <Button
-          v-if="!editing"
-          icon-left="lucide-pencil"
-          label="Edit profile"
-          @click="startEdit"
-        />
-        <Button
-          v-if="editing"
-          label="Cancel"
-          :disabled="saving"
-          @click="cancelEdit"
-        />
-        <Button
-          v-if="editing"
-          variant="solid"
-          icon-left="lucide-check"
-          label="Update"
-          :loading="saving"
-          @click="saveProfile"
-        />
-        <Button
-          icon-left="lucide-shield"
-          label="Roles"
-          @click="router.push({ path: '/users', query: { tab: 'roles' } })"
-        />
-        <Button
-          v-if="user.status !== 'Disabled'"
-          icon-left="lucide-user-x"
-          label="Disable"
-          theme="red"
-          :disabled="editing || isSelf"
-          @click="disableUser"
-        />
-      </template>
+      <PageHeaderTitle :title="user?.name || 'User profile'" />
+    </div>
+    <div v-if="user" class="flex flex-wrap items-center gap-2">
+      <Button
+        v-if="!editing"
+        icon-left="lucide-pencil"
+        label="Edit profile"
+        @click="startEdit"
+      />
+      <Button
+        v-if="editing"
+        label="Cancel"
+        :disabled="saving"
+        @click="cancelEdit"
+      />
+      <Button
+        v-if="editing"
+        variant="solid"
+        icon-left="lucide-check"
+        label="Update"
+        :loading="saving"
+        @click="saveProfile"
+      />
+      <Button
+        icon-left="lucide-shield"
+        label="Roles"
+        @click="router.push({ path: '/users', query: { tab: 'roles' } })"
+      />
+      <Button
+        v-if="user.status !== 'Disabled'"
+        icon-left="lucide-user-x"
+        label="Disable"
+        theme="red"
+        :disabled="editing || isSelf"
+        @click="disableUser"
+      />
     </div>
   </PageHeader>
 

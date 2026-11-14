@@ -2,6 +2,12 @@
 import { computed, reactive, watch } from 'vue'
 import { Button } from 'frappe-ui'
 import type { ModuleFormSpec } from '../../lib/forms/types'
+import { getLiveModule } from '../../data/store'
+import {
+  learnerNumberFromStudentNumber,
+  nextStudentNumber,
+  schoolPayAccountFromStudentNumber,
+} from '../../data/studentNumber'
 import SchoolFormField from './SchoolFormField.vue'
 
 const props = defineProps<{
@@ -55,6 +61,44 @@ watch(
   },
 )
 
+watch(
+  () => [props.schema.module, values.admissionDate, props.initial?.id] as const,
+  () => {
+    if (props.schema.module !== 'students') return
+    if (props.initial?.id) return
+    const hasAutoId = props.schema.sections.some((s) =>
+      s.fields.some((f) => f.name === 'id' && f.auto),
+    )
+    if (!hasAutoId) return
+    const existing =
+      getLiveModule('students')?.rows.map((r) => r.id) || []
+    const studentNumber = nextStudentNumber(
+      existing,
+      String(values.admissionDate || '') || null,
+    )
+    values.id = studentNumber
+    values.studentNumber = studentNumber
+    if (!String(values.learnerNumber || '').trim()) {
+      values.learnerNumber = learnerNumberFromStudentNumber(studentNumber)
+    }
+    if (!String(values.schoolPayAccount || '').trim()) {
+      values.schoolPayAccount =
+        schoolPayAccountFromStudentNumber(studentNumber)
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => values.id,
+  (id) => {
+    if (props.schema.module !== 'students') return
+    const sn = String(id || '').trim()
+    if (!sn) return
+    values.studentNumber = sn
+  },
+)
+
 const missingRequired = computed(() => {
   const missing: string[] = []
   for (const section of props.schema.sections) {
@@ -75,6 +119,7 @@ const missingRequired = computed(() => {
 
 function submit(asDraft: boolean) {
   if (!asDraft && missingRequired.value.length) return
+  // Values are sanitized live in SchoolFormField; pass a plain copy.
   emit('save', { ...values }, asDraft)
 }
 </script>

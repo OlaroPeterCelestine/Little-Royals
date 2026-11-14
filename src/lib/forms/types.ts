@@ -34,8 +34,10 @@ export interface FormFieldSpec {
   options?: FormFieldOption[]
   /** Show when another field equals one of these values */
   when?: { field: string; in: string[] }
-  /** Pull options from another catalog module (name field) */
+  /** Pull options from another catalog module */
   optionsFrom?: string
+  /** Which row field becomes the select value (default: name) */
+  optionsValue?: 'id' | 'name'
   readOnly?: boolean
   auto?: boolean
 }

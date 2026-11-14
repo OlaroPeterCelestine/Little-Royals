@@ -3,6 +3,12 @@ import { computed } from 'vue'
 import { FormControl } from 'frappe-ui'
 import type { FormFieldSpec } from '../../lib/forms/types'
 import { getLiveModule } from '../../data/store'
+import { compareSchoolClasses } from '../../data/grades'
+import {
+  sanitizeNumber,
+  sanitizeText,
+  type SanitizeKind,
+} from '../../lib/sanitize'
 
 const props = defineProps<{
   field: FormFieldSpec
@@ -21,26 +27,46 @@ const visible = computed(() => {
   return when.in.includes(current)
 })
 
+const isDropdown = computed(
+  () =>
+    Boolean(props.field.optionsFrom) ||
+    Boolean(props.field.options?.length) ||
+    ['select', 'search', 'radio'].includes(props.field.type),
+)
+
 const options = computed(() => {
   if (props.field.options?.length) return props.field.options
   if (props.field.optionsFrom) {
     const mod = getLiveModule(props.field.optionsFrom)
-    return (mod?.rows || []).map((r) => ({
-      label: r.name,
-      value: r.id,
-    }))
+    const useId = props.field.optionsValue === 'id'
+    const seen = new Set<string>()
+    let out: { label: string; value: string }[] = []
+    for (const r of mod?.rows || []) {
+      const value = useId ? r.id : String(r.name || '').trim()
+      if (!value || seen.has(value)) continue
+      seen.add(value)
+      out.push({
+        label: r.name ? String(r.name) : value,
+        value,
+      })
+    }
+    if (props.field.optionsFrom === 'classes' && !useId) {
+      out = out
+        .slice()
+        .sort((a, b) => compareSchoolClasses(a.label, b.label))
+    } else {
+      out = out.slice().sort((a, b) => a.label.localeCompare(b.label))
+    }
+    return out
   }
   return []
 })
 
 const controlType = computed(() => {
+  if (isDropdown.value) return 'select'
   switch (props.field.type) {
     case 'textarea':
       return 'textarea'
-    case 'select':
-    case 'search':
-    case 'radio':
-      return 'select'
     case 'number':
     case 'currency':
       return 'number'
@@ -60,12 +86,48 @@ const controlType = computed(() => {
   }
 })
 
+function sanitizeKind(): SanitizeKind {
+  const t = props.field.type
+  if (t === 'email') return 'email'
+  if (t === 'phone') return 'phone'
+  if (t === 'number' || t === 'currency') return 'number'
+  if (t === 'date') return 'date'
+  if (t === 'time') return 'time'
+  if (t === 'textarea') return 'textarea'
+  if (t === 'select' || t === 'search' || t === 'radio') return 'select'
+  if (
+    props.field.name === 'name' ||
+    props.field.name === 'firstName' ||
+    props.field.name === 'lastName' ||
+    props.field.name === 'otherNames'
+  ) {
+    return 'name'
+  }
+  if (props.field.name === 'id' || props.field.name.endsWith('Number')) {
+    return 'id'
+  }
+  return 'text'
+}
+
 function onUpdate(v: unknown) {
-  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+  if (typeof v === 'boolean') {
     emit('update:modelValue', v)
     return
   }
-  emit('update:modelValue', String(v ?? ''))
+  if (Array.isArray(v)) {
+    emit(
+      'update:modelValue',
+      v.map((item) => sanitizeText(item, 'select', 200)),
+    )
+    return
+  }
+  const kind = sanitizeKind()
+  if (kind === 'number') {
+    const n = sanitizeNumber(v)
+    emit('update:modelValue', n === '' ? '' : n)
+    return
+  }
+  emit('update:modelValue', sanitizeText(v, kind))
 }
 </script>
 
@@ -76,12 +138,10 @@ function onUpdate(v: unknown) {
       :type="controlType"
       :label="`${field.label}${field.required ? ' *' : ''}`"
       :model-value="modelValue as string | number | boolean"
-      :placeholder="field.placeholder"
-      :options="
-        ['select', 'search', 'radio'].includes(field.type)
-          ? options
-          : undefined
+      :placeholder="
+        isDropdown ? `Select ${field.label.toLowerCase()}…` : field.placeholder
       "
+      :options="isDropdown ? options : undefined"
       :disabled="field.readOnly || field.auto || field.type === 'readonly'"
       :description="field.help"
       @update:model-value="onUpdate"
@@ -97,9 +157,9 @@ function onUpdate(v: unknown) {
         :value="Array.isArray(modelValue) ? modelValue : []"
         @change="
           onUpdate(
-            Array.from(($event.target as HTMLSelectElement).selectedOptions).map(
-              (o) => o.value,
-            ),
+            Array.from(
+              ($event.target as HTMLSelectElement).selectedOptions,
+            ).map((o) => o.value),
           )
         "
       >
@@ -118,9 +178,7 @@ function onUpdate(v: unknown) {
         type="file"
         class="block w-full text-sm text-ink-gray-6"
         @change="
-          onUpdate(
-            ($event.target as HTMLInputElement).files?.[0]?.name || '',
-          )
+          onUpdate(($event.target as HTMLInputElement).files?.[0]?.name || '')
         "
       />
       <p v-if="field.help" class="text-xs text-ink-gray-5">{{ field.help }}</p>

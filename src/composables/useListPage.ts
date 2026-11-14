@@ -1,5 +1,6 @@
 import { computed, ref, unref, watch, type MaybeRef, type Ref } from 'vue'
 import type { CatalogRow } from '../data/catalog'
+import { compareSchoolClasses } from '../data/grades'
 
 export const PAGE_SIZE = 10
 
@@ -54,7 +55,11 @@ export function useListPage(
           )
           .map((v) => String(v)),
       ),
-    ).sort((a, b) => a.localeCompare(b))
+    ).sort((a, b) =>
+      key === 'className' || key === 'grade'
+        ? compareSchoolClasses(a, b)
+        : a.localeCompare(b),
+    )
     if (!values.length) return []
     const label = resolvedExtraLabel.value
     return [

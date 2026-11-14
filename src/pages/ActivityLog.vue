@@ -23,6 +23,7 @@ import {
   activityLog,
   activityStats,
   actionTheme,
+  changeTrailPreview,
   formatActivityTime,
   type ActivityAction,
   type ActivityEntry,
@@ -33,6 +34,7 @@ import ListPagination from '../components/ListPagination.vue'
 import ListToolbar from '../components/ListToolbar.vue'
 import PageIntro from '../components/PageIntro.vue'
 import { PAGE_SIZE } from '../composables/useListPage'
+import { pushWithReturn } from '../composables/useAppBack'
 
 type LogTab = 'activity' | 'audit'
 
@@ -75,24 +77,25 @@ watch(
 
 const query = ref('')
 const actionFilter = ref('All')
+const userFilter = ref('All')
 const page = ref(1)
 const active = ref<string>()
 
 watch(tab, () => {
   query.value = ''
   actionFilter.value = 'All'
+  userFilter.value = 'All'
   page.value = 1
   active.value = undefined
 })
 
-/* ——— Activity ——— */
 const activityColumns = {
-  base: ['minmax(0, 0.9fr)', 'minmax(0, 0.7fr)', 'minmax(0, 1.4fr)'],
+  base: ['minmax(0, 0.85fr)', 'minmax(0, 0.55fr)', 'minmax(0, 1.6fr)'],
   md: [
-    'minmax(0, 0.9fr)',
-    'minmax(0, 0.65fr)',
+    'minmax(0, 0.85fr)',
+    'minmax(0, 0.7fr)',
+    'minmax(0, 0.55fr)',
     'minmax(0, 1.5fr)',
-    'minmax(0, 0.8fr)',
     'minmax(0, 0.7fr)',
   ],
 }
@@ -110,11 +113,25 @@ const activityActionOptions = computed(() => {
   ]
 })
 
+const activityUserOptions = computed(() => {
+  const users = Array.from(
+    new Set(activityLog.entries.map((e) => e.user).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b))
+  return [
+    { label: 'All users', value: 'All' },
+    ...users.map((u) => ({
+      label: `${u} (${activityLog.entries.filter((e) => e.user === u).length})`,
+      value: u,
+    })),
+  ]
+})
+
 const filteredActivity = computed(() => {
   const q = query.value.trim().toLowerCase()
   return activityLog.entries.filter((e) => {
     if (actionFilter.value !== 'All' && e.action !== actionFilter.value)
       return false
+    if (userFilter.value !== 'All' && e.user !== userFilter.value) return false
     if (!q) return true
     return [
       e.summary,
@@ -125,6 +142,8 @@ const filteredActivity = computed(() => {
       e.recordId,
       e.detail,
       e.action,
+      e.ip,
+      ...(e.changes || []).flatMap((c) => [c.field, c.before, c.after]),
     ]
       .filter(Boolean)
       .join(' ')
@@ -133,18 +152,18 @@ const filteredActivity = computed(() => {
   })
 })
 
-/* ——— Audit ——— */
 const auditRows = computed(() => schoolStore['audit-logs']?.rows || [])
 
 const auditColumns = {
-  base: ['minmax(0, 0.7fr)', 'minmax(0, 1.3fr)', 'minmax(0, 1fr)'],
+  base: ['minmax(0, 0.7fr)', 'minmax(0, 1.1fr)', 'minmax(0, 1.2fr)'],
   md: [
+    'minmax(0, 0.55fr)',
     'minmax(0, 0.7fr)',
-    'minmax(0, 1.3fr)',
-    'minmax(0, 1fr)',
-    'minmax(0, 0.8fr)',
-    'minmax(0, 0.65fr)',
     'minmax(0, 0.9fr)',
+    'minmax(0, 1.2fr)',
+    'minmax(0, 0.65fr)',
+    'minmax(0, 0.55fr)',
+    'minmax(0, 0.75fr)',
   ],
 }
 
@@ -161,13 +180,43 @@ const auditStatusOptions = computed(() => {
   ]
 })
 
+const auditUserOptions = computed(() => {
+  const users = Array.from(
+    new Set(
+      auditRows.value.map((r) => String(r.user || '')).filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b))
+  return [
+    { label: 'All users', value: 'All' },
+    ...users.map((u) => ({
+      label: `${u} (${auditRows.value.filter((r) => String(r.user) === u).length})`,
+      value: u,
+    })),
+  ]
+})
+
 const filteredAudit = computed(() => {
   const q = query.value.trim().toLowerCase()
   return auditRows.value.filter((r) => {
     if (actionFilter.value !== 'All' && String(r.status) !== actionFilter.value)
       return false
+    if (userFilter.value !== 'All' && String(r.user) !== userFilter.value)
+      return false
     if (!q) return true
-    return [r.id, r.name, r.user, r.module, r.recordId, r.subtitle, r.status]
+    return [
+      r.id,
+      r.name,
+      r.user,
+      r.module,
+      r.recordId,
+      r.recordName,
+      r.subtitle,
+      r.status,
+      r.ip,
+      r.before,
+      r.after,
+      r.changes,
+    ]
       .filter(Boolean)
       .join(' ')
       .toLowerCase()
@@ -195,7 +244,7 @@ const rangeLabel = computed(() => {
   return `${start}–${end}`
 })
 
-watch([query, actionFilter], () => {
+watch([query, actionFilter, userFilter], () => {
   page.value = 1
 })
 
@@ -206,7 +255,7 @@ watch(totalPages, (pages) => {
 const activityStatsCards = computed(() => [
   { title: 'Total events', value: activityStats.value.total },
   { title: 'Today', value: activityStats.value.today, caption: 'Since midnight' },
-  { title: 'Created', value: activityStats.value.created },
+  { title: 'Added', value: activityStats.value.created },
   { title: 'Deleted', value: activityStats.value.deleted },
 ])
 
@@ -243,63 +292,12 @@ function auditTheme(status?: string) {
 
 function openActivity(entry: ActivityEntry) {
   active.value = entry.id
-  dialog.confirm({
-    title: entry.summary,
-    message:
-      `${formatActivityTime(entry.at)}\n` +
-      `User: ${entry.user} (${entry.role})\n` +
-      `Module: ${entry.moduleLabel}` +
-      (entry.recordId ? ` · ${entry.recordId}` : '') +
-      `\nAction: ${entry.action}` +
-      (entry.detail ? `\n\n${entry.detail}` : '') +
-      (entry.ip ? `\nIP: ${entry.ip}` : ''),
-    icon: 'lucide-history',
-    theme:
-      entry.severity === 'danger'
-        ? 'red'
-        : entry.severity === 'warning'
-          ? 'amber'
-          : 'blue',
-    confirmLabel:
-      entry.recordId &&
-      entry.module !== 'permissions' &&
-      entry.module !== 'system' &&
-      entry.module !== 'school-setup'
-        ? 'Open record'
-        : entry.module === 'school-setup'
-          ? 'Open School Setup'
-          : 'Close',
-    onConfirm: async () => {
-      if (entry.module === 'school-setup') {
-        await router.push('/school-setup')
-        return
-      }
-      if (
-        entry.recordId &&
-        entry.module !== 'permissions' &&
-        entry.module !== 'system'
-      ) {
-        await router.push(`/${entry.module}/${entry.recordId}`)
-      }
-    },
-  })
+  pushWithReturn(router, `/activity-log/activity/${entry.id}`)
 }
 
 function openAudit(row: CatalogRow) {
   active.value = row.id
-  dialog.confirm({
-    title: String(row.name),
-    message:
-      `ID: ${row.id}\n` +
-      `User: ${row.user || '—'}\n` +
-      `Module: ${row.module || '—'}` +
-      (row.recordId ? `\nRecord: ${row.recordId}` : '') +
-      `\nResult: ${row.status || '—'}` +
-      (row.subtitle ? `\nWhen: ${row.subtitle}` : ''),
-    icon: 'lucide-shield',
-    theme: auditTheme(String(row.status)) === 'red' ? 'red' : 'blue',
-    confirmLabel: 'Close',
-  })
+  pushWithReturn(router, `/activity-log/audit/${row.id}`)
 }
 
 function clearActivity() {
@@ -326,6 +324,21 @@ function cellValue(row: CatalogRow, key: string) {
     ? '—'
     : String(value)
 }
+
+function auditTrailPreview(row: CatalogRow) {
+  const trail = String(row.changes || '').trim()
+  if (trail) {
+    const lines = trail.split('\n').filter(Boolean)
+    if (lines.length <= 2) return lines.join(' · ')
+    return `${lines.slice(0, 2).join(' · ')} · +${lines.length - 2} more`
+  }
+  const before = String(row.before || '')
+  const after = String(row.after || '')
+  if (!before && !after) return '—'
+  if (!before) return `added “${after}”`
+  if (!after) return `removed “${before}”`
+  return `“${before}” → “${after}”`
+}
 </script>
 
 <template>
@@ -335,7 +348,7 @@ function cellValue(row: CatalogRow, key: string) {
 
   <div class="school-page">
     <PageIntro
-      description="Desk activity and security audit history in one place — switch tabs to filter."
+      description="Trace what each user had first, what they changed it to, or what they added / deleted — with time and IP."
       :stats="stats"
     />
 
@@ -349,11 +362,27 @@ function cellValue(row: CatalogRow, key: string) {
           label="Search"
           :placeholder="
             tab === 'activity'
-              ? 'Search user, record, module…'
-              : 'Search audit user, module, action…'
+              ? 'Search user, change, IP, record…'
+              : 'Search audit user, was → became, IP…'
           "
         />
       </template>
+      <FormControl
+        v-if="tab === 'activity' && activityUserOptions.length > 1"
+        v-model="userFilter"
+        class="school-filter-select"
+        type="select"
+        label="User"
+        :options="activityUserOptions"
+      />
+      <FormControl
+        v-else-if="tab === 'audit' && auditUserOptions.length > 1"
+        v-model="userFilter"
+        class="school-filter-select"
+        type="select"
+        label="User"
+        :options="auditUserOptions"
+      />
       <FormControl
         v-if="tab === 'activity' && activityActionOptions.length > 1"
         v-model="actionFilter"
@@ -372,11 +401,6 @@ function cellValue(row: CatalogRow, key: string) {
       />
       <template #actions>
         <Button
-          icon-left="lucide-shield-check"
-          label="Access"
-          @click="router.push('/users')"
-        />
-        <Button
           v-if="tab === 'activity'"
           icon-left="lucide-trash-2"
           label="Clear activity"
@@ -391,10 +415,10 @@ function cellValue(row: CatalogRow, key: string) {
       <List v-model:active="active" :columns="activityColumns">
         <ListHeader>
           <ListHeaderCell>When</ListHeaderCell>
-          <ListHeaderCell>Action</ListHeaderCell>
-          <ListHeaderCell>Summary</ListHeaderCell>
           <ListHeaderCell class="hidden md:flex">User</ListHeaderCell>
-          <ListHeaderCell class="hidden md:flex">Module</ListHeaderCell>
+          <ListHeaderCell>Action</ListHeaderCell>
+          <ListHeaderCell>Change (was → became)</ListHeaderCell>
+          <ListHeaderCell class="hidden md:flex">IP</ListHeaderCell>
         </ListHeader>
 
         <ListRows :items="pageRows as ActivityEntry[]" v-slot="{ item }">
@@ -408,6 +432,22 @@ function cellValue(row: CatalogRow, key: string) {
                 formatActivityTime(item.at)
               }}</span>
             </ListCell>
+            <ListCell class="hidden school-list-nowrap md:flex">
+              <div class="min-w-0 space-y-0.5">
+                <p
+                  class="school-cell-text text-sm text-ink-gray-9"
+                  :title="item.user"
+                >
+                  {{ item.user }}
+                </p>
+                <p
+                  class="school-cell-text text-xs text-ink-gray-5"
+                  :title="item.role"
+                >
+                  {{ item.role }}
+                </p>
+              </div>
+            </ListCell>
             <ListCell class="school-list-nowrap">
               <Badge
                 :label="item.action"
@@ -417,41 +457,36 @@ function cellValue(row: CatalogRow, key: string) {
             </ListCell>
             <ListCell class="school-list-primary">
               <div class="school-list-primary-text min-w-0 space-y-0.5 pe-1">
-                <p class="school-cell-text text-sm-medium text-ink-gray-9" :title="item.summary">
+                <p
+                  class="school-cell-text text-sm-medium text-ink-gray-9"
+                  :title="item.summary"
+                >
                   {{ item.summary }}
                 </p>
                 <p
-                  v-if="item.detail"
                   class="school-cell-text text-xs text-ink-gray-5"
-                  :title="item.detail"
+                  :title="
+                    changeTrailPreview(item.changes, 4) || item.detail || ''
+                  "
                 >
-                  {{ item.detail }}
-                </p>
-              </div>
-            </ListCell>
-            <ListCell class="hidden school-list-nowrap md:flex">
-              <div class="min-w-0 space-y-0.5">
-                <p class="school-cell-text text-sm text-ink-gray-9" :title="item.user">
-                  {{ item.user }}
-                </p>
-                <p class="school-cell-text text-xs text-ink-gray-5" :title="item.role">
-                  {{ item.role }}
+                  {{
+                    changeTrailPreview(item.changes, 2) ||
+                    item.detail ||
+                    'No field changes recorded'
+                  }}
                 </p>
               </div>
             </ListCell>
             <ListCell class="hidden school-list-nowrap text-ink-gray-7 md:flex">
-              <span class="school-cell-text" :title="item.moduleLabel">{{
-                item.moduleLabel
+              <span class="school-cell-text font-mono text-xs" :title="item.ip">{{
+                item.ip || '—'
               }}</span>
             </ListCell>
           </ListRow>
         </ListRows>
       </List>
 
-      <p
-        v-if="filteredActivity.length === 0"
-        class="school-table-empty"
-      >
+      <p v-if="filteredActivity.length === 0" class="school-table-empty">
         No activity matches your filters.
       </p>
 
@@ -471,12 +506,13 @@ function cellValue(row: CatalogRow, key: string) {
     <div v-else class="school-table">
       <List v-model:active="active" :columns="auditColumns">
         <ListHeader>
-          <ListHeaderCell>ID</ListHeaderCell>
-          <ListHeaderCell>Action</ListHeaderCell>
+          <ListHeaderCell>When</ListHeaderCell>
           <ListHeaderCell class="hidden md:flex">User</ListHeaderCell>
-          <ListHeaderCell class="hidden md:flex">Module</ListHeaderCell>
+          <ListHeaderCell>Action</ListHeaderCell>
+          <ListHeaderCell>Change (was → became)</ListHeaderCell>
+          <ListHeaderCell class="hidden md:flex">IP</ListHeaderCell>
           <ListHeaderCell>Result</ListHeaderCell>
-          <ListHeaderCell class="hidden md:flex">When</ListHeaderCell>
+          <ListHeaderCell class="hidden md:flex">Module</ListHeaderCell>
         </ListHeader>
 
         <ListRows :items="pageRows as CatalogRow[]" v-slot="{ item }">
@@ -486,9 +522,18 @@ function cellValue(row: CatalogRow, key: string) {
             @click="openAudit(item)"
           >
             <ListCell class="school-list-nowrap text-ink-gray-7">
-              <span class="school-cell-text" :title="String(item.id)">{{
-                item.id
-              }}</span>
+              <span
+                class="school-cell-text"
+                :title="String(item.subtitle || item.when || '—')"
+                >{{ item.subtitle || item.when || '—' }}</span
+              >
+            </ListCell>
+            <ListCell class="hidden school-list-nowrap md:flex">
+              <span
+                class="school-cell-text"
+                :title="cellValue(item, 'user')"
+                >{{ cellValue(item, 'user') }}</span
+              >
             </ListCell>
             <ListCell class="school-list-primary">
               <div class="school-list-primary-text min-w-0 space-y-0.5 pe-1">
@@ -499,26 +544,26 @@ function cellValue(row: CatalogRow, key: string) {
                   {{ item.name }}
                 </p>
                 <p
-                  v-if="item.recordId"
+                  v-if="item.recordId || item.recordName"
                   class="school-cell-text text-xs text-ink-gray-5"
-                  :title="String(item.recordId)"
+                  :title="String(item.recordName || item.recordId)"
                 >
-                  {{ item.recordId }}
+                  {{ item.recordName || item.recordId }}
                 </p>
               </div>
             </ListCell>
-            <ListCell class="hidden school-list-nowrap md:flex">
+            <ListCell class="school-list-nowrap text-ink-gray-7">
               <span
-                class="school-cell-text"
-                :title="cellValue(item, 'user')"
-                >{{ cellValue(item, 'user') }}</span
+                class="school-cell-text text-xs"
+                :title="String(item.changes || auditTrailPreview(item))"
+                >{{ auditTrailPreview(item) }}</span
               >
             </ListCell>
             <ListCell class="hidden school-list-nowrap text-ink-gray-7 md:flex">
               <span
-                class="school-cell-text"
-                :title="cellValue(item, 'module')"
-                >{{ cellValue(item, 'module') }}</span
+                class="school-cell-text font-mono text-xs"
+                :title="cellValue(item, 'ip')"
+                >{{ cellValue(item, 'ip') }}</span
               >
             </ListCell>
             <ListCell class="school-list-nowrap">
@@ -529,18 +574,17 @@ function cellValue(row: CatalogRow, key: string) {
               />
             </ListCell>
             <ListCell class="hidden school-list-nowrap text-ink-gray-7 md:flex">
-              <span class="school-cell-text" :title="String(item.subtitle || '—')">{{
-                item.subtitle || '—'
-              }}</span>
+              <span
+                class="school-cell-text"
+                :title="cellValue(item, 'module')"
+                >{{ cellValue(item, 'module') }}</span
+              >
             </ListCell>
           </ListRow>
         </ListRows>
       </List>
 
-      <p
-        v-if="filteredAudit.length === 0"
-        class="school-table-empty"
-      >
+      <p v-if="filteredAudit.length === 0" class="school-table-empty">
         No audit entries match your filters.
       </p>
 

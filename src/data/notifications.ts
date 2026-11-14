@@ -102,7 +102,7 @@ export const notifications = computed<SchoolNotification[]>(() => {
       id: 'payments-pending',
       title: `${pendingPayments} mobile money payment${pendingPayments === 1 ? '' : 's'} to reconcile`,
       body: 'MTN / Airtel receipts waiting in Accounts.',
-      route: '/payments',
+      route: '/payment?tab=ledger',
       tone: 'amber',
       createdAt: todayLabel(),
       read: dismissed.has('payments-pending'),

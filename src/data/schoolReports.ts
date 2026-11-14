@@ -1,12 +1,15 @@
 import type { CatalogRow } from './catalog'
-import { schoolSetup, formatSchoolAddress } from './schoolSetup'
-import { brand } from './brand'
+import { schoolSetup } from './schoolSetup'
 import { schoolStore, unpaidFeeCount, pendingApplicantCount } from './store'
 import {
+  letterhead,
   openPrintWindow,
+  signatures,
+  statutoryDocumentCss,
+  wrap as wrapStatutory,
   type DocumentKind,
 } from './documents'
-import { escapeHtml, escapeHtmlMultiline } from '../lib/security'
+import { escapeHtml } from '../lib/security'
 
 const esc = escapeHtml
 
@@ -158,72 +161,30 @@ export function reportRecordColumns(id: SchoolReportId): { key: string; label: s
   }
 }
 
-function logoSrc() {
-  try {
-    return new URL(brand.logoUrl, window.location.origin).href
-  } catch {
-    return brand.logoUrl
-  }
-}
-
-function wrap(title: string, body: string) {
-  const address = escapeHtmlMultiline(formatSchoolAddress())
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>${esc(title)}</title>
-  <style>
-    @page { margin: 14mm; }
-    * { box-sizing: border-box; }
-    body { font-family: system-ui, sans-serif; color: #1a1a1a; font-size: 12px; margin: 0; }
-    .sheet { max-width: 900px; margin: 0 auto; }
-    .head { display:flex; justify-content:space-between; gap:1rem; padding-bottom:10px; }
-    .brand { display:flex; gap:10px; align-items:center; }
-    .logo-img { width:64px; height:64px; object-fit:contain; }
-    h1 { margin:0; font-size:16px; color:#2e3192; }
-    .motto { margin:3px 0 0; font-style:italic; color:#ed1c24; font-size:11px; }
-    .meta { text-align:right; font-size:11px; color:#2e3192; }
-    .accent { height:4px; margin:0 0 14px; background:linear-gradient(90deg,#2e3192 0%,#2e3192 58%,#ed1c24 58%,#ed1c24 100%); }
-    .contact { display:flex; justify-content:space-between; gap:1rem; font-size:11px; color:#333; margin-bottom:18px; }
-    h2 { font-size:13px; margin:18px 0 8px; color:#2e3192; text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid #c5c7e8; padding-bottom:5px; }
-    table { width:100%; border-collapse:collapse; margin:8px 0 14px; }
-    th, td { border:1px solid #d7d7e8; padding:6px 8px; text-align:left; vertical-align:top; }
-    th { background:#eef0fa; color:#2e3192; font-size:11px; }
+function wrap(title: string, body: string, refNo?: string) {
+  const reportCss = `
+    ${statutoryDocumentCss}
     .kpi { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:12px 0; }
-    .kpi div { border:1px solid #d7d7e8; border-radius:8px; padding:10px; background:#fafbff; }
-    .kpi strong { display:block; font-size:18px; color:#2e3192; }
-    .kpi span { font-size:11px; color:#555; }
-    .muted { color:#666; font-size:11px; }
-    .foot { margin-top:24px; font-size:10px; color:#777; border-top:1px solid #ddd; padding-top:8px; }
-  </style>
-</head>
-<body>
-  <div class="sheet">
-    <header class="head">
-      <div class="brand">
-        <img class="logo-img" src="${esc(logoSrc())}" alt="${esc(schoolSetup.shortName)}" />
-        <div>
-          <h1>${esc(schoolSetup.name)}</h1>
-          <p class="motto">${esc(schoolSetup.motto)}</p>
-        </div>
-      </div>
-      <div class="meta">
-        <p><strong>${esc(title)}</strong></p>
-        <p>${esc(schoolSetup.currentTerm)} ${esc(schoolSetup.academicYear)}</p>
-        <p>${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-      </div>
-    </header>
-    <div class="accent"></div>
-    <div class="contact">
-      <div>${address}</div>
-      <div>Tel: ${esc(schoolSetup.phone)}<br>Email: ${esc(schoolSetup.email)}</div>
-    </div>
+    .kpi div { border:1px solid #9ea2d4; padding:10px; background:#f7f8fc; }
+    .kpi strong { display:block; font-size:18px; color:#1f226e; font-family:"Helvetica Neue",Arial,sans-serif; }
+    .kpi span { font-size:11px; color:#555; font-family:"Helvetica Neue",Arial,sans-serif; }
+    table { width:100%; border-collapse:collapse; margin:8px 0 14px; }
+    th, td { border:1px solid #9ea2d4; padding:6px 8px; text-align:left; vertical-align:top; font-family:"Helvetica Neue",Arial,sans-serif; font-size:11.5px; }
+    th { background:#e8e9f6; color:#1f226e; font-size:11px; }
+  `
+  // Prefer shared statutory shell; inject report-only KPI/table extras via wrapStatutory base.
+  const html = wrapStatutory(
+    title,
+    `${letterhead(title, refNo || `RPT-${new Date().toISOString().slice(0, 10)}`, {
+      kindLabel: 'Statutory school report',
+    })}
     ${body}
-    <p class="foot">Generated from Little Royals Kindergarten & Primary desk · Confidential school report</p>
-  </div>
-</body>
-</html>`
+    ${signatures('Prepared by', 'Head teacher')}`,
+  )
+  return html.replace(
+    `<style>${statutoryDocumentCss}</style>`,
+    `<style>${reportCss}</style>`,
+  )
 }
 
 function countBy(rows: { status?: unknown }[], statuses: string[]) {

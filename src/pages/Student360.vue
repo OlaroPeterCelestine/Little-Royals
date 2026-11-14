@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Avatar,
   Badge,
   Button,
+  FormControl,
   PageHeader,
   PageHeaderTitle,
   TabButtons,
@@ -12,12 +13,27 @@ import {
   toast,
 } from 'frappe-ui'
 import { getStudent360 } from '../data/student360'
+import {
+  buildSubjectAggregates,
+  saveStudentSubjectMark,
+  termsForStudent,
+  type ExamReport,
+  type SubjectMarkRow,
+} from '../data/studentSubjects'
+import {
+  studentContactFields,
+  studentHealthFields,
+  studentPersonalFields,
+  studentSchoolFields,
+} from '../data/biodata'
 import { deleteRecords } from '../data/store'
 import { openEditDialog, openCreateDialog } from '../composables/useModuleForms'
 import { printRecordDocument, type DocumentKind } from '../data/documents'
 import type { CatalogRow } from '../data/catalog'
 import { useModuleAccess } from '../composables/useModuleAccess'
 import { canCurrentUser } from '../data/permissions'
+import { personListPath } from '../lib/personRoutes'
+import { pushWithReturn, useAppBack } from '../composables/useAppBack'
 
 const route = useRoute()
 const router = useRouter()
@@ -36,9 +52,27 @@ const canPrintDiscipline = computed(() =>
 
 const studentId = computed(() => String(route.params.id || ''))
 const bundle = computed(() => getStudent360(studentId.value))
+const student = computed(() => bundle.value?.student)
+const { goBack } = useAppBack(() => personListPath('students'))
+
+const personalFields = computed(() =>
+  student.value ? studentPersonalFields(student.value) : [],
+)
+const schoolFields = computed(() =>
+  student.value
+    ? studentSchoolFields(student.value, bundle.value?.classInfo)
+    : [],
+)
+const contactFields = computed(() =>
+  student.value ? studentContactFields(student.value) : [],
+)
+const healthFields = computed(() =>
+  student.value ? studentHealthFields(student.value) : [],
+)
 
 const tabs = [
   { label: 'Overview', value: 'overview' },
+  { label: 'Biodata', value: 'biodata' },
   { label: 'Guardians', value: 'guardians' },
   { label: 'Discipline', value: 'discipline' },
   { label: 'Academics', value: 'academics' },
@@ -47,9 +81,217 @@ const tabs = [
   { label: 'Notes', value: 'notes' },
 ]
 
-function goBack() {
-  router.push('/students')
+/** Academics drill: term → exam list → exam detail → subject detail */
+const selectedTerm = ref('all')
+const selectedExam = ref('')
+const selectedSubject = ref('')
+const academicsLevel = ref<'summary' | 'exam' | 'subject'>('summary')
+
+const markForm = reactive({
+  exam: '',
+  subject: '',
+  score: 0,
+  maxScore: 100,
+})
+const savingMark = ref(false)
+
+const examReports = computed(() => bundle.value?.examReports || [])
+const subjectReports = computed(() => bundle.value?.subjectReports || [])
+
+const availableTerms = computed(() =>
+  student.value ? termsForStudent(student.value) : [],
+)
+
+const filteredExamReports = computed(() => {
+  if (selectedTerm.value === 'all') return examReports.value
+  return examReports.value.filter((e) => e.term === selectedTerm.value)
+})
+
+const academicSummary = computed(() => {
+  if (!student.value) return null
+  if (selectedTerm.value === 'all') return bundle.value?.academicSummary || null
+  return buildSubjectAggregates(student.value, { term: selectedTerm.value })
+})
+
+const activeExamReport = computed(() => {
+  const list = filteredExamReports.value
+  if (!list.length) return null
+  return list.find((r) => r.examKey === selectedExam.value) || null
+})
+
+const activeSubjectMark = computed((): SubjectMarkRow | null => {
+  const exam = activeExamReport.value
+  if (!exam || !selectedSubject.value) return null
+  return (
+    exam.subjects.find((m) => m.subject === selectedSubject.value) || null
+  )
+})
+
+const activeSubjectResult = computed(() => {
+  const mark = activeSubjectMark.value
+  if (!mark || !bundle.value) return null
+  return bundle.value.results.find((r) => r.id === mark.id) || null
+})
+
+const activeSubjectReport = computed(() => {
+  if (!selectedSubject.value) return null
+  return (
+    subjectReports.value.find((r) => r.subject === selectedSubject.value) ||
+    null
+  )
+})
+
+const subjectMarksInTerm = computed(() => {
+  if (!selectedSubject.value) return []
+  const report = activeSubjectReport.value
+  if (!report) return []
+  const marks = report.marks
+  if (selectedTerm.value === 'all') return marks
+  return marks.filter((m) => {
+    const exam = examReports.value.find((e) => e.examKey === m.examKey)
+    return exam?.term === selectedTerm.value
+  })
+})
+
+watch(
+  filteredExamReports,
+  (list) => {
+    if (!list.length) {
+      selectedExam.value = ''
+      if (academicsLevel.value !== 'summary') academicsLevel.value = 'summary'
+      return
+    }
+    if (
+      selectedExam.value &&
+      !list.some((r) => r.examKey === selectedExam.value)
+    ) {
+      selectedExam.value = ''
+      selectedSubject.value = ''
+      academicsLevel.value = 'summary'
+    }
+  },
+  { immediate: true },
+)
+
+watch(activeExamReport, (exam) => {
+  if (exam && academicsLevel.value === 'exam') markForm.exam = exam.examKey
+})
+
+watch(selectedTerm, () => {
+  selectedExam.value = ''
+  selectedSubject.value = ''
+  academicsLevel.value = 'summary'
+})
+
+function openExamDetail(examKey: string) {
+  selectedExam.value = examKey
+  selectedSubject.value = ''
+  academicsLevel.value = 'exam'
+  markForm.exam = examKey
 }
+
+function openSubjectDetail(subject: string) {
+  selectedSubject.value = subject
+  academicsLevel.value = 'subject'
+}
+
+function openSubjectFromSummary(subject: string) {
+  const exam = filteredExamReports.value.find((e) =>
+    e.subjects.some((m) => m.subject === subject),
+  )
+  selectedExam.value = exam?.examKey || ''
+  selectedSubject.value = subject
+  academicsLevel.value = 'subject'
+}
+
+function backToAcademicsSummary() {
+  selectedExam.value = ''
+  selectedSubject.value = ''
+  academicsLevel.value = 'summary'
+}
+
+function backToExamDetail() {
+  selectedSubject.value = ''
+  academicsLevel.value = 'exam'
+}
+
+const canEnterMarks = computed(() =>
+  subjectReports.value.some((r) => r.canTeacherMark),
+)
+
+const markableSubjects = computed(() =>
+  subjectReports.value.filter((r) => r.canTeacherMark),
+)
+
+function submitSubjectMark() {
+  if (!bundle.value) return
+  const subject = markForm.subject || markableSubjects.value[0]?.subject || ''
+  if (!subject) {
+    toast.error('Pick a subject')
+    return
+  }
+  const report = subjectReports.value.find((r) => r.subject === subject)
+  if (!report?.canTeacherMark) {
+    toast.error('Your role cannot enter marks for this subject')
+    return
+  }
+  const examBase = markForm.exam.trim() || activeExamReport.value?.examKey || ''
+  if (!examBase) {
+    toast.error('Enter an exam name (e.g. Term II EOT)')
+    return
+  }
+  const examName = examBase.includes('·')
+    ? examBase
+    : `${examBase} · ${subject}`
+  savingMark.value = true
+  try {
+    saveStudentSubjectMark({
+      student: bundle.value.student,
+      subject,
+      exam: examName,
+      score: Number(markForm.score),
+      maxScore: Number(markForm.maxScore) || 100,
+    })
+    toast.success(`Saved ${subject} under ${examBase}`)
+    selectedExam.value = examBase.includes('·')
+      ? examBase.split(/·|—/)[0].trim()
+      : examBase
+    markForm.score = 0
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Could not save mark')
+  } finally {
+    savingMark.value = false
+  }
+}
+
+function openGradebook() {
+  pushWithReturn(router, {
+    path: '/gradebook',
+    query: { tab: 'marks' },
+  })
+}
+
+function examAverageLabel(report: ExamReport) {
+  return report.average != null ? `${report.average}% avg` : 'No average'
+}
+
+function aggregateTheme(agg: string) {
+  const a = String(agg || '')
+  if (['D1', 'D2', 'Exceeding', 'Secure'].includes(a)) return 'green'
+  if (['C3', 'C4', 'C5', 'Developing'].includes(a)) return 'blue'
+  if (['C6', 'P7'].includes(a)) return 'amber'
+  if (['P8', 'F9', 'Emerging'].includes(a)) return 'red'
+  return 'gray'
+}
+
+function attendancePercentTheme(pct: number | null) {
+  if (pct == null) return 'gray'
+  if (pct >= 90) return 'green'
+  if (pct >= 75) return 'blue'
+  if (pct >= 60) return 'amber'
+  return 'red'
+}
+
 
 function editStudent() {
   if (!bundle.value) return
@@ -60,20 +302,20 @@ function confirmDelete() {
   const student = bundle.value?.student
   if (!student) return
   dialog.danger({
-    title: 'Delete student?',
-    message: `You are about to permanently delete “${student.name}” (${student.id}). Guardians and cases stay in their lists but will no longer link here.\n\nThis cannot be undone.`,
+    title: '⚠️ Delete student?',
+    message: `Warning: you are about to permanently delete “${student.name}” (${student.id}). Guardians and cases stay in their lists but will no longer link here.\n\nThis cannot be undone.`,
     confirmLabel: 'Yes, delete forever',
     cancelLabel: 'Keep student',
     onConfirm: async () => {
       deleteRecords('students', [student.id])
       toast.warning(`Student “${student.name}” deleted`)
-      await router.push('/students')
+      await router.push(personListPath('students'))
     },
   })
 }
 
 function openRow(moduleKey: string, row: CatalogRow) {
-  router.push(`/${moduleKey}/${row.id}`)
+  pushWithReturn(router, `/${moduleKey}/${row.id}`)
 }
 
 function printDoc(kind: DocumentKind, moduleKey: string, row: CatalogRow) {
@@ -109,42 +351,24 @@ function statusTheme(status?: string) {
 
 <template>
   <PageHeader>
-    <PageHeaderTitle :title="bundle?.student.name || 'Student 360'" />
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="flex min-w-0 flex-wrap items-center gap-2">
       <Button icon-left="lucide-arrow-left" label="Back" @click="goBack" />
-      <template v-if="bundle">
-        <Button
-          v-if="canPrint"
-          icon-left="lucide-printer"
-          label="Report card"
-          @click="printReportCard"
-        />
-        <Button
-          v-if="canWrite"
-          icon-left="lucide-pencil"
-          label="Edit"
-          @click="editStudent"
-        />
-        <Button
-          v-if="canCreateGuardian"
-          icon-left="lucide-user-plus"
-          label="Add guardian"
-          @click="openCreateDialog('guardians')"
-        />
-        <Button
-          v-if="canCreateCase"
-          icon-left="lucide-shield-alert"
-          label="New case"
-          @click="openCreateDialog('disciplinary-cases')"
-        />
-        <Button
-          v-if="canDelete"
-          icon-left="lucide-trash-2"
-          label="Delete"
-          theme="red"
-          @click="confirmDelete"
-        />
-      </template>
+      <PageHeaderTitle :title="bundle?.student.name || 'Student 360'" />
+    </div>
+    <div v-if="bundle" class="flex flex-wrap items-center gap-2">
+      <Button
+        v-if="canWrite"
+        icon-left="lucide-pencil"
+        label="Edit"
+        @click="editStudent"
+      />
+      <Button
+        v-if="canDelete"
+        icon-left="lucide-trash-2"
+        label="Delete"
+        theme="red"
+        @click="confirmDelete"
+      />
     </div>
   </PageHeader>
 
@@ -163,7 +387,17 @@ function statusTheme(status?: string) {
           <Avatar :label="bundle.student.name" size="xl" class="shrink-0" />
           <div class="school-detail-hero__text">
             <p class="school-detail-hero__meta">
-              Student 360 · {{ bundle.student.id }}
+              Learner
+              {{
+                bundle.student.learnerNumber ||
+                bundle.student.studentNumber ||
+                bundle.student.id
+              }}
+              · Student
+              {{ bundle.student.studentNumber || bundle.student.id }}
+              <template v-if="bundle.student.schoolPayAccount">
+                · School Pay {{ bundle.student.schoolPayAccount }}
+              </template>
             </p>
             <h1
               class="school-detail-hero__title"
@@ -176,6 +410,22 @@ function statusTheme(status?: string) {
             </p>
             <div class="school-detail-hero__badges">
               <Badge
+                :label="`LN ${bundle.student.learnerNumber || bundle.student.id}`"
+                theme="gray"
+                variant="subtle"
+              />
+              <Badge
+                :label="`SN ${bundle.student.studentNumber || bundle.student.id}`"
+                theme="blue"
+                variant="subtle"
+              />
+              <Badge
+                v-if="bundle.student.schoolPayAccount"
+                :label="`Pay ${bundle.student.schoolPayAccount}`"
+                theme="green"
+                variant="subtle"
+              />
+              <Badge
                 v-if="bundle.student.status"
                 :label="bundle.student.status"
                 :theme="bundle.student.statusTheme || 'gray'"
@@ -187,9 +437,27 @@ function statusTheme(status?: string) {
                 variant="subtle"
               />
               <Badge
+                v-if="bundle.student.tribe"
+                :label="String(bundle.student.tribe)"
+                theme="amber"
+                variant="subtle"
+              />
+              <Badge
+                v-if="bundle.student.religion"
+                :label="String(bundle.student.religion)"
+                theme="violet"
+                variant="subtle"
+              />
+              <Badge
                 v-if="bundle.stats.average !== null"
                 :label="`${bundle.stats.average}% avg`"
-                theme="violet"
+                theme="gray"
+                variant="subtle"
+              />
+              <Badge
+                v-if="bundle.stats.classPosition"
+                :label="`Pos ${bundle.stats.classPosition}`"
+                theme="green"
                 variant="subtle"
               />
             </div>
@@ -197,7 +465,29 @@ function statusTheme(status?: string) {
         </div>
       </section>
 
-      <div class="school-card-grid sm:grid-cols-2 lg:grid-cols-4">
+      <div class="school-card-grid sm:grid-cols-2 lg:grid-cols-6">
+        <div class="school-card space-y-1">
+          <p class="text-xs uppercase tracking-wide text-ink-gray-5">
+            Class position
+          </p>
+          <p class="text-xl-semibold text-ink-gray-9">
+            {{ bundle.stats.classPosition || '—' }}
+          </p>
+          <p class="text-xs text-ink-gray-5">by performance</p>
+        </div>
+        <div class="school-card space-y-1">
+          <p class="text-xs uppercase tracking-wide text-ink-gray-5">Subjects</p>
+          <p class="text-xl-semibold text-ink-gray-9">
+            {{ bundle.stats.subjectCount }}
+          </p>
+          <p class="text-xs text-ink-gray-5">
+            {{
+              bundle.stats.average != null
+                ? `${bundle.stats.average}% avg`
+                : 'taken'
+            }}
+          </p>
+        </div>
         <div class="school-card space-y-1">
           <p class="text-xs uppercase tracking-wide text-ink-gray-5">Guardians</p>
           <p class="text-xl-semibold text-ink-gray-9">{{ bundle.stats.guardianCount }}</p>
@@ -210,7 +500,17 @@ function statusTheme(status?: string) {
         <div class="school-card space-y-1">
           <p class="text-xs uppercase tracking-wide text-ink-gray-5">Attendance</p>
           <p class="text-xl-semibold text-ink-gray-9">
-            {{ bundle.stats.attendancePresent }}/{{ bundle.stats.attendanceTotal || '—' }}
+            {{
+              bundle.stats.attendancePercent != null
+                ? `${bundle.stats.attendancePercent}%`
+                : '—'
+            }}
+          </p>
+          <p class="text-xs text-ink-gray-5">
+            {{ bundle.stats.attendancePresent }}/{{
+              bundle.stats.attendanceTotal || '—'
+            }}
+            days
           </p>
         </div>
         <div class="school-card space-y-1">
@@ -221,22 +521,91 @@ function statusTheme(status?: string) {
 
       <TabButtons v-model="tab" :options="tabs" />
 
+      <!-- In-depth biodata -->
+      <section v-if="tab === 'biodata'" class="space-y-4">
+        <div class="school-section">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="school-section-title mb-0">Personal biodata</h2>
+            <Button
+              v-if="canWrite"
+              icon-left="lucide-pencil"
+              label="Edit biodata"
+              @click="editStudent"
+            />
+          </div>
+          <dl class="grid gap-3 sm:grid-cols-2">
+            <div
+              v-for="item in personalFields"
+              :key="item.label"
+              class="rounded-6 border border-outline-gray-1 bg-surface-white px-4 py-3"
+            >
+              <dt class="text-xs text-ink-gray-5">{{ item.label }}</dt>
+              <dd class="mt-1 text-sm text-ink-gray-9">{{ item.value }}</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="school-section">
+          <h2 class="school-section-title">Contact</h2>
+          <dl class="grid gap-3 sm:grid-cols-2">
+            <div
+              v-for="item in contactFields"
+              :key="item.label"
+              class="rounded-6 border border-outline-gray-1 bg-surface-white px-4 py-3"
+            >
+              <dt class="text-xs text-ink-gray-5">{{ item.label }}</dt>
+              <dd class="mt-1 text-sm text-ink-gray-9">{{ item.value }}</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="school-section">
+          <h2 class="school-section-title">School placement</h2>
+          <dl class="grid gap-3 sm:grid-cols-2">
+            <div
+              v-for="item in schoolFields"
+              :key="item.label"
+              class="rounded-6 border border-outline-gray-1 bg-surface-white px-4 py-3"
+            >
+              <dt class="text-xs text-ink-gray-5">{{ item.label }}</dt>
+              <dd class="mt-1 text-sm text-ink-gray-9">{{ item.value }}</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="school-section">
+          <h2 class="school-section-title">Health</h2>
+          <dl class="grid gap-3 sm:grid-cols-2">
+            <div
+              v-for="item in healthFields"
+              :key="item.label"
+              class="rounded-6 border border-outline-gray-1 bg-surface-white px-4 py-3"
+            >
+              <dt class="text-xs text-ink-gray-5">{{ item.label }}</dt>
+              <dd class="mt-1 whitespace-pre-wrap text-sm text-ink-gray-9">
+                {{ item.value }}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
       <!-- Overview -->
-      <section v-if="tab === 'overview'" class="school-section">
-        <h2 class="school-section-title">Profile</h2>
+      <section v-else-if="tab === 'overview'" class="school-section">
+        <h2 class="school-section-title">At a glance</h2>
         <div class="school-detail-grid">
           <div
             v-for="field in [
-              { label: 'ID', value: bundle.student.id },
+              { label: 'Student number', value: bundle.student.id },
               { label: 'Class', value: String(bundle.student.className || '—') },
               { label: 'Section', value: String(bundle.student.program || '—') },
               { label: 'Average %', value: String(bundle.student.average ?? '—') },
-              { label: 'Email', value: String(bundle.student.email || '—') },
+              { label: 'Gender', value: String(bundle.student.gender || '—') },
+              {
+                label: 'Date of birth',
+                value: String(bundle.student.dateOfBirth || '—'),
+              },
               {
                 label: 'Class teacher',
                 value: String(bundle.classInfo?.teacher || '—'),
               },
-              { label: 'Room', value: String(bundle.classInfo?.room || '—') },
               { label: 'Status', value: String(bundle.student.status || '—') },
             ]"
             :key="field.label"
@@ -451,47 +820,539 @@ function statusTheme(status?: string) {
         </div>
       </section>
 
-      <!-- Academics -->
-      <section v-else-if="tab === 'academics'" class="school-section">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h2 class="school-section-title mb-0">Assessment results</h2>
+      <!-- Academics: term filter → subjects/aggregates → exam → subject -->
+      <section v-else-if="tab === 'academics'" class="school-section space-y-5">
+        <div class="school-page-toolbar">
+          <div class="school-page-toolbar__grow">
+            <h2 class="school-section-title mb-0">Subjects & aggregates</h2>
+            <p class="mt-1 text-sm text-ink-gray-5">
+              Filter by term · open an exam · then a subject ·
+              {{ filteredExamReports.length }} exam{{
+                filteredExamReports.length === 1 ? '' : 's'
+              }}
+              shown
+            </p>
+          </div>
           <Button
             v-if="canPrint"
             icon-left="lucide-printer"
             label="Report card"
             @click="printReportCard"
           />
+          <Button
+            icon-left="lucide-table-2"
+            label="Class gradebook"
+            @click="openGradebook"
+          />
         </div>
-        <div class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white">
-          <div
-            v-for="r in bundle.results"
-            :key="r.id"
-            class="flex flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 px-4 py-3 last:border-b-0"
+
+        <!-- Term filter -->
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="rounded-6 border px-3.5 py-2 text-sm transition"
+            :class="
+              selectedTerm === 'all'
+                ? 'border-[color:var(--school-blue)] bg-surface-gray-1 font-medium text-ink-gray-9'
+                : 'border-outline-gray-1 bg-surface-white text-ink-gray-7 hover:border-outline-gray-3'
+            "
+            @click="selectedTerm = 'all'"
           >
-            <div>
-              <p class="text-sm-medium text-ink-gray-9">{{ r.exam }}</p>
-              <p class="text-xs text-ink-gray-5">Score {{ r.score }} · {{ r.grade }}</p>
+            All terms
+          </button>
+          <button
+            v-for="term in availableTerms"
+            :key="term"
+            type="button"
+            class="rounded-6 border px-3.5 py-2 text-sm transition"
+            :class="
+              selectedTerm === term
+                ? 'border-[color:var(--school-blue)] bg-surface-gray-1 font-medium text-ink-gray-9'
+                : 'border-outline-gray-1 bg-surface-white text-ink-gray-7 hover:border-outline-gray-3'
+            "
+            @click="selectedTerm = term"
+          >
+            {{ term }}
+          </button>
+        </div>
+
+        <!-- Breadcrumb when drilled in -->
+        <div
+          v-if="academicsLevel !== 'summary'"
+          class="flex flex-wrap items-center gap-2 text-sm"
+        >
+          <button
+            type="button"
+            class="text-[color:var(--school-blue)] hover:underline"
+            @click="backToAcademicsSummary"
+          >
+            {{ selectedTerm === 'all' ? 'All terms' : selectedTerm }}
+          </button>
+          <span class="text-ink-gray-4">/</span>
+          <button
+            v-if="academicsLevel === 'subject'"
+            type="button"
+            class="text-[color:var(--school-blue)] hover:underline"
+            @click="backToExamDetail"
+          >
+            {{ activeExamReport?.exam || 'Exam' }}
+          </button>
+          <span v-if="academicsLevel === 'subject'" class="text-ink-gray-4"
+            >/</span
+          >
+          <span class="font-medium text-ink-gray-9">
+            {{
+              academicsLevel === 'exam'
+                ? activeExamReport?.exam
+                : selectedSubject
+            }}
+          </span>
+        </div>
+
+        <!-- LEVEL: term summary (aggregates + exam list) -->
+        <template v-if="academicsLevel === 'summary'">
+          <div
+            v-if="academicSummary"
+            class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"
+          >
+            <div
+              v-if="selectedTerm === 'all'"
+              class="rounded-6 border border-[color:var(--school-blue)] bg-surface-white p-4 sm:col-span-2 lg:col-span-1"
+            >
+              <p class="text-xs uppercase tracking-wide text-ink-gray-5">
+                Class position
+              </p>
+              <p class="mt-1 text-xl font-semibold text-ink-gray-9">
+                {{ academicSummary.classPosition?.label || '—' }}
+              </p>
+              <p class="text-xs text-ink-gray-5">
+                {{
+                  academicSummary.classPosition
+                    ? `in ${academicSummary.classPosition.className} · by performance`
+                    : 'needs marks to rank'
+                }}
+              </p>
             </div>
-            <div class="flex items-center gap-2">
+            <div
+              class="rounded-6 border border-outline-gray-1 bg-surface-white p-4"
+            >
+              <p class="text-xs uppercase tracking-wide text-ink-gray-5">
+                Subjects
+              </p>
+              <p class="mt-1 text-xl font-semibold text-ink-gray-9">
+                {{ academicSummary.subjectsMarked }}/{{
+                  academicSummary.subjectsTotal
+                }}
+              </p>
+              <p class="text-xs text-ink-gray-5">
+                {{
+                  selectedTerm === 'all'
+                    ? 'with marks'
+                    : `marked in ${selectedTerm}`
+                }}
+              </p>
+            </div>
+            <div
+              class="rounded-6 border border-outline-gray-1 bg-surface-white p-4"
+            >
+              <p class="text-xs uppercase tracking-wide text-ink-gray-5">
+                Overall average
+              </p>
+              <p class="mt-1 text-xl font-semibold text-ink-gray-9">
+                {{
+                  academicSummary.overallAverage != null
+                    ? `${academicSummary.overallAverage}%`
+                    : '—'
+                }}
+              </p>
+              <p class="text-xs text-ink-gray-5">across marked subjects</p>
+            </div>
+            <div
+              class="rounded-6 border border-outline-gray-1 bg-surface-white p-4"
+            >
+              <p class="text-xs uppercase tracking-wide text-ink-gray-5">
+                {{
+                  academicSummary.isNursery
+                    ? 'Readiness band'
+                    : 'Total aggregate'
+                }}
+              </p>
+              <p class="mt-1 text-xl font-semibold text-ink-gray-9">
+                {{
+                  academicSummary.isNursery
+                    ? academicSummary.divisionOrBand
+                    : academicSummary.totalAggregate != null
+                      ? academicSummary.totalAggregate
+                      : '—'
+                }}
+              </p>
+              <p class="text-xs text-ink-gray-5">
+                {{
+                  academicSummary.isNursery
+                    ? 'nursery descriptors'
+                    : 'sum of D1–F9 points'
+                }}
+              </p>
+            </div>
+            <div
+              class="rounded-6 border border-outline-gray-1 bg-surface-white p-4"
+            >
+              <p class="text-xs uppercase tracking-wide text-ink-gray-5">
+                {{ academicSummary.isNursery ? 'Band' : 'Division' }}
+              </p>
+              <p class="mt-1 text-xl font-semibold text-ink-gray-9">
+                {{ academicSummary.divisionOrBand }}
+              </p>
+              <p class="text-xs text-ink-gray-5">
+                {{
+                  academicSummary.isNursery
+                    ? 'from average %'
+                    : 'PLE-style division'
+                }}
+              </p>
+            </div>
+          </div>
+
+          <div
+            class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"
+          >
+            <div
+              class="border-b border-outline-gray-1 bg-surface-gray-1 px-4 py-2.5"
+            >
+              <h3 class="text-sm font-semibold text-ink-gray-9">
+                Subjects
+                <span v-if="selectedTerm !== 'all'" class="font-normal text-ink-gray-5">
+                  · {{ selectedTerm }}
+                </span>
+              </h3>
+            </div>
+            <div
+              class="grid gap-2 border-b border-outline-gray-1 bg-surface-gray-1 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-gray-5"
+              :class="
+                academicSummary?.isNursery
+                  ? 'grid-cols-[minmax(0,1.4fr)_minmax(0,0.55fr)_minmax(0,0.7fr)_minmax(0,0.55fr)_auto]'
+                  : 'grid-cols-[minmax(0,1.3fr)_minmax(0,0.5fr)_minmax(0,0.55fr)_minmax(0,0.45fr)_minmax(0,0.5fr)_auto]'
+              "
+            >
+              <span>Subject</span>
+              <span>Avg %</span>
+              <span>{{
+                academicSummary?.isNursery ? 'Band' : 'Aggregate'
+              }}</span>
+              <span v-if="!academicSummary?.isNursery">Points</span>
+              <span>Papers</span>
+              <span />
+            </div>
+            <button
+              v-for="row in academicSummary?.subjects || []"
+              :key="row.subject"
+              type="button"
+              class="grid w-full items-center gap-2 border-b border-outline-gray-1 px-4 py-2.5 text-left last:border-b-0 hover:bg-surface-gray-1"
+              :class="
+                academicSummary?.isNursery
+                  ? 'grid-cols-[minmax(0,1.4fr)_minmax(0,0.55fr)_minmax(0,0.7fr)_minmax(0,0.55fr)_auto]'
+                  : 'grid-cols-[minmax(0,1.3fr)_minmax(0,0.5fr)_minmax(0,0.55fr)_minmax(0,0.45fr)_minmax(0,0.5fr)_auto]'
+              "
+              @click="openSubjectFromSummary(row.subject)"
+            >
+              <div class="min-w-0">
+                <p class="text-sm text-ink-gray-9">
+                  {{ row.subject }}
+                  <span v-if="row.code" class="text-xs text-ink-gray-5">
+                    · {{ row.code }}
+                  </span>
+                </p>
+                <p class="truncate text-xs text-ink-gray-5">
+                  {{ row.teacher }}
+                </p>
+              </div>
+              <span class="text-sm text-ink-gray-8">
+                {{ row.average != null ? `${row.average}%` : '—' }}
+              </span>
               <Badge
-                :label="String(r.status || '')"
-                :theme="statusTheme(String(r.status))"
+                :label="row.aggregate"
+                :theme="aggregateTheme(row.aggregate)"
                 variant="subtle"
               />
-              <Button
-                v-if="canPrintResults"
-                icon="lucide-printer"
-                :tooltip="'Print exam memo'"
-                @click="printDoc('exam-memo', 'exam-results', r)"
-              />
+              <span
+                v-if="!academicSummary?.isNursery"
+                class="text-sm text-ink-gray-7"
+              >
+                {{ row.points != null ? row.points : '—' }}
+              </span>
+              <span class="text-sm text-ink-gray-7">{{ row.papers }}</span>
+              <span class="text-xs text-ink-gray-5">Open</span>
+            </button>
+            <p
+              v-if="!academicSummary?.subjects.length"
+              class="px-4 py-10 text-center text-sm text-ink-gray-5"
+            >
+              No subjects linked for this learner’s section yet.
+            </p>
+          </div>
+
+          <div v-if="filteredExamReports.length" class="space-y-3">
+            <h3 class="text-sm font-semibold text-ink-gray-9">
+              Exams
+              <span v-if="selectedTerm !== 'all'" class="font-normal text-ink-gray-5">
+                · {{ selectedTerm }}
+              </span>
+            </h3>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <button
+                v-for="exam in filteredExamReports"
+                :key="exam.examKey"
+                type="button"
+                class="rounded-6 border border-outline-gray-1 bg-surface-white px-4 py-3.5 text-left transition hover:border-[color:var(--school-blue)]"
+                @click="openExamDetail(exam.examKey)"
+              >
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p class="text-sm font-medium text-ink-gray-9">
+                      {{ exam.exam }}
+                    </p>
+                    <p class="mt-0.5 text-xs text-ink-gray-5">
+                      {{ exam.term }}
+                      <span v-if="exam.date"> · {{ exam.date }}</span>
+                    </p>
+                  </div>
+                  <Badge
+                    :label="examAverageLabel(exam)"
+                    :theme="exam.average != null ? 'blue' : 'gray'"
+                    variant="subtle"
+                  />
+                </div>
+                <p class="mt-2 text-xs text-ink-gray-5">
+                  {{ exam.subjectCount }} subject{{
+                    exam.subjectCount === 1 ? '' : 's'
+                  }}
+                  · open for detail
+                </p>
+              </button>
             </div>
           </div>
           <p
-            v-if="!bundle.results.length"
-            class="px-4 py-12 text-center text-sm text-ink-gray-5"
+            v-else
+            class="rounded-6 border border-outline-gray-1 bg-surface-white px-4 py-10 text-center text-sm text-ink-gray-5"
           >
-            No assessment results posted yet.
+            No exams posted
+            {{ selectedTerm === 'all' ? 'yet' : `for ${selectedTerm}` }}.
           </p>
+        </template>
+
+        <!-- LEVEL: exam detail -->
+        <div
+          v-else-if="academicsLevel === 'exam' && activeExamReport"
+          class="space-y-4 rounded-6 border border-outline-gray-1 bg-surface-white p-5"
+        >
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <Button
+                label="Back to subjects"
+                icon-left="lucide-arrow-left"
+                class="mb-3"
+                @click="backToAcademicsSummary"
+              />
+              <h3 class="text-base font-semibold text-ink-gray-9">
+                {{ activeExamReport.exam }}
+              </h3>
+              <p class="text-sm text-ink-gray-5">
+                {{ activeExamReport.term }} · click a subject for detail
+                <span v-if="activeExamReport.date">
+                  · {{ activeExamReport.date }}
+                </span>
+              </p>
+            </div>
+            <Badge
+              :label="
+                activeExamReport.average != null
+                  ? `Exam avg ${activeExamReport.average}%`
+                  : 'No average'
+              "
+              theme="blue"
+              variant="subtle"
+            />
+          </div>
+
+          <div class="overflow-hidden rounded-5 border border-outline-gray-1">
+            <div
+              class="grid grid-cols-[minmax(0,1.3fr)_minmax(0,0.55fr)_minmax(0,0.45fr)_minmax(0,0.5fr)_auto] gap-2 border-b border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-ink-gray-5"
+            >
+              <span>Subject</span>
+              <span>Score</span>
+              <span>%</span>
+              <span>Grade</span>
+              <span />
+            </div>
+            <button
+              v-for="m in activeExamReport.subjects"
+              :key="m.id"
+              type="button"
+              class="grid w-full grid-cols-[minmax(0,1.3fr)_minmax(0,0.55fr)_minmax(0,0.45fr)_minmax(0,0.5fr)_auto] items-center gap-2 border-b border-outline-gray-1 px-3 py-2.5 text-left last:border-b-0 hover:bg-surface-gray-1"
+              @click="openSubjectDetail(m.subject)"
+            >
+              <span class="text-sm text-ink-gray-9">{{ m.subject }}</span>
+              <span class="text-sm text-ink-gray-7"
+                >{{ m.score }}/{{ m.maxScore }}</span
+              >
+              <span class="text-sm text-ink-gray-7">{{ m.percent }}%</span>
+              <Badge
+                :label="m.grade"
+                :theme="statusTheme(m.status)"
+                variant="subtle"
+              />
+              <span class="text-xs text-ink-gray-5">Detail</span>
+            </button>
+          </div>
+
+          <div
+            v-if="canEnterMarks"
+            class="space-y-3 rounded-5 border border-dashed border-outline-gray-2 bg-surface-gray-1 p-4"
+          >
+            <p class="text-sm-medium text-ink-gray-8">
+              Enter mark for this exam
+            </p>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <FormControl
+                v-model="markForm.exam"
+                label="Exam"
+                type="text"
+                :placeholder="activeExamReport.exam"
+              />
+              <FormControl
+                v-model="markForm.subject"
+                label="Subject"
+                type="select"
+                :options="
+                  markableSubjects.map((r) => ({
+                    label: r.subject,
+                    value: r.subject,
+                  }))
+                "
+              />
+              <FormControl
+                v-model="markForm.maxScore"
+                label="Max score"
+                type="number"
+              />
+              <FormControl
+                v-model="markForm.score"
+                label="Score"
+                type="number"
+              />
+            </div>
+            <Button
+              variant="solid"
+              icon-left="lucide-check"
+              label="Save exam subject mark"
+              :loading="savingMark"
+              @click="submitSubjectMark"
+            />
+          </div>
+        </div>
+
+        <!-- LEVEL: subject detail -->
+        <div
+          v-else-if="academicsLevel === 'subject'"
+          class="space-y-4 rounded-6 border border-outline-gray-1 bg-surface-white p-5"
+        >
+          <Button
+            label="Back to exam"
+            icon-left="lucide-arrow-left"
+            @click="backToExamDetail"
+          />
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 class="text-base font-semibold text-ink-gray-9">
+                {{ selectedSubject }}
+              </h3>
+              <p class="text-sm text-ink-gray-5">
+                <span v-if="activeSubjectReport?.teacher">
+                  {{ activeSubjectReport.teacher }} ·
+                </span>
+                {{ activeExamReport?.exam || 'Subject detail' }}
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <Badge
+                v-if="activeSubjectMark"
+                :label="`${activeSubjectMark.percent}%`"
+                theme="blue"
+                variant="subtle"
+              />
+              <Badge
+                v-if="activeSubjectMark"
+                :label="activeSubjectMark.grade"
+                :theme="statusTheme(activeSubjectMark.status)"
+                variant="subtle"
+              />
+            </div>
+          </div>
+
+          <div
+            v-if="activeSubjectMark"
+            class="grid gap-3 sm:grid-cols-3"
+          >
+            <div class="rounded-5 border border-outline-gray-1 p-3">
+              <p class="text-xs uppercase text-ink-gray-5">Score</p>
+              <p class="mt-1 text-lg font-semibold text-ink-gray-9">
+                {{ activeSubjectMark.score }}/{{ activeSubjectMark.maxScore }}
+              </p>
+            </div>
+            <div class="rounded-5 border border-outline-gray-1 p-3">
+              <p class="text-xs uppercase text-ink-gray-5">Percent</p>
+              <p class="mt-1 text-lg font-semibold text-ink-gray-9">
+                {{ activeSubjectMark.percent }}%
+              </p>
+            </div>
+            <div class="rounded-5 border border-outline-gray-1 p-3">
+              <p class="text-xs uppercase text-ink-gray-5">Grade</p>
+              <p class="mt-1 text-lg font-semibold text-ink-gray-9">
+                {{ activeSubjectMark.grade }}
+              </p>
+            </div>
+          </div>
+
+          <div v-if="canPrintResults && activeSubjectResult">
+            <Button
+              icon-left="lucide-printer"
+              label="Print exam memo"
+              @click="
+                printDoc('exam-memo', 'exam-results', activeSubjectResult!)
+              "
+            />
+          </div>
+
+          <div v-if="subjectMarksInTerm.length" class="space-y-2">
+            <h4 class="text-sm font-semibold text-ink-gray-9">
+              All papers in
+              {{ selectedTerm === 'all' ? 'all terms' : selectedTerm }}
+            </h4>
+            <div class="overflow-hidden rounded-5 border border-outline-gray-1">
+              <div
+                v-for="m in subjectMarksInTerm"
+                :key="m.id"
+                class="flex flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 px-3 py-2.5 last:border-b-0"
+                :class="
+                  activeSubjectMark?.id === m.id
+                    ? 'bg-surface-gray-1'
+                    : 'bg-surface-white'
+                "
+              >
+                <div>
+                  <p class="text-sm text-ink-gray-9">{{ m.examKey }}</p>
+                  <p class="text-xs text-ink-gray-5">
+                    {{ m.score }}/{{ m.maxScore }} · {{ m.percent }}%
+                  </p>
+                </div>
+                <Badge
+                  :label="m.grade"
+                  :theme="statusTheme(m.status)"
+                  variant="subtle"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -548,15 +1409,191 @@ function statusTheme(status?: string) {
         </div>
       </section>
 
-      <!-- Attendance -->
-      <section v-else-if="tab === 'attendance'" class="school-section">
+      <!-- Attendance: day / month / term % -->
+      <section v-else-if="tab === 'attendance'" class="school-section space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <h2 class="school-section-title mb-0">Attendance</h2>
+          <div>
+            <h2 class="school-section-title mb-0">Attendance</h2>
+            <p class="mt-1 text-sm text-ink-gray-5">
+              Percentages by weekday, month, and term · Present + Late count as
+              attended
+            </p>
+          </div>
           <Button label="Attendance list" route="/attendance" />
         </div>
-        <div class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white">
+
+        <div
+          v-if="bundle.attendanceSummary"
+          class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        >
           <div
-            v-for="a in bundle.attendance"
+            class="rounded-6 border border-[color:var(--school-blue)] bg-surface-white p-4"
+          >
+            <p class="text-xs uppercase tracking-wide text-ink-gray-5">
+              Overall
+            </p>
+            <p class="mt-1 text-2xl font-semibold text-ink-gray-9">
+              {{
+                bundle.attendanceSummary.overall.percent != null
+                  ? `${bundle.attendanceSummary.overall.percent}%`
+                  : '—'
+              }}
+            </p>
+            <p class="text-xs text-ink-gray-5">
+              {{ bundle.attendanceSummary.overall.present }}/{{
+                bundle.attendanceSummary.overall.total
+              }}
+              school days
+            </p>
+          </div>
+          <div
+            v-for="t in bundle.attendanceSummary.byTerm.slice(0, 3)"
+            :key="t.key"
+            class="rounded-6 border border-outline-gray-1 bg-surface-white p-4"
+          >
+            <p class="text-xs uppercase tracking-wide text-ink-gray-5">
+              {{ t.label }}
+            </p>
+            <p class="mt-1 text-2xl font-semibold text-ink-gray-9">
+              {{ t.percent != null ? `${t.percent}%` : '—' }}
+            </p>
+            <p class="text-xs text-ink-gray-5">
+              {{ t.present }}/{{ t.total }} days
+            </p>
+          </div>
+        </div>
+
+        <!-- By day of week -->
+        <div
+          class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"
+        >
+          <div
+            class="border-b border-outline-gray-1 bg-surface-gray-1 px-4 py-2.5"
+          >
+            <h3 class="text-sm font-semibold text-ink-gray-9">
+              By day of the week
+            </h3>
+          </div>
+          <div class="grid gap-3 p-4 sm:grid-cols-5">
+            <div
+              v-for="d in bundle.attendanceSummary.byWeekday"
+              :key="d.key"
+              class="space-y-2"
+            >
+              <div class="flex items-baseline justify-between gap-1">
+                <p class="text-xs font-medium text-ink-gray-7">
+                  {{ d.label.slice(0, 3) }}
+                </p>
+                <p class="text-sm font-semibold text-ink-gray-9">
+                  {{ d.percent != null ? `${d.percent}%` : '—' }}
+                </p>
+              </div>
+              <div class="h-2 overflow-hidden rounded-full bg-surface-gray-2">
+                <div
+                  class="h-full rounded-full bg-[color:var(--school-blue)] transition-all"
+                  :style="{ width: `${d.percent ?? 0}%` }"
+                />
+              </div>
+              <p class="text-[11px] text-ink-gray-5">
+                {{ d.present }}/{{ d.total }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- By month -->
+        <div
+          class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"
+        >
+          <div
+            class="border-b border-outline-gray-1 bg-surface-gray-1 px-4 py-2.5"
+          >
+            <h3 class="text-sm font-semibold text-ink-gray-9">By month</h3>
+          </div>
+          <div
+            v-for="m in bundle.attendanceSummary.byMonth"
+            :key="m.key"
+            class="flex flex-wrap items-center gap-3 border-b border-outline-gray-1 px-4 py-3 last:border-b-0"
+          >
+            <p class="min-w-[8rem] flex-1 text-sm text-ink-gray-9">
+              {{ m.label }}
+            </p>
+            <div class="h-2 w-32 max-w-full overflow-hidden rounded-full bg-surface-gray-2 sm:w-48">
+              <div
+                class="h-full rounded-full bg-[color:var(--school-blue)]"
+                :style="{ width: `${m.percent ?? 0}%` }"
+              />
+            </div>
+            <Badge
+              :label="m.percent != null ? `${m.percent}%` : '—'"
+              :theme="attendancePercentTheme(m.percent)"
+              variant="subtle"
+            />
+            <span class="text-xs text-ink-gray-5">
+              {{ m.present }}/{{ m.total }}
+            </span>
+          </div>
+          <p
+            v-if="!bundle.attendanceSummary.byMonth.length"
+            class="px-4 py-8 text-center text-sm text-ink-gray-5"
+          >
+            No monthly attendance yet.
+          </p>
+        </div>
+
+        <!-- By term -->
+        <div
+          class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"
+        >
+          <div
+            class="border-b border-outline-gray-1 bg-surface-gray-1 px-4 py-2.5"
+          >
+            <h3 class="text-sm font-semibold text-ink-gray-9">By term</h3>
+          </div>
+          <div
+            v-for="t in bundle.attendanceSummary.byTerm"
+            :key="t.key"
+            class="flex flex-wrap items-center gap-3 border-b border-outline-gray-1 px-4 py-3 last:border-b-0"
+          >
+            <p class="min-w-[8rem] flex-1 text-sm text-ink-gray-9">
+              {{ t.label }}
+            </p>
+            <div class="h-2 w-32 max-w-full overflow-hidden rounded-full bg-surface-gray-2 sm:w-48">
+              <div
+                class="h-full rounded-full bg-[color:var(--school-blue)]"
+                :style="{ width: `${t.percent ?? 0}%` }"
+              />
+            </div>
+            <Badge
+              :label="t.percent != null ? `${t.percent}%` : '—'"
+              :theme="attendancePercentTheme(t.percent)"
+              variant="subtle"
+            />
+            <span class="text-xs text-ink-gray-5">
+              {{ t.present }}/{{ t.total }}
+            </span>
+          </div>
+          <p
+            v-if="!bundle.attendanceSummary.byTerm.length"
+            class="px-4 py-8 text-center text-sm text-ink-gray-5"
+          >
+            No term attendance yet.
+          </p>
+        </div>
+
+        <!-- Recent days -->
+        <div
+          class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"
+        >
+          <div
+            class="border-b border-outline-gray-1 bg-surface-gray-1 px-4 py-2.5"
+          >
+            <h3 class="text-sm font-semibold text-ink-gray-9">
+              Recent days
+            </h3>
+          </div>
+          <div
+            v-for="a in bundle.attendanceSummary.recent"
             :key="a.id"
             class="flex flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 px-4 py-3 last:border-b-0"
           >
@@ -571,7 +1608,7 @@ function statusTheme(status?: string) {
             />
           </div>
           <p
-            v-if="!bundle.attendance.length"
+            v-if="!bundle.attendanceSummary.recent.length"
             class="px-4 py-12 text-center text-sm text-ink-gray-5"
           >
             No attendance rows for this student.

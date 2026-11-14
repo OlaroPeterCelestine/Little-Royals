@@ -1,10 +1,53 @@
 import type { CatalogRow } from './catalog'
 import { brand } from './brand'
+import {
+  canvasConfigFor,
+  defaultSignatureDataUrl,
+  defaultStampDataUrl,
+  type DocumentCanvasConfig,
+} from './documentCanvas'
 import { formatSchoolAddress, schoolSetup } from './schoolSetup'
 import { schoolStore } from './store'
 import { escapeHtml, escapeHtmlMultiline } from '../lib/security'
 
 export { escapeHtml as esc }
+
+/** When set, signatures/overlays use the Documents canvas customization. */
+let activeCanvasKind: DocumentKind | null = null
+
+export function withDocumentCanvas<T>(kind: DocumentKind, fn: () => T): T {
+  const prev = activeCanvasKind
+  activeCanvasKind = kind
+  try {
+    return fn()
+  } finally {
+    activeCanvasKind = prev
+  }
+}
+
+function activeCanvas(): DocumentCanvasConfig | null {
+  return activeCanvasKind ? canvasConfigFor(activeCanvasKind) : null
+}
+
+function overlayHtmlFromCanvas(cfg: DocumentCanvasConfig): string {
+  const parts: string[] = []
+  const stampSrc = cfg.stamp.src || defaultStampDataUrl()
+  const sigSrc =
+    cfg.signature.src ||
+    String(defaultSignatureDataUrl(schoolSetup.headTeacher || 'Head teacher'))
+
+  if (cfg.stamp.visible) {
+    parts.push(`<div class="doc-overlay-layer" style="left:${cfg.stamp.x}%;top:${cfg.stamp.y}%;width:${cfg.stamp.width}%;opacity:${cfg.stamp.opacity}">
+      <img src="${esc(stampSrc)}" alt="Digital stamp" />
+    </div>`)
+  }
+  if (cfg.signature.visible) {
+    parts.push(`<div class="doc-overlay-layer" style="left:${cfg.signature.x}%;top:${cfg.signature.y}%;width:${cfg.signature.width}%;opacity:${cfg.signature.opacity}">
+      <img src="${esc(sigSrc)}" alt="Digital signature" />
+    </div>`)
+  }
+  return parts.join('')
+}
 
 function logoSrc() {
   try {
@@ -40,7 +83,7 @@ export const documentCatalog: DocumentDef[] = [
   {
     kind: 'invoice',
     label: 'Fee invoice',
-    description: 'Print pupil fee invoices with school letterhead',
+    description: 'Statutory fee invoice on official school letterhead',
     icon: 'lucide-file-text',
     modules: ['fees'],
     important: true,
@@ -48,7 +91,7 @@ export const documentCatalog: DocumentDef[] = [
   {
     kind: 'receipt',
     label: 'Fee receipt',
-    description: 'Print payment receipts for paid or partial fees',
+    description: 'Statutory payment receipt with stamp and signatures',
     icon: 'lucide-receipt',
     modules: ['fees'],
     important: true,
@@ -56,7 +99,7 @@ export const documentCatalog: DocumentDef[] = [
   {
     kind: 'admission-letter',
     label: 'Letter of admission',
-    description: 'Official offer / admission letters for new pupils',
+    description: 'Statutory admission offer letter for new pupils',
     icon: 'lucide-mail',
     modules: ['admissions', 'applicants', 'program-enrollments'],
     important: true,
@@ -88,7 +131,7 @@ export const documentCatalog: DocumentDef[] = [
   {
     kind: 'report-card',
     label: 'Term report card',
-    description: 'Student academic summary with results and attendance',
+    description: 'Statutory term report card with results and attendance',
     icon: 'lucide-clipboard-list',
     modules: ['students', 'report-cards'],
     important: true,
@@ -147,9 +190,352 @@ export function defaultDocumentKind(moduleKey: string): DocumentKind {
 
 const esc = escapeHtml
 
-function letterhead(docTitle: string, refNo: string) {
+/** Shared statutory print CSS — all official school documents use this shell. */
+export const statutoryDocumentCss = `
+  @page { size: A4; margin: 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Times New Roman", Times, Georgia, serif;
+    color: #111;
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
+  .sheet {
+    position: relative;
+    max-width: 190mm;
+    margin: 0 auto;
+    padding: 14px 16px 12px;
+    border: 2.5px solid #1f226e;
+    outline: 1px solid #1f226e;
+    outline-offset: 4px;
+    background: #fff;
+  }
+  .watermark {
+    position: absolute;
+    inset: 28% 8%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 56px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #2e3192;
+    opacity: 0.045;
+    transform: rotate(-28deg);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .sheet-inner { position: relative; z-index: 1; }
+  .ribbon {
+    margin: -14px -16px 12px;
+    padding: 6px 10px;
+    text-align: center;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #fff;
+    background: #2e3192;
+  }
+  .regs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 12px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #b8bbe0;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #333;
+  }
+  .head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    padding-bottom: 8px;
+  }
+  .brand { display: flex; gap: 12px; align-items: center; min-width: 0; }
+  .logo-img {
+    width: 70px; height: 70px;
+    object-fit: contain;
+    background: #fff;
+    border: 1px solid #d0d2ef;
+    padding: 3px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.25;
+    color: #1f226e;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .motto {
+    margin: 4px 0 0;
+    font-style: italic;
+    color: #ed1c24;
+    font-size: 11px;
+    font-family: Georgia, "Times New Roman", serif;
+  }
+  .meta {
+    text-align: right;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 10px;
+    color: #1f226e;
+    min-width: 9rem;
+  }
+  .meta p { margin: 0 0 3px; }
+  .accent {
+    height: 3px;
+    margin: 0 0 10px;
+    background: linear-gradient(90deg, #2e3192 0 62%, #ed1c24 62% 100%);
+  }
+  .contact {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 14px;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.5px;
+    color: #333;
+  }
+  .doc-title {
+    text-align: center;
+    margin: 6px 0 14px;
+    padding: 10px 8px;
+    border-top: 1px solid #1f226e;
+    border-bottom: 1px solid #1f226e;
+  }
+  .doc-title .kind {
+    margin: 0 0 4px;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #ed1c24;
+  }
+  .doc-title h2 {
+    margin: 0;
+    border: 0;
+    padding: 0;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #1f226e;
+  }
+  .ref-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 0 0 16px;
+  }
+  .ref-grid > div {
+    border: 1px solid #b8bbe0;
+    padding: 7px 8px;
+    background: #f7f8fc;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px;
+  }
+  .ref-grid span {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 8.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #666;
+  }
+  h2, h3.section {
+    font-size: 11px;
+    margin: 18px 0 8px;
+    color: #1f226e;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid #b8bbe0;
+    padding-bottom: 5px;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+  }
+  p { margin: 0 0 10px; }
+  table.fields, table.data {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 14px;
+  }
+  table.fields th, table.fields td,
+  table.data th, table.data td {
+    border: 1px solid #9ea2d4;
+    padding: 7px 9px;
+    text-align: left;
+    vertical-align: top;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 11.5px;
+  }
+  table.fields th, table.data th {
+    background: #e8e9f6;
+    color: #1f226e;
+    font-weight: 700;
+    width: 34%;
+  }
+  table.data thead th { width: auto; text-align: left; }
+  .muted { color: #555; font-size: 11px; }
+  .block { margin: 12px 0; }
+  .notice {
+    margin: 12px 0;
+    padding: 8px 10px;
+    border: 1px solid #b8bbe0;
+    background: #f7f8fc;
+    font-size: 11px;
+  }
+  .badge {
+    display: inline-block;
+    border: 1px solid #1f226e;
+    color: #1f226e;
+    padding: 2px 8px;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .sign-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1.25rem;
+    margin-top: 36px;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px;
+  }
+  .sign-block { flex: 1; min-width: 0; }
+  .sign-block .line {
+    border-top: 1px solid #1f226e;
+    margin-top: 44px;
+    padding-top: 6px;
+  }
+  .sign-block .role {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 10px;
+    color: #1f226e;
+  }
+  .sign-block .date-line {
+    margin-top: 18px;
+    border-top: 1px dotted #999;
+    padding-top: 4px;
+    color: #555;
+    font-size: 10px;
+  }
+  .stamp {
+    flex: 0 0 92px;
+    width: 92px;
+    height: 92px;
+    border: 2px dashed #2e3192;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 8px;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #2e3192;
+    line-height: 1.3;
+    overflow: hidden;
+  }
+  .stamp img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .stamp.has-image {
+    border-style: solid;
+    border-color: transparent;
+    background: transparent;
+    padding: 0;
+  }
+  .sign-block .sig-image {
+    display: block;
+    max-width: 100%;
+    height: 44px;
+    object-fit: contain;
+    object-position: left bottom;
+    margin-bottom: 4px;
+  }
+  .doc-overlay-layer {
+    position: absolute;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .doc-overlay-layer img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .canvas-note {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-left: 3px solid #2e3192;
+    background: #f6f7fc;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.5px;
+    color: #333;
+  }
+  .footer {
+    margin-top: 22px;
+    padding-top: 8px;
+    border-top: 1px solid #b8bbe0;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 9px;
+    color: #555;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  @media print {
+    body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    .sheet { outline-offset: 3px; }
+  }
+`
+
+function issueDate() {
+  return new Date().toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+export function letterhead(
+  docTitle: string,
+  refNo: string,
+  opts?: { kindLabel?: string },
+) {
   const address = escapeHtmlMultiline(formatSchoolAddress())
+  const kind = opts?.kindLabel || 'Statutory school document'
   return `
+    <div class="ribbon">Official school document · Valid on school letterhead · Keep for your records</div>
+    <div class="regs">
+      <span>MoES Reg: ${esc(schoolSetup.registrationNo)}</span>
+      <span>UNEB Centre: ${esc(schoolSetup.unebCentre)}</span>
+      <span>Est. ${esc(schoolSetup.established)}</span>
+    </div>
     <header class="head">
       <div class="brand">
         <img class="logo-img" src="${esc(logoSrc())}" alt="${esc(schoolSetup.shortName)}" />
@@ -159,13 +545,9 @@ function letterhead(docTitle: string, refNo: string) {
         </div>
       </div>
       <div class="meta">
-        <p><strong>${esc(docTitle)}</strong></p>
-        <p>Ref: ${esc(refNo)}</p>
-        <p>Date: ${new Date().toLocaleDateString('en-GB', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        })}</p>
+        <p><strong>Republic of Uganda</strong></p>
+        <p>Education institution</p>
+        <p>${esc(schoolSetup.district)}, ${esc(schoolSetup.country)}</p>
       </div>
     </header>
     <div class="accent"></div>
@@ -175,116 +557,128 @@ function letterhead(docTitle: string, refNo: string) {
         Tel: ${esc(schoolSetup.phone)}
         ${schoolSetup.phoneAlt ? `<br>Alt: ${esc(schoolSetup.phoneAlt)}` : ''}
         <br>Email: ${esc(schoolSetup.email)}
-        <br>UNEB: ${esc(schoolSetup.unebCentre)} · MoES: ${esc(schoolSetup.registrationNo)}
+        ${schoolSetup.website ? `<br>${esc(schoolSetup.website)}` : ''}
       </div>
+    </div>
+    <div class="doc-title">
+      <p class="kind">${esc(kind)}</p>
+      <h2>${esc(docTitle)}</h2>
+    </div>
+    <div class="ref-grid">
+      <div><span>Document reference</span><strong>${esc(refNo)}</strong></div>
+      <div><span>Date of issue</span><strong>${esc(issueDate())}</strong></div>
+      <div><span>Academic period</span><strong>${esc(schoolSetup.currentTerm)} ${esc(schoolSetup.academicYear)}</strong></div>
     </div>
   `
 }
 
-function wrap(title: string, body: string) {
+export function wrap(
+  title: string,
+  body: string,
+  opts?: { overlaysHtml?: string },
+) {
+  const cfg = activeCanvas()
+  const note =
+    cfg?.note?.trim()
+      ? `<div class="canvas-note">${esc(cfg.note.trim())}</div>`
+      : ''
+  const overlays =
+    opts?.overlaysHtml || (cfg ? overlayHtmlFromCanvas(cfg) : '')
+  const bodyWithNote = `${body}${note}`
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <title>${esc(title)}</title>
-  <style>
-    @page { margin: 16mm; }
-    * { box-sizing: border-box; }
-    body {
-      font-family: "Georgia", "Times New Roman", serif;
-      color: #1a1a1a;
-      font-size: 12.5px;
-      line-height: 1.45;
-      margin: 0;
-      padding: 0;
-    }
-    .sheet { max-width: 780px; margin: 0 auto; }
-    .head {
-      display: flex;
-      justify-content: space-between;
-      gap: 1.5rem;
-      padding-bottom: 12px;
-      margin-bottom: 0;
-    }
-    .brand { display: flex; gap: 12px; align-items: center; }
-    .logo-img {
-      width: 72px; height: 72px;
-      object-fit: contain;
-      background: #fff;
-    }
-    h1 { margin: 0; font-size: 17px; color: #2e3192; font-family: system-ui, sans-serif; }
-    .motto { margin: 4px 0 0; font-style: italic; color: #ed1c24; font-size: 11px; }
-    .meta { text-align: right; font-family: system-ui, sans-serif; font-size: 11px; color: #2e3192; }
-    .meta p { margin: 0 0 2px; }
-    .accent {
-      height: 4px;
-      margin: 0 0 14px;
-      background: linear-gradient(90deg, #2e3192 0%, #2e3192 58%, #ed1c24 58%, #ed1c24 100%);
-    }
-    .contact {
-      display: flex; justify-content: space-between; gap: 1rem;
-      font-family: system-ui, sans-serif; font-size: 11px; color: #333;
-      margin-bottom: 22px;
-    }
-    h2 {
-      font-size: 14px; margin: 0 0 12px; color: #2e3192;
-      text-transform: uppercase; letter-spacing: 0.04em;
-      border-bottom: 1px solid #c5c7e8; padding-bottom: 6px;
-      font-family: system-ui, sans-serif;
-    }
-    table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; }
-    th, td {
-      border: 1px solid #c5c7e8; padding: 8px 10px;
-      text-align: left; font-family: system-ui, sans-serif; font-size: 12px;
-    }
-    th { background: #e8e9f6; color: #2e3192; }
-    .muted { color: #555; }
-    .block { margin: 14px 0; }
-    .sign {
-      display: flex; justify-content: space-between; gap: 2rem;
-      margin-top: 48px; font-family: system-ui, sans-serif; font-size: 12px;
-    }
-    .sign .line { border-top: 1px solid #2e3192; margin-top: 40px; padding-top: 6px; min-width: 200px; }
-    .badge {
-      display: inline-block; border: 1px solid #2e3192; color: #2e3192; padding: 2px 8px;
-      font-family: system-ui, sans-serif; font-size: 11px; text-transform: uppercase;
-    }
-    .footer {
-      margin-top: 36px; padding-top: 10px; border-top: 1px solid #c5c7e8;
-      font-family: system-ui, sans-serif; font-size: 10px; color: #666;
-    }
-    @media print {
-      body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-    }
-  </style>
+  <style>${statutoryDocumentCss}</style>
 </head>
 <body>
-  <div class="sheet">${body}
-    <div class="footer">
-      ${esc(schoolSetup.shortName)} · ${esc(schoolSetup.currentTerm)} ${esc(schoolSetup.academicYear)} ·
-      Generated from Little Royals Education Desk · ${esc(schoolSetup.currency)}
+  <div class="sheet">
+    <div class="watermark" aria-hidden="true">${esc(schoolSetup.initials || 'LR')}</div>
+    ${overlays}
+    <div class="sheet-inner">${bodyWithNote}
+      <div class="footer">
+        <span>Confidential · For parent / school use only · ${esc(schoolSetup.shortName)}</span>
+        <span>${esc(schoolSetup.currentTerm)} ${esc(schoolSetup.academicYear)} · ${esc(schoolSetup.currency)}</span>
+      </div>
     </div>
   </div>
 </body>
 </html>`
 }
 
-function fieldTable(rows: Array<[string, string]>) {
-  return `<table>
+export function fieldTable(rows: Array<[string, string]>) {
+  return `<table class="fields">
     ${rows
       .map(
         ([k, v]) =>
-          `<tr><th style="width:34%">${esc(k)}</th><td>${esc(v || '—')}</td></tr>`,
+          `<tr><th>${esc(k)}</th><td>${esc(v || '—')}</td></tr>`,
       )
       .join('')}
   </table>`
 }
 
-function signatures(left = 'Class teacher', right = 'Head teacher') {
-  return `<div class="sign">
-    <div><div class="line">${esc(left)}</div></div>
-    <div><div class="line">${esc(right)} · ${esc(schoolSetup.headTeacher)}</div></div>
+export function signatures(
+  left = 'Class teacher',
+  right = 'Head teacher',
+  opts?: {
+    stampSrc?: string
+    signatureSrc?: string
+    showStamp?: boolean
+    showSignature?: boolean
+  },
+) {
+  const cfg = activeCanvas()
+  const leftLabel = cfg?.leftSigner || left
+  const rightLabel = cfg?.rightSigner || right
+  // Canvas studio places stamp/signature as freeform overlays — keep sign-row lines only.
+  const useCanvasOverlays = Boolean(cfg)
+  const stampSrc = useCanvasOverlays
+    ? ''
+    : opts?.stampSrc || ''
+  const signatureSrc = useCanvasOverlays
+    ? ''
+    : opts?.signatureSrc || ''
+  const showStamp = useCanvasOverlays ? false : (opts?.showStamp ?? true)
+  const showSignature = useCanvasOverlays
+    ? false
+    : (opts?.showSignature ?? true)
+
+  const stampInner = stampSrc
+    ? `<img src="${esc(stampSrc)}" alt="Official stamp" />`
+    : 'School<br/>official<br/>stamp'
+  const stampClass = stampSrc ? 'stamp has-image' : 'stamp'
+  const stampHtml = showStamp
+    ? `<div class="${stampClass}">${stampInner}</div>`
+    : '<div style="flex:0 0 92px"></div>'
+
+  const sigImg =
+    showSignature && signatureSrc
+      ? `<img class="sig-image" src="${esc(signatureSrc)}" alt="Signature" />`
+      : ''
+
+  return `<div class="sign-row">
+    <div class="sign-block">
+      <div class="line">
+        <div class="role">${esc(leftLabel)}</div>
+        <div>Name &amp; signature</div>
+      </div>
+      <div class="date-line">Date</div>
+    </div>
+    ${stampHtml}
+    <div class="sign-block">
+      ${sigImg}
+      <div class="line">
+        <div class="role">${esc(rightLabel)}</div>
+        <div>${esc(schoolSetup.headTeacher)}</div>
+      </div>
+      <div class="date-line">Date</div>
+    </div>
   </div>`
+}
+
+function section(title: string) {
+  return `<h3 class="section">${esc(title)}</h3>`
 }
 
 function findStudentByName(name: string) {
@@ -354,8 +748,8 @@ function buildExamPaper(exam: CatalogRow): { title: string; html: string } {
         .join('')}`
   const html = wrap(
     title,
-    `${letterhead('Examination Paper', String(exam.id))}
-    <h2>${esc(exam.name)}</h2>
+    `${letterhead(String(exam.name), String(exam.id), { kindLabel: 'Statutory examination paper' })}
+    ${section('Paper particulars')}
     ${fieldTable([
       ['Class', String(exam.className || '—')],
       ['Subject', String(exam.course || '—')],
@@ -363,17 +757,17 @@ function buildExamPaper(exam: CatalogRow): { title: string; html: string } {
       ['Date', String(exam.date || '—')],
       ['Maximum marks', String(max)],
       ['Questions', String(questions.length || '—')],
-      ['Term', `${schoolSetup.currentTerm} ${schoolSetup.academicYear}`],
       ['Duration', String(exam.duration || 'As instructed')],
     ])}
-    <table style="margin-bottom:14px">
-      <tr><th style="width:34%">Learner name</th><td></td></tr>
-      <tr><th>Learner ID</th><td></td></tr>
+    ${section('Learner details (to be completed)')}
+    <table class="fields">
+      <tr><th>Learner name</th><td></td></tr>
+      <tr><th>Student number</th><td></td></tr>
       <tr><th>Class / stream</th><td>${esc(String(exam.className || ''))}</td></tr>
     </table>
-    <p class="muted"><strong>Instructions:</strong> Write clearly. Show working where required. Total marks ${esc(String(max))}. Do not open this paper until told to do so.</p>
+    <div class="notice"><strong>Instructions:</strong> Write clearly. Show working where required. Total marks ${esc(String(max))}. Do not open this paper until told to do so.</div>
     ${exam.subtitle ? `<p class="block">${escapeHtmlMultiline(String(exam.subtitle))}</p>` : ''}
-    <h2>Questions</h2>
+    ${section('Questions')}
     ${questionBlock}
     ${signatures('Invigilator', 'Subject teacher')}`,
   )
@@ -408,8 +802,8 @@ function buildExamMarksheet(exam: CatalogRow): { title: string; html: string } {
   const title = `Mark sheet · ${examName}`
   const html = wrap(
     title,
-    `${letterhead('Class Mark Sheet', String(exam.id))}
-    <h2>${esc(examName)}</h2>
+    `${letterhead(examName, String(exam.id), { kindLabel: 'Statutory mark sheet' })}
+    ${section('Assessment particulars')}
     ${fieldTable([
       ['Class', className || '—'],
       ['Subject', String(exam.course || '—')],
@@ -417,13 +811,13 @@ function buildExamMarksheet(exam: CatalogRow): { title: string; html: string } {
       ['Date', String(exam.date || '—')],
       ['Maximum marks', String(max)],
       ['Learners', String(learners.length)],
-      ['Term', `${schoolSetup.currentTerm} ${schoolSetup.academicYear}`],
     ])}
-    <table>
+    ${section('Class mark list')}
+    <table class="data">
       <thead>
         <tr>
           <th style="width:8%">#</th>
-          <th style="width:14%">ID</th>
+          <th style="width:14%">Student No.</th>
           <th>Learner</th>
           <th style="width:12%">Score</th>
           <th style="width:12%">Grade</th>
@@ -434,26 +828,49 @@ function buildExamMarksheet(exam: CatalogRow): { title: string; html: string } {
         ${rowsHtml || `<tr><td colspan="6">No learners found for this class.</td></tr>`}
       </tbody>
     </table>
-    <p class="muted">Scores use a maximum of ${esc(String(max))}. Blank score cells can be filled by hand if printing before entry.</p>
+    <p class="muted">Scores use a maximum of ${esc(String(max))}. Blank score cells may be completed by hand before office entry.</p>
     ${signatures('Class / subject teacher', 'Head teacher')}`,
   )
   return { title, html }
 }
 
-/** Print exam paper and/or class mark sheet for an examination record. */
+/** Print exam paper and/or class mark sheet in a single print dialog. */
 export function printExamPack(
   exam: CatalogRow,
   parts: Array<'paper' | 'marksheet'> = ['paper', 'marksheet'],
 ) {
-  const printed: string[] = []
-  for (const part of parts) {
-    const kind: DocumentKind = part === 'paper' ? 'exam-paper' : 'exam-marksheet'
-    printed.push(printRecordDocument(kind, 'exams', exam))
+  const unique = Array.from(new Set(parts))
+  const docs = unique.map((part) => {
+    const kind: DocumentKind =
+      part === 'paper' ? 'exam-paper' : 'exam-marksheet'
+    return buildDocumentHtml(kind, 'exams', exam)
+  })
+  if (!docs.length) return []
+  if (docs.length === 1) {
+    openPrintWindow(docs[0].title, docs[0].html)
+    return [docs[0].title]
   }
-  return printed
+  // One dialog only — stacking print() calls re-opens when the user closes the first.
+  const sheets = docs
+    .map((doc, index) => {
+      const match = doc.html.match(
+        /<div class="sheet">([\s\S]*?)<\/div>\s*<\/body>/i,
+      )
+      const inner = match?.[1] || ''
+      const breakStyle = index > 0 ? ' page-break-before: always;' : ''
+      return `<div class="sheet" style="${breakStyle}">${inner}</div>`
+    })
+    .join('\n')
+  const shell = docs[0].html.replace(
+    /<div class="sheet">[\s\S]*?<\/div>\s*<\/body>/i,
+    `${sheets}</body>`,
+  )
+  const title = docs.map((d) => d.title).join(' + ')
+  openPrintWindow(title, shell)
+  return docs.map((d) => d.title)
 }
 
-export function buildDocumentHtml(
+function buildDocumentHtmlInner(
   kind: DocumentKind,
   moduleKey: string,
   row: CatalogRow,
@@ -462,18 +879,17 @@ export function buildDocumentHtml(
     const title = `Fee Invoice · ${row.invoice || row.id}`
     const html = wrap(
       title,
-      `${letterhead('Fee Invoice', String(row.invoice || row.id))}
-      <h2>Invoice</h2>
+      `${letterhead('Fee Invoice', String(row.invoice || row.id), { kindLabel: 'Statutory fee invoice' })}
+      ${section('Invoice particulars')}
       ${fieldTable([
         ['Student', row.name],
         ['Invoice no.', String(row.invoice || row.id)],
         ['Amount due', String(row.amount || '—')],
         ['Amount paid', String(row.paid || '—')],
         ['Status', String(row.status || '—')],
-        ['Term', `${schoolSetup.currentTerm} ${schoolSetup.academicYear}`],
         ['Currency', schoolSetup.currency],
       ])}
-      <p class="muted">Please settle outstanding balances at the school accounts office. Keep this invoice for your records.</p>
+      <div class="notice">Please settle outstanding balances at the school accounts office. This invoice is an official school record — retain for your files.</div>
       ${signatures('Accounts officer', 'Head teacher')}`,
     )
     return { title, html }
@@ -484,18 +900,18 @@ export function buildDocumentHtml(
     const title = `Fee Receipt · ${receiptNo}`
     const html = wrap(
       title,
-      `${letterhead('Official Receipt', receiptNo)}
-      <h2>Payment receipt</h2>
+      `${letterhead('Official Fee Receipt', receiptNo, { kindLabel: 'Statutory payment receipt' })}
       <p>Received with thanks from the guardian of <strong>${esc(row.name)}</strong>.</p>
+      ${section('Receipt particulars')}
       ${fieldTable([
         ['Receipt no.', receiptNo],
         ['Invoice no.', String(row.invoice || row.id)],
         ['Amount received', String(row.paid || row.amount || '—')],
         ['Invoice total', String(row.amount || '—')],
         ['Payment status', String(row.status || '—')],
-        ['Term', `${schoolSetup.currentTerm} ${schoolSetup.academicYear}`],
+        ['Currency', schoolSetup.currency],
       ])}
-      <p class="muted">This receipt is computer generated and is valid without a stamp when printed on school letterhead.</p>
+      <div class="notice">This receipt is computer-generated on school letterhead and is valid with the school stamp and authorised signature.</div>
       ${signatures('Cashier / Accounts', 'Head teacher')}`,
     )
     return { title, html }
@@ -507,8 +923,7 @@ export function buildDocumentHtml(
     const term = String(row.term || `${schoolSetup.currentTerm}`)
     const html = wrap(
       title,
-      `${letterhead('Letter of Admission', String(row.id))}
-      <h2>Offer of admission</h2>
+      `${letterhead('Letter of Admission', String(row.id), { kindLabel: 'Statutory admission offer' })}
       <p>Dear Parent / Guardian,</p>
       <p class="block">
         We are pleased to offer <strong>${esc(row.name)}</strong> admission to
@@ -516,6 +931,7 @@ export function buildDocumentHtml(
         <strong>${esc(program)}</strong> section,
         <strong>${esc(term)} ${esc(schoolSetup.academicYear)}</strong>.
       </p>
+      ${section('Admission particulars')}
       ${fieldTable([
         ['Admission / Ref', row.id],
         ['Student', row.name],
@@ -524,10 +940,10 @@ export function buildDocumentHtml(
         ['Admission fee', String(row.fee || 'As per fee schedule')],
         ['Status', String(row.status || '—')],
       ])}
-      <p class="block">
-        Kindly complete registration at the school office within 14 days of this letter,
-        bring a copy of the birth certificate / passport photo, and settle any admission fees.
-      </p>
+      <div class="notice">
+        Complete registration at the school office within 14 days of this letter.
+        Bring a birth certificate / passport photo and settle any admission fees.
+      </div>
       <p>We look forward to welcoming your child to the Little Royals family.</p>
       ${signatures('Admissions officer', 'Head teacher')}`,
     )
@@ -540,14 +956,13 @@ export function buildDocumentHtml(
     const title = `Exam Report · ${studentName}`
     const html = wrap(
       title,
-      `${letterhead('Student Examination Report', String(row.id))}
-      <h2>Examination report</h2>
+      `${letterhead('Student Examination Report', String(row.id), { kindLabel: 'Statutory examination report' })}
       <p>To the Parent / Guardian of <strong>${esc(studentName)}</strong>,</p>
       <p class="block">
         Please find the assessment outcome for
-        <strong>${esc(examLabel)}</strong>
-        (${esc(schoolSetup.currentTerm)} ${esc(schoolSetup.academicYear)}).
+        <strong>${esc(examLabel)}</strong>.
       </p>
+      ${section('Result particulars')}
       ${fieldTable([
         ['Student', studentName],
         ['Assessment', examLabel],
@@ -557,9 +972,8 @@ export function buildDocumentHtml(
         ['Report ref', row.id],
       ])}
       <p class="muted">
-        Please discuss this report with your child. If you need clarification,
-        contact the class teacher or the academic office on
-        ${esc(schoolSetup.phone)}.
+        Please discuss this report with your child. For clarification, contact the
+        class teacher or academic office on ${esc(schoolSetup.phone)}.
       </p>
       ${signatures('Subject / Class teacher', 'Head teacher')}`,
     )
@@ -597,14 +1011,13 @@ export function buildDocumentHtml(
         : `<tr><td colspan="4">No posted results for this term yet.</td></tr>`
     const html = wrap(
       title,
-      `${letterhead('Term Report Card', String(student.id))}
-      <h2>Academic report</h2>
+      `${letterhead('Term Report Card', String(student.id), { kindLabel: 'Statutory learner report' })}
+      ${section('Learner particulars')}
       ${fieldTable([
         ['Student', student.name],
-        ['Student ID', student.id],
+        ['Student number', student.id],
         ['Class', String(student.className || '—')],
         ['Section', String(student.program || '—')],
-        ['Term', `${schoolSetup.currentTerm} ${schoolSetup.academicYear}`],
         ['Average', student.average != null ? String(student.average) : '—'],
         [
           'Attendance',
@@ -613,16 +1026,16 @@ export function buildDocumentHtml(
             : '—',
         ],
       ])}
-      <h2>Term assessment (NCDC / UNEB)</h2>
-      <table>
+      ${section('Term assessment (NCDC / UNEB)')}
+      <table class="data">
         <thead><tr><th>Subject / paper</th><th>Mark %</th><th>Agg / band</th><th>Status</th></tr></thead>
         <tbody>${resultRows}</tbody>
       </table>
-      <p class="muted">
+      <div class="notice">
         Nursery reports use readiness bands (Emerging–Exceeding). Primary uses
         UNEB-style aggregates (D1–F9). Contact the school on
         ${esc(schoolSetup.phone)} for clarification.
-      </p>
+      </div>
       ${signatures('Class teacher', 'Head teacher')}`,
     )
     return { title, html }
@@ -643,10 +1056,10 @@ export function buildDocumentHtml(
       .join('')
     const html = wrap(
       title,
-      `${letterhead('Attendance Report', `ATT-${new Date().toISOString().slice(0, 10)}`)}
-      <h2>Attendance listing</h2>
-      <p class="muted">${esc(schoolSetup.currentTerm)} ${esc(schoolSetup.academicYear)} · ${rows.length} record(s)</p>
-      <table>
+      `${letterhead('Attendance Report', `ATT-${new Date().toISOString().slice(0, 10)}`, { kindLabel: 'Statutory attendance record' })}
+      ${section('Attendance listing')}
+      <p class="muted">${rows.length} record(s) in this extract.</p>
+      <table class="data">
         <thead><tr><th>Student</th><th>Class</th><th>Date</th><th>Status</th></tr></thead>
         <tbody>${bodyRows || '<tr><td colspan="4">No attendance rows.</td></tr>'}</tbody>
       </table>
@@ -659,12 +1072,12 @@ export function buildDocumentHtml(
     const title = `Disciplinary Notice · ${row.student || row.name}`
     const html = wrap(
       title,
-      `${letterhead('Disciplinary Notice', String(row.id))}
-      <h2>Notice to parent / guardian</h2>
+      `${letterhead('Disciplinary Notice', String(row.id), { kindLabel: 'Statutory disciplinary notice' })}
       <p>Dear Parent / Guardian of <strong>${esc(row.student || row.name)}</strong>,</p>
       <p class="block">
         This notice concerns a disciplinary matter recorded by the school. Please discuss it with your child and contact the class teacher if needed.
       </p>
+      ${section('Case particulars')}
       ${fieldTable([
         ['Case', row.name],
         ['Case ref', row.id],
@@ -675,7 +1088,7 @@ export function buildDocumentHtml(
         ['Action / sanction', String(row.action || '—')],
         ['Status', String(row.status || '—')],
       ])}
-      ${row.subtitle ? `<p class="block"><strong>Notes:</strong> ${esc(row.subtitle)}</p>` : ''}
+      ${row.subtitle ? `<div class="notice"><strong>Notes:</strong> ${esc(row.subtitle)}</div>` : ''}
       ${signatures('Reporting teacher', 'Head teacher')}`,
     )
     return { title, html }
@@ -688,32 +1101,53 @@ export function buildDocumentHtml(
     .map(([k, v]) => [k, String(v ?? '—')] as [string, string])
   const html = wrap(
     title,
-    `${letterhead('Record printout', String(row.id))}
-    <h2>${esc(row.name)}</h2>
+    `${letterhead(String(row.name), String(row.id), { kindLabel: 'Statutory school record' })}
     <p><span class="badge">${esc(row.status || moduleKey)}</span></p>
+    ${section('Record particulars')}
     ${fieldTable(entries)}
     ${signatures('Prepared by', 'Authorised by')}`,
   )
   return { title, html }
 }
 
+export function buildDocumentHtml(
+  kind: DocumentKind,
+  moduleKey: string,
+  row: CatalogRow,
+): { title: string; html: string } {
+  return withDocumentCanvas(kind, () =>
+    buildDocumentHtmlInner(kind, moduleKey, row),
+  )
+}
+
+/** Prevents a second system print dialog while one is already open. */
+let printDialogOpen = false
+let printGeneration = 0
+
+function clearPrintFrame() {
+  document.getElementById('lr-print-frame')?.remove()
+}
+
 /**
  * Print without `window.open` — browsers block pop-ups on Vercel / production.
- * Uses a same-origin hidden iframe so the print dialog always opens.
+ * Uses a same-origin hidden iframe and opens the system print dialog once.
+ * Closing the dialog will not spawn another print.
  */
 export function openPrintWindow(title: string, html: string) {
-  const existing = document.getElementById('lr-print-frame')
-  if (existing) existing.remove()
+  if (printDialogOpen) {
+    // Ignore repeat clicks / stacked print calls while the dialog is up
+    return null
+  }
+
+  clearPrintFrame()
+  const generation = ++printGeneration
+  printDialogOpen = true
 
   const iframe = document.createElement('iframe')
   iframe.id = 'lr-print-frame'
   iframe.title = title
   iframe.setAttribute('aria-hidden', 'true')
-  // Sandbox: allow same-origin so we can print; block scripts/forms/top-nav
-  iframe.setAttribute(
-    'sandbox',
-    'allow-modals allow-same-origin allow-popups',
-  )
+  iframe.setAttribute('sandbox', 'allow-modals allow-same-origin')
   Object.assign(iframe.style, {
     position: 'fixed',
     right: '0',
@@ -724,54 +1158,115 @@ export function openPrintWindow(title: string, html: string) {
     opacity: '0',
     pointerEvents: 'none',
   })
-  // Prefer srcdoc over document.write (clearer origin + no write races)
   iframe.srcdoc = html
   document.body.appendChild(iframe)
 
-  const triggerPrint = () => {
-    try {
-      iframe.contentWindow?.focus()
-      iframe.contentWindow?.print()
-    } catch {
-      /* user can print from Download instead */
-    }
-    window.setTimeout(() => {
-      iframe.remove()
-    }, 60_000)
+  let printed = false
+  let readyHandled = false
+  const timers = new Set<number>()
+
+  const schedule = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(() => {
+      timers.delete(id)
+      if (generation !== printGeneration) return
+      fn()
+    }, ms)
+    timers.add(id)
+    return id
   }
 
-  const onReady = () => {
-    const doc = iframe.contentDocument
-    if (!doc) {
-      window.setTimeout(triggerPrint, 200)
+  const clearTimers = () => {
+    for (const id of timers) window.clearTimeout(id)
+    timers.clear()
+  }
+
+  const release = () => {
+    if (generation !== printGeneration) return
+    clearTimers()
+    printDialogOpen = false
+    schedule(() => {
+      if (generation === printGeneration) clearPrintFrame()
+    }, 400)
+  }
+
+  const triggerPrint = () => {
+    if (printed || generation !== printGeneration) return
+    printed = true
+    clearTimers()
+
+    const win = iframe.contentWindow
+    if (!win) {
+      release()
       return
     }
+
+    const onAfterPrint = () => {
+      win.removeEventListener('afterprint', onAfterPrint)
+      release()
+    }
+    win.addEventListener('afterprint', onAfterPrint)
+
+    try {
+      win.focus()
+      win.print()
+    } catch {
+      release()
+      return
+    }
+
+    // Browsers that never fire afterprint — release after the dialog can close
+    schedule(() => {
+      win.removeEventListener('afterprint', onAfterPrint)
+      release()
+    }, 120_000)
+  }
+
+  const waitForImagesThenPrint = (doc: Document) => {
     doc.title = title
     const images = Array.from(doc.images || [])
     if (!images.length) {
-      window.setTimeout(triggerPrint, 150)
+      schedule(triggerPrint, 60)
       return
     }
     let pending = images.length
+    let settled = false
+    const settle = () => {
+      if (settled || generation !== printGeneration) return
+      settled = true
+      schedule(triggerPrint, 60)
+    }
     const done = () => {
       pending -= 1
-      if (pending <= 0) window.setTimeout(triggerPrint, 100)
+      if (pending <= 0) settle()
     }
     images.forEach((img) => {
       if (img.complete) done()
       else {
-        img.addEventListener('load', done)
-        img.addEventListener('error', done)
+        img.addEventListener('load', done, { once: true })
+        img.addEventListener('error', done, { once: true })
       }
     })
-    window.setTimeout(triggerPrint, 2000)
+    // Only if images hang — never a second print after the first
+    schedule(settle, 2000)
+  }
+
+  const onReady = () => {
+    if (readyHandled || printed || generation !== printGeneration) return
+    readyHandled = true
+    const doc = iframe.contentDocument
+    if (!doc) {
+      schedule(triggerPrint, 100)
+      return
+    }
+    waitForImagesThenPrint(doc)
   }
 
   iframe.addEventListener('load', onReady, { once: true })
-  // Fallback if load already fired
-  window.setTimeout(() => {
-    if (iframe.contentDocument?.readyState === 'complete') onReady()
-  }, 50)
+  schedule(() => {
+    if (!readyHandled && iframe.contentDocument?.readyState === 'complete') {
+      onReady()
+    }
+  }, 100)
 
   return iframe
 }

@@ -19,6 +19,8 @@ import type { CatalogRow } from '../data/catalog'
 import ListToolbar from '../components/ListToolbar.vue'
 import PageIntro from '../components/PageIntro.vue'
 
+defineProps<{ embedded?: boolean }>()
+
 const router = useRouter()
 const channelTab = ref('all')
 const query = ref('')
@@ -216,11 +218,11 @@ function reconcile(row: CatalogRow) {
 </script>
 
 <template>
-  <PageHeader>
+  <PageHeader v-if="!embedded">
     <PageHeaderTitle title="Mobile Money Payments" />
   </PageHeader>
 
-  <div class="school-page">
+  <div :class="embedded ? '' : 'school-page'">
     <PageIntro :stats="stats">
       <p class="text-p-base text-ink-gray-6">
         Track MTN MoMo, Airtel Money and bank fee payments for
@@ -242,7 +244,7 @@ function reconcile(row: CatalogRow) {
       <template #actions>
         <Button
           icon-left="lucide-receipt"
-          label="Fee ledger"
+          label="Fee invoices"
           @click="router.push('/fees')"
         />
         <Button

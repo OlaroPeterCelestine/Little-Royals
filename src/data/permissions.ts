@@ -236,6 +236,7 @@ function seedPerms(): RoleDocPermission[] {
         'inventory-items',
         'inventory-stock',
         'inventory-issues',
+        'purchase-requests',
         'assets',
         'sms-messages',
         'message-templates',

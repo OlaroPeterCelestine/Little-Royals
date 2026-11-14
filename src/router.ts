@@ -12,6 +12,7 @@ import {
   isParentAllowedPath,
   isSafeInternalPath,
 } from './lib/security'
+import { canAccessPath } from './lib/accessControl'
 
 const allModules = { ...catalog, ...catalogExtra }
 type ModuleKey = string
@@ -26,13 +27,21 @@ const specialListPaths = new Set([
   '/people',
   '/classes',
   '/attendance',
+  '/attendance/take',
+  '/early-departures',
+  '/staff-attendance',
   '/announcements',
   '/school-events',
   '/sms-messages',
   '/communications',
+  '/message-templates',
   '/payments',
   '/payment',
+  '/fee-offsets',
+  '/fees/offset',
   '/gradebook',
+  '/exams',
+  '/exam-results',
   '/report-cards',
   '/parent-portal',
   '/audit-logs',
@@ -48,14 +57,45 @@ const specialListPaths = new Set([
   '/inventory-items',
   '/inventory-stock',
   '/inventory-issues',
+  '/purchase-requests',
   '/assets',
+  '/academic-years',
+  '/academic-terms',
+  '/years-and-terms',
+  '/timetable',
+  '/periods',
+  '/program-enrollments',
+  '/course-enrollments',
+  '/programs',
+  '/waiting-list',
+  '/library',
+  '/library-books',
+  '/library-issues',
+  '/transport',
+  '/transport-routes',
+  '/transport-vehicles',
+  '/meals',
+  '/meals-menus',
+  '/meal-attendance',
+  '/dietary-requirements',
+  '/health',
+  '/health-records',
+  '/clinic-visits',
+  '/safeguarding-incidents',
+  '/visitor-log',
+  '/discipline',
+  '/disciplinary-cases',
+  '/positive-recognition',
+  '/student-log',
 ])
 
 const specialDetailPaths = new Set([
   '/students/:id',
   '/teachers/:id',
+  '/staff/:id',
   '/classes/:id',
   '/attendance/:id',
+  '/programs/:id',
 ])
 
 function withModuleParam(key: ModuleKey) {
@@ -82,23 +122,27 @@ const catalogDetailRoutes: RouteRecordRaw[] = catalogKeys
   .filter(
     (r) =>
       !specialDetailPaths.has(r.path) &&
-      r.path !== '/attendance/:id',
+      r.path !== '/attendance/:id' &&
+      r.path !== '/audit-logs/:id' &&
+      r.path !== '/waiting-list/:id',
   )
 
-const catalogFormRoutes: RouteRecordRaw[] = catalogKeys.flatMap((key) => [
-  {
-    path: `/${key}/new`,
-    name: `${key}-create`,
-    component: () => import('./pages/RecordForm.vue'),
-    beforeEnter: withModuleParam(key),
-  },
-  {
-    path: `/${key}/:id/edit`,
-    name: `${key}-edit`,
-    component: () => import('./pages/RecordForm.vue'),
-    beforeEnter: withModuleParam(key),
-  },
-])
+const catalogFormRoutes: RouteRecordRaw[] = catalogKeys
+  .filter((key) => key !== 'programs' && key !== 'waiting-list')
+  .flatMap((key) => [
+    {
+      path: `/${key}/new`,
+      name: `${key}-create`,
+      component: () => import('./pages/RecordForm.vue'),
+      beforeEnter: withModuleParam(key),
+    },
+    {
+      path: `/${key}/:id/edit`,
+      name: `${key}-edit`,
+      component: () => import('./pages/RecordForm.vue'),
+      beforeEnter: withModuleParam(key),
+    },
+  ])
 
 function detailRoute(key: ModuleKey, path: string, name: string): RouteRecordRaw {
   return {
@@ -137,6 +181,10 @@ export const router = createRouter({
       name: 'dashboard',
       component: () => import('./pages/Dashboard.vue'),
     },
+    // —— People routes (lists vs 360 profiles — do not mix) ——
+    // Lists: /students · /people?tab=teachers|staff|parents
+    // 360:   /students/:id · /teachers/:id · /staff/:id
+    // Forms: /:module/new · /:module/:id/edit (catalogFormRoutes)
     {
       path: '/students',
       name: 'students',
@@ -173,22 +221,123 @@ export const router = createRouter({
       component: () => import('./pages/Teacher360.vue'),
     },
     {
+      path: '/staff/:id',
+      name: 'staff-detail',
+      component: () => import('./pages/Staff360.vue'),
+    },
+    {
       path: '/classes',
       name: 'classes',
-      component: () => import('./pages/MasterList.vue'),
+      component: () => import('./pages/Classes.vue'),
     },
     detailRoute('classes', '/classes/:id', 'classes-detail'),
+    // Sections (/programs) removed — send leftover links to Classes
+    { path: '/programs', redirect: '/classes' },
+    { path: '/programs/new', redirect: '/classes' },
+    { path: '/programs/:id', redirect: '/classes' },
+    { path: '/programs/:id/edit', redirect: '/classes' },
+    { path: '/sections', redirect: '/classes' },
+
     {
       path: '/attendance',
       name: 'attendance',
-      component: () => import('./pages/MasterList.vue'),
+      component: () => import('./pages/Attendance.vue'),
     },
     {
       path: '/attendance/take',
       name: 'attendance-take',
-      component: () => import('./pages/AttendanceRegister.vue'),
+      redirect: { path: '/attendance', query: { tab: 'take' } },
+    },
+    {
+      path: '/early-departures',
+      redirect: { path: '/attendance', query: { tab: 'early' } },
+    },
+    {
+      path: '/staff-attendance',
+      redirect: { path: '/attendance', query: { tab: 'staff' } },
     },
     detailRoute('attendance', '/attendance/:id', 'attendance-detail'),
+    {
+      path: '/library',
+      name: 'library',
+      component: () => import('./pages/Library.vue'),
+    },
+    {
+      path: '/library-books',
+      redirect: { path: '/library', query: { tab: 'books' } },
+    },
+    {
+      path: '/library-issues',
+      redirect: { path: '/library', query: { tab: 'issues' } },
+    },
+    {
+      path: '/transport',
+      name: 'transport',
+      component: () => import('./pages/Transport.vue'),
+    },
+    {
+      path: '/transport-routes',
+      redirect: { path: '/transport', query: { tab: 'routes' } },
+    },
+    {
+      path: '/transport-vehicles',
+      redirect: { path: '/transport', query: { tab: 'vehicles' } },
+    },
+    {
+      path: '/meals',
+      name: 'meals',
+      component: () => import('./pages/Meals.vue'),
+    },
+    {
+      path: '/meals-menus',
+      redirect: { path: '/meals', query: { tab: 'menus' } },
+    },
+    {
+      path: '/meal-attendance',
+      redirect: { path: '/meals', query: { tab: 'attendance' } },
+    },
+    {
+      path: '/dietary-requirements',
+      redirect: { path: '/meals', query: { tab: 'dietary' } },
+    },
+    {
+      path: '/health',
+      name: 'health',
+      component: () => import('./pages/Health.vue'),
+    },
+    {
+      path: '/health-records',
+      redirect: { path: '/health', query: { tab: 'records' } },
+    },
+    {
+      path: '/clinic-visits',
+      redirect: { path: '/health', query: { tab: 'clinic' } },
+    },
+    {
+      path: '/safeguarding-incidents',
+      redirect: { path: '/health', query: { tab: 'safeguarding' } },
+    },
+    {
+      path: '/visitor-log',
+      redirect: { path: '/health', query: { tab: 'visitors' } },
+    },
+    {
+      path: '/discipline',
+      name: 'discipline',
+      component: () => import('./pages/Discipline.vue'),
+    },
+    {
+      path: '/disciplinary-cases',
+      redirect: { path: '/discipline', query: { tab: 'cases' } },
+    },
+    {
+      path: '/positive-recognition',
+      redirect: { path: '/discipline', query: { tab: 'recognition' } },
+    },
+    {
+      path: '/student-log',
+      redirect: { path: '/discipline', query: { tab: 'log' } },
+    },
     {
       path: '/announcements',
       name: 'announcements',
@@ -202,7 +351,12 @@ export const router = createRouter({
     {
       path: '/sms-messages',
       name: 'sms-messages',
-      component: () => import('./pages/Communications.vue'),
+      redirect: { path: '/communications', query: { channel: 'SMS' } },
+    },
+    {
+      path: '/message-templates',
+      name: 'message-templates',
+      redirect: { path: '/communications', query: { channel: 'templates' } },
     },
     {
       path: '/parent-portal',
@@ -220,9 +374,14 @@ export const router = createRouter({
       component: () => import('./pages/FeeOffset.vue'),
     },
     {
+      path: '/fee-offsets',
+      name: 'fee-offsets',
+      redirect: '/fees/offset',
+    },
+    {
       path: '/payments',
       name: 'payments',
-      component: () => import('./pages/Payments.vue'),
+      redirect: { path: '/payment', query: { tab: 'ledger' } },
     },
     {
       path: '/gradebook',
@@ -230,9 +389,96 @@ export const router = createRouter({
       component: () => import('./pages/Gradebook.vue'),
     },
     {
+      path: '/exams',
+      redirect: { path: '/gradebook', query: { tab: 'exams' } },
+    },
+    {
+      path: '/exam-results',
+      redirect: { path: '/gradebook', query: { tab: 'results' } },
+    },
+    {
+      path: '/assessment-groups',
+      redirect: { path: '/gradebook', query: { tab: 'settings' } },
+    },
+    {
+      path: '/assessment-criteria',
+      redirect: { path: '/gradebook', query: { tab: 'settings' } },
+    },
+    {
+      path: '/grading-scales',
+      redirect: { path: '/gradebook', query: { tab: 'settings' } },
+    },
+    {
+      path: '/exam-settings',
+      redirect: { path: '/gradebook', query: { tab: 'settings' } },
+    },
+    {
       path: '/report-cards',
       name: 'report-cards',
       component: () => import('./pages/ReportCards.vue'),
+    },
+    {
+      path: '/timetable',
+      name: 'timetable',
+      component: () => import('./pages/Timetable.vue'),
+    },
+    {
+      path: '/periods',
+      name: 'periods',
+      redirect: { path: '/timetable', query: { view: 'periods' } },
+    },
+    {
+      path: '/periods/new',
+      redirect: { path: '/timetable', query: { view: 'periods' } },
+    },
+    {
+      path: '/periods/:id/edit',
+      redirect: { path: '/timetable', query: { view: 'periods' } },
+    },
+    {
+      path: '/years-and-terms',
+      name: 'years-and-terms',
+      component: () => import('./pages/AcademicYearsTerms.vue'),
+    },
+    {
+      path: '/academic-years',
+      redirect: '/years-and-terms',
+    },
+    {
+      path: '/academic-terms',
+      redirect: '/years-and-terms',
+    },
+    {
+      path: '/waiting-list',
+      redirect: '/admissions',
+    },
+    {
+      path: '/waiting-list/new',
+      redirect: '/admissions',
+    },
+    {
+      path: '/waiting-list/:id',
+      redirect: '/admissions',
+    },
+    {
+      path: '/waiting-list/:id/edit',
+      redirect: '/admissions',
+    },
+    {
+      path: '/program-enrollments',
+      redirect: '/admissions',
+    },
+    {
+      path: '/course-enrollments',
+      redirect: '/admissions',
+    },
+    {
+      path: '/program-enrollments/:id',
+      redirect: '/admissions',
+    },
+    {
+      path: '/course-enrollments/:id',
+      redirect: '/admissions',
     },
     {
       path: '/term-overview',
@@ -251,7 +497,7 @@ export const router = createRouter({
     {
       path: '/school-events',
       name: 'school-events',
-      component: () => import('./pages/SchoolCalendar.vue'),
+      redirect: '/calendar',
     },
     {
       path: '/school-events/list',
@@ -285,9 +531,19 @@ export const router = createRouter({
       component: () => import('./pages/ActivityLog.vue'),
     },
     {
+      path: '/activity-log/:kind(activity|audit)/:id',
+      name: 'activity-detail',
+      component: () => import('./pages/ActivityDetail.vue'),
+    },
+    {
       path: '/audit-logs',
       name: 'audit-logs',
       redirect: { path: '/activity-log', query: { tab: 'audit' } },
+    },
+    {
+      path: '/audit-logs/:id',
+      name: 'audit-logs-detail',
+      redirect: (to) => `/activity-log/audit/${to.params.id}`,
     },
     {
       path: '/academics',
@@ -354,6 +610,10 @@ export const router = createRouter({
       redirect: { path: '/inventory', query: { tab: 'issues' } },
     },
     {
+      path: '/purchase-requests',
+      redirect: { path: '/inventory', query: { tab: 'requests' } },
+    },
+    {
       path: '/assets',
       name: 'assets-list',
       redirect: { path: '/inventory', query: { tab: 'assets' } },
@@ -417,6 +677,20 @@ router.beforeEach((to) => {
 
   if (isParent && !isParentAllowedPath(to.path)) {
     return { path: '/parent-portal' }
+  }
+
+  // Desk RBAC — hide / block modules the role cannot read
+  if (
+    isAuthenticated.value &&
+    !isParent &&
+    to.name !== 'login' &&
+    to.name !== 'not-found' &&
+    to.meta.public !== true &&
+    to.path !== '/dashboard' &&
+    to.path !== '/me' &&
+    !canAccessPath(to.fullPath, 'read')
+  ) {
+    return { path: '/dashboard', query: { denied: '1' } }
   }
 
   return true
