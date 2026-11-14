@@ -5,6 +5,7 @@ import {
   type CatalogRow,
   type BadgeTheme,
 } from './catalog'
+import { catalogExtra } from './catalogExtra'
 import { logActivity } from './activity'
 import { asString, type RecordValues } from '../types/records'
 
@@ -29,10 +30,12 @@ function statusTheme(status: string): BadgeTheme {
   return 'gray'
 }
 
+const allSeed: Record<string, CatalogModule> = { ...seed, ...catalogExtra }
+
 /** Live mutable school catalog — dialogs create/update/delete against this. */
 export const schoolStore = reactive(
   Object.fromEntries(
-    Object.entries(seed).map(([key, mod]) => [
+    Object.entries(allSeed).map(([key, mod]) => [
       key,
       {
         ...mod,

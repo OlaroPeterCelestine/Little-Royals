@@ -28,7 +28,7 @@ async function submit() {
       remember: remember.value,
     })
     toast.success('Welcome back')
-    const fallback = isParentRole(user.role) ? '/parent-portal' : '/dashboard'
+    const fallback = isParentRole(user.role) ? '/parent-portal' : '/students'
     const redirect = safeInternalPath(route.query.redirect, fallback)
     await router.replace(redirect)
   } catch (err) {

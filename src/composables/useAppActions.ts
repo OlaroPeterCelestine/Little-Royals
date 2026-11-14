@@ -144,7 +144,7 @@ export function openUserMenu(router: Router) {
         defaultValue: 'profile',
         options: [
           { label: 'My profile', value: 'profile' },
-          { label: 'Go to Dashboard', value: 'home' },
+          { label: 'Go to Students', value: 'home' },
           { label: 'Open Students', value: 'students' },
           { label: 'School Setup', value: 'school-setup' },
           { label: 'Activity Log', value: 'activity' },
@@ -160,7 +160,7 @@ export function openUserMenu(router: Router) {
       if (action === 'profile') {
         const me = getCurrentSystemUser()
         await router.push(me ? `/users/${me.id}` : '/me')
-      } else if (action === 'home') await router.push('/dashboard')
+      } else if (action === 'home') await router.push('/students')
       else if (action === 'students') await router.push('/students')
       else if (action === 'school-setup') await router.push('/school-setup')
       else if (action === 'activity') await router.push('/activity-log')

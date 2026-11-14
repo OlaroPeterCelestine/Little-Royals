@@ -1,5 +1,6 @@
 import { computed, reactive } from 'vue'
 import { catalog } from './catalog'
+import { catalogExtra } from './catalogExtra'
 import { currentUser, logActivity } from './activity'
 import {
   API_ROLES,
@@ -63,7 +64,7 @@ const FLAGS: PermFlag[] = [
   'share',
 ]
 
-const DOC_TYPES = Object.values(catalog).map((m) => ({
+const DOC_TYPES = Object.values({ ...catalog, ...catalogExtra }).map((m) => ({
   key: m.key,
   label: m.singular,
 }))

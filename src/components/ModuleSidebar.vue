@@ -38,11 +38,11 @@ const navGroups = computed(() =>
 
 function isActive(path?: string) {
   if (!path) return false
-  if (path === '/' || path === '/dashboard') {
-    return route.path === '/' || route.path === '/dashboard'
-  }
   if (path === '/users') {
-    return route.path === '/users'
+    return route.path === '/users' || route.path.startsWith('/users/')
+  }
+  if (path === '/attendance/take') {
+    return route.path === '/attendance/take'
   }
   return route.path === path || route.path.startsWith(`${path}/`)
 }

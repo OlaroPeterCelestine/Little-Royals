@@ -35,7 +35,7 @@ function mapItem(n: APINotification): SchoolNotification {
     id: n.id,
     title: n.title,
     body: n.body || '',
-    route: n.route || '/dashboard',
+    route: n.route || '/students',
     tone: mapTone(n.tone),
     createdAt: n.createdAt
       ? new Date(n.createdAt).toLocaleString('en-GB', {

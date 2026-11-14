@@ -5,17 +5,18 @@ import {
   type RouteRecordRaw,
 } from 'vue-router'
 import { catalog } from './data/catalog'
+import { catalogExtra } from './data/catalogExtra'
 import { isAuthenticated, authSession, refreshAuthSession } from './data/auth'
 import { isParentRole } from './data/permissions'
 import {
   isParentAllowedPath,
   isSafeInternalPath,
-  safeInternalPath,
 } from './lib/security'
 
-type ModuleKey = keyof typeof catalog
+const allModules = { ...catalog, ...catalogExtra }
+type ModuleKey = string
 
-const catalogKeys = Object.keys(catalog) as ModuleKey[]
+const catalogKeys = Object.keys(allModules)
 
 const specialListPaths = new Set([
   '/students',
@@ -61,7 +62,26 @@ const catalogDetailRoutes: RouteRecordRaw[] = catalogKeys
     component: () => import('./pages/RecordDetail.vue'),
     beforeEnter: withModuleParam(key),
   }))
-  .filter((r) => !specialDetailPaths.has(r.path))
+  .filter(
+    (r) =>
+      !specialDetailPaths.has(r.path) &&
+      r.path !== '/attendance/:id',
+  )
+
+const catalogFormRoutes: RouteRecordRaw[] = catalogKeys.flatMap((key) => [
+  {
+    path: `/${key}/new`,
+    name: `${key}-create`,
+    component: () => import('./pages/RecordForm.vue'),
+    beforeEnter: withModuleParam(key),
+  },
+  {
+    path: `/${key}/:id/edit`,
+    name: `${key}-edit`,
+    component: () => import('./pages/RecordForm.vue'),
+    beforeEnter: withModuleParam(key),
+  },
+])
 
 function detailRoute(key: ModuleKey, path: string, name: string): RouteRecordRaw {
   return {
@@ -87,19 +107,18 @@ export const router = createRouter({
       meta: { public: true },
     },
     {
-      // Opening the site: guests → Login, staff → dashboard (no desk flash)
+      // Spec: no Dashboard — staff land on Students list
       path: '/',
       name: 'home',
       redirect: () => {
         if (!isAuthenticated.value) return { name: 'login' }
         if (isParentRole(authSession.value?.role || '')) return '/parent-portal'
-        return '/dashboard'
+        return '/students'
       },
     },
     {
       path: '/dashboard',
-      name: 'dashboard',
-      component: () => import('./pages/Dashboard.vue'),
+      redirect: '/students',
     },
     {
       path: '/students',
@@ -131,6 +150,11 @@ export const router = createRouter({
       path: '/attendance',
       name: 'attendance',
       component: () => import('./pages/MasterList.vue'),
+    },
+    {
+      path: '/attendance/take',
+      name: 'attendance-take',
+      component: () => import('./pages/AttendanceRegister.vue'),
     },
     detailRoute('attendance', '/attendance/:id', 'attendance-detail'),
     {
@@ -234,6 +258,7 @@ export const router = createRouter({
       component: () => import('./pages/UserProfile.vue'),
     },
     { path: '/profile', redirect: '/me' },
+    ...catalogFormRoutes,
     ...catalogDetailRoutes,
     ...catalogListRoutes,
     {
@@ -263,7 +288,7 @@ router.beforeEach((to) => {
 
   const isParent = isParentRole(authSession.value?.role || '')
   if (isAuthenticated.value && to.name === 'login') {
-    return { path: isParent ? '/parent-portal' : '/dashboard' }
+    return { path: isParent ? '/parent-portal' : '/students' }
   }
 
   if (isParent && !isParentAllowedPath(to.path)) {

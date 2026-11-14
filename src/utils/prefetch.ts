@@ -1,11 +1,12 @@
 /** Warm common route chunks after first paint so navigation feels instant. */
 export function prefetchCorePages() {
   const loaders = [
-    () => import('../pages/Dashboard.vue'),
     () => import('../pages/Students.vue'),
     () => import('../pages/Student360.vue'),
     () => import('../pages/MasterList.vue'),
     () => import('../pages/RecordDetail.vue'),
+    () => import('../pages/RecordForm.vue'),
+    () => import('../pages/AttendanceRegister.vue'),
     () => import('../pages/Users.vue'),
     () => import('../pages/UserProfile.vue'),
     () => import('../pages/ActivityLog.vue'),

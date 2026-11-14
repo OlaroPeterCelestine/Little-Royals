@@ -15,7 +15,7 @@ import { Button } from 'frappe-ui'
       class="mt-2"
       icon-left="lucide-house"
       label="Go home"
-      route="/dashboard"
+      route="/students"
     />
   </div>
 </template>

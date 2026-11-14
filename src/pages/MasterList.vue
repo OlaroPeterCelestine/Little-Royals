@@ -23,10 +23,8 @@ import type { CatalogRow } from '../data/catalog'
 import { getLiveModule } from '../data/store'
 import { useListPage } from '../composables/useListPage'
 import {
-  openCreateDialog,
   openDeleteDialog,
   openDiscardSelectionDialog,
-  openEditDialog,
 } from '../composables/useModuleForms'
 import {
   defaultDocumentKind,
@@ -130,13 +128,14 @@ function cellValue(row: CatalogRow, key: string) {
 
 function createRecord() {
   if (!requirePerm('create', 'create records')) return
-  openCreateDialog(moduleKey.value)
+  // Spec: Create/Edit use the same full-page form (custom schema or column fallback)
+  router.push(`/${moduleKey.value}/new`)
 }
 
 function editRecord(row: CatalogRow, event?: Event) {
   event?.stopPropagation()
   if (!requirePerm('write', 'edit records')) return
-  openEditDialog(moduleKey.value, row)
+  router.push(`/${moduleKey.value}/${row.id}/edit`)
 }
 
 function openDetail(row: CatalogRow) {
@@ -194,7 +193,14 @@ function clearSelection() {
         @click="deleteSelected"
       />
       <Button
-        v-if="canCreate"
+        v-if="moduleKey === 'attendance' && canCreate"
+        variant="solid"
+        icon-left="lucide-user-check"
+        label="Take attendance"
+        @click="router.push('/attendance/take')"
+      />
+      <Button
+        v-else-if="canCreate"
         variant="solid"
         icon-left="lucide-plus"
         :label="`New ${mod?.singular || 'record'}`"

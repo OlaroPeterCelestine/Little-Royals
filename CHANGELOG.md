@@ -10,8 +10,9 @@ The Go API lives in a **separate** repository: [Little-Royals-API](https://githu
 
 - Frontend API layer in `src/services/`:
   - shared `apiRequest` client (JWT, envelope parsing)
-  - per-module services for all 22 catalog keys plus staff/parents/subjects/invoices/users
-  - `catalogServices` map and `listApiModules()` helper
+  - CRUD services (`list` / `get` / `create` / `update` / `remove`) for all desk modules
+  - `catalogServices` map, named exports, `serviceFor()`, and `listApiModules()`
+  - `scripts/sync-crud-services.mjs` to regenerate FE services + BE seeds/ports from the catalog
 
 ### Changed
 

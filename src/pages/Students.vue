@@ -22,11 +22,7 @@ import {
 } from 'frappe-ui/list'
 import { getLiveModule } from '../data/store'
 import { useListPage } from '../composables/useListPage'
-import {
-  openCreateDialog,
-  openDeleteDialog,
-  openEditDialog,
-} from '../composables/useModuleForms'
+import { openDeleteDialog } from '../composables/useModuleForms'
 import { printRecordDocument } from '../data/documents'
 import type { CatalogRow } from '../data/catalog'
 import { useModuleAccess } from '../composables/useModuleAccess'
@@ -135,8 +131,8 @@ function printReportCard(row: CatalogRow, event?: Event) {
         v-if="canCreate"
         variant="solid"
         icon-left="lucide-plus"
-        label="Add student"
-        @click="openCreateDialog('students')"
+        label="Register student"
+        @click="router.push('/students/new')"
       />
     </div>
   </PageHeader>
@@ -296,7 +292,7 @@ function printReportCard(row: CatalogRow, event?: Event) {
                 icon="lucide-pencil"
                 tooltip="Edit student"
                 aria-label="Edit"
-                @click.stop="openEditDialog('students', item)"
+                @click.stop="router.push(`/students/${item.id}/edit`)"
               />
             </ListCell>
           </ListRow>

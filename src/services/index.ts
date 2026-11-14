@@ -1,5 +1,10 @@
 import { apiRequest } from './http'
-import { createCatalogService, FRONTEND_MODULES, type FrontendModule } from './catalog'
+import {
+  createCatalogService,
+  FRONTEND_MODULES,
+  type CatalogService,
+  type FrontendModule,
+} from './catalog'
 
 export { API_BASE, ApiError, apiRequest } from './http'
 export {
@@ -11,63 +16,96 @@ export {
   type ListResult,
 } from './catalog'
 
-/** Typed school entities that use dedicated API models. */
-export const studentsService = createCatalogService('students')
-export const teachersService = createCatalogService('teachers')
-export const guardiansService = createCatalogService('guardians')
-export const classesService = createCatalogService('classes')
-export const programsService = createCatalogService('programs')
-export const coursesService = createCatalogService('courses')
-export const topicsService = createCatalogService('topics')
-export const roomsService = createCatalogService('rooms')
-export const batchesService = createCatalogService('batches')
-export const attendanceService = createCatalogService('attendance')
-export const timetableService = createCatalogService('timetable')
-export const examsService = createCatalogService('exams')
-export const applicantsService = createCatalogService('applicants')
-export const admissionsService = createCatalogService('admissions')
-export const feesService = createCatalogService('fees')
-export const assetsService = createCatalogService('assets')
-export const homeworkService = createCatalogService('homework')
-export const paymentsService = createCatalogService('payments')
-export const gradebookService = createCatalogService('gradebook')
-export const expensesService = createCatalogService('expenses')
-export const hostelService = createCatalogService('hostel')
-export const payrollService = createCatalogService('payroll')
+/** CRUD service for every desk module (list / get / create / update / remove). */
+export const catalogServices = Object.fromEntries(
+  FRONTEND_MODULES.map((module) => [module, createCatalogService(module)]),
+) as Record<FrontendModule, CatalogService>
 
-/** Extra typed desk resources (not in the 22-row catalog object). */
-export const staffService = createCatalogService('staff')
+export const academicTermsService = catalogServices['academic-terms']
+export const academicYearsService = catalogServices['academic-years']
+export const admissionsService = catalogServices['admissions']
+export const alumniService = catalogServices['alumni']
+export const applicantsService = catalogServices['applicants']
+export const assessmentCriteriaService = catalogServices['assessment-criteria']
+export const assessmentGroupsService = catalogServices['assessment-groups']
+export const assetsService = catalogServices['assets']
+export const attendanceService = catalogServices['attendance']
+export const auditLogsService = catalogServices['audit-logs']
+export const batchesService = catalogServices['batches']
+export const bursariesService = catalogServices['bursaries']
+export const campusesService = catalogServices['campuses']
+export const classesService = catalogServices['classes']
+export const clinicVisitsService = catalogServices['clinic-visits']
+export const clubsService = catalogServices['clubs']
+export const courseEnrollmentsService = catalogServices['course-enrollments']
+export const coursesService = catalogServices['courses']
+export const curriculumService = catalogServices['curriculum']
+export const departmentsService = catalogServices['departments']
+export const dietaryRequirementsService = catalogServices['dietary-requirements']
+export const disciplinaryCasesService = catalogServices['disciplinary-cases']
+export const discountsService = catalogServices['discounts']
+export const earlyDeparturesService = catalogServices['early-departures']
+export const examResultsService = catalogServices['exam-results']
+export const examSettingsService = catalogServices['exam-settings']
+export const examsService = catalogServices['exams']
+export const expensesService = catalogServices['expenses']
+export const feeCategoriesService = catalogServices['fee-categories']
+export const feeSchedulesService = catalogServices['fee-schedules']
+export const feeStructuresService = catalogServices['fee-structures']
+export const feesService = catalogServices['fees']
+export const gradebookService = catalogServices['gradebook']
+export const gradingScalesService = catalogServices['grading-scales']
+export const guardiansService = catalogServices['guardians']
+export const healthRecordsService = catalogServices['health-records']
+export const homeworkService = catalogServices['homework']
+export const hostelService = catalogServices['hostel']
+export const inventoryIssuesService = catalogServices['inventory-issues']
+export const inventoryItemsService = catalogServices['inventory-items']
+export const inventoryStockService = catalogServices['inventory-stock']
+export const invoicesService = catalogServices['invoices']
+export const lessonPlansService = catalogServices['lesson-plans']
+export const libraryBooksService = catalogServices['library-books']
+export const libraryIssuesService = catalogServices['library-issues']
+export const mealAttendanceService = catalogServices['meal-attendance']
+export const mealsMenusService = catalogServices['meals-menus']
+export const messageTemplatesService = catalogServices['message-templates']
+export const nurseryActivitiesService = catalogServices['nursery-activities']
+export const nurseryDevelopmentService = catalogServices['nursery-development']
+export const nurseryObservationsService = catalogServices['nursery-observations']
+export const paymentsService = catalogServices['payments']
+export const payrollService = catalogServices['payroll']
+export const periodsService = catalogServices['periods']
+export const positiveRecognitionService = catalogServices['positive-recognition']
+export const programEnrollmentsService = catalogServices['program-enrollments']
+export const programsService = catalogServices['programs']
+export const refundsService = catalogServices['refunds']
+export const reportCardsService = catalogServices['report-cards']
+export const roomsService = catalogServices['rooms']
+export const safeguardingIncidentsService = catalogServices['safeguarding-incidents']
+export const schemesOfWorkService = catalogServices['schemes-of-work']
+export const scholarshipsService = catalogServices['scholarships']
+export const schoolEventsService = catalogServices['school-events']
+export const smsMessagesService = catalogServices['sms-messages']
+export const staffService = catalogServices['staff']
+export const staffAttendanceService = catalogServices['staff-attendance']
+export const staffLeaveService = catalogServices['staff-leave']
+export const studentCategoriesService = catalogServices['student-categories']
+export const studentLogService = catalogServices['student-log']
+export const studentsService = catalogServices['students']
+export const teachersService = catalogServices['teachers']
+export const timetableService = catalogServices['timetable']
+export const topicsService = catalogServices['topics']
+export const transportRoutesService = catalogServices['transport-routes']
+export const transportVehiclesService = catalogServices['transport-vehicles']
+export const visitorLogService = catalogServices['visitor-log']
+export const waitingListService = catalogServices['waiting-list']
+
+/** Typed API aliases that differ from desk catalog keys. */
 export const parentsService = createCatalogService('parents')
 export const subjectsService = createCatalogService('subjects')
-export const invoicesService = createCatalogService('invoices')
 export const usersService = createCatalogService('users')
 
-export const catalogServices: Record<FrontendModule, ReturnType<typeof createCatalogService>> = {
-  students: studentsService,
-  teachers: teachersService,
-  guardians: guardiansService,
-  classes: classesService,
-  programs: programsService,
-  courses: coursesService,
-  topics: topicsService,
-  rooms: roomsService,
-  batches: batchesService,
-  attendance: attendanceService,
-  timetable: timetableService,
-  exams: examsService,
-  applicants: applicantsService,
-  admissions: admissionsService,
-  fees: feesService,
-  assets: assetsService,
-  homework: homeworkService,
-  payments: paymentsService,
-  gradebook: gradebookService,
-  expenses: expensesService,
-  hostel: hostelService,
-  payroll: payrollService,
-}
-
-export function serviceFor(module: string) {
+export function serviceFor(module: string): CatalogService {
   if ((FRONTEND_MODULES as readonly string[]).includes(module)) {
     return catalogServices[module as FrontendModule]
   }

@@ -185,9 +185,9 @@ async function signOut() {
 <template>
   <header class="school-topbar">
     <RouterLink
-      to="/dashboard"
+      to="/students"
       class="school-brand-mark flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full"
-      aria-label="Dashboard home"
+      aria-label="Students home"
     >
       <SchoolLogo size="sm" class="!size-8" />
     </RouterLink>
