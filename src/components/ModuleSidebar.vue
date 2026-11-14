@@ -70,7 +70,7 @@ function isActive(path?: string) {
         class="min-w-0 flex-1"
       >
         <template #prefix>
-          <SchoolLogo size="md" :rounded="false" />
+          <SchoolLogo size="sm" :rounded="false" />
         </template>
       </SidebarHeader>
 

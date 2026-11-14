@@ -739,6 +739,8 @@ body,
   align-items: center;
   gap: 0.25rem;
   min-width: 0;
+  min-height: 3.5rem;
+  padding-block: 0;
   padding-inline-end: 0.45rem;
   border-bottom: 1px solid
     color-mix(in srgb, var(--school-blue) 12%, var(--outline-gray-1));
@@ -748,6 +750,7 @@ body,
 .school-sidebar-header [data-slot='sidebar-header'] {
   flex: 1;
   min-width: 0;
+  height: 3.5rem !important;
   overflow: hidden;
   border-bottom: 0 !important;
 }

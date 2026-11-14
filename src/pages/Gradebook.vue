@@ -144,6 +144,12 @@ const selectedExam = computed(
   () => exams.value.find((e) => e.id === selectedExamId.value) || null,
 )
 
+type ExamQuestion = {
+  id: string
+  text: string
+  marks: number
+}
+
 const createForm = reactive({
   name: '',
   className: 'P.5 Blue',
@@ -154,6 +160,31 @@ const createForm = reactive({
   status: 'Open',
   subtitle: '',
 })
+
+const createQuestions = ref<ExamQuestion[]>([
+  { id: `q-${Date.now()}`, text: '', marks: 10 },
+])
+
+const questionsTotal = computed(() =>
+  createQuestions.value.reduce((sum, q) => sum + (Number(q.marks) || 0), 0),
+)
+
+function addQuestion() {
+  createQuestions.value.push({
+    id: `q-${Date.now()}-${createQuestions.value.length}`,
+    text: '',
+    marks: 5,
+  })
+}
+
+function removeQuestion(id: string) {
+  if (createQuestions.value.length <= 1) {
+    createQuestions.value[0].text = ''
+    createQuestions.value[0].marks = 10
+    return
+  }
+  createQuestions.value = createQuestions.value.filter((q) => q.id !== id)
+}
 
 const createSubjectOptions = computed(() =>
   isNurseryClass(createForm.className) ? nurserySubjects : primarySubjects,
@@ -327,7 +358,25 @@ function createExam() {
     toast.error('Choose a subject')
     return
   }
-  const max = Math.max(1, Number(createForm.maxScore) || 100)
+  const questions = createQuestions.value
+    .map((q, i) => ({
+      id: q.id || `q-${i + 1}`,
+      text: q.text.trim(),
+      marks: Math.max(0, Number(q.marks) || 0),
+    }))
+    .filter((q) => q.text.length > 0)
+
+  if (!questions.length) {
+    toast.error('Add at least one exam question')
+    return
+  }
+
+  const marksFromQuestions = questions.reduce((sum, q) => sum + q.marks, 0)
+  const max = Math.max(
+    1,
+    marksFromQuestions || Number(createForm.maxScore) || 100,
+  )
+  createForm.maxScore = max
   const program =
     sectionForGrade(createForm.className) ||
     (isNurseryClass(createForm.className) ? 'Nursery' : 'Primary')
@@ -342,13 +391,20 @@ function createExam() {
     program,
     subtitle: createForm.subtitle.trim() || undefined,
     status: createForm.status || 'Open',
+    questionsJson: JSON.stringify(questions),
+    questionCount: questions.length,
   })
 
-  toast.success(`Exam “${name}” created for ${createForm.className}`)
+  toast.success(
+    `Exam “${name}” created with ${questions.length} question${questions.length === 1 ? '' : 's'}`,
+  )
   selectedExamId.value = record.id
   loadMarksForExam(record)
   createForm.name = ''
   createForm.subtitle = ''
+  createQuestions.value = [
+    { id: `q-${Date.now()}`, text: '', marks: 10 },
+  ]
   tab.value = 'marks'
 }
 
@@ -853,9 +909,64 @@ function printLearnerResult(row: { studentId: string; name: string; score: numbe
           placeholder="Topics covered, materials, or marking notes"
         />
       </section>
+
+      <section
+        class="space-y-3 rounded-6 border border-outline-gray-1 bg-surface-white p-5"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-base-medium text-ink-gray-9">Exam questions</h2>
+            <p class="text-sm text-ink-gray-6">
+              Type each question here. They print on the exam paper. Marks total
+              {{ questionsTotal }}
+              <span v-if="questionsTotal !== Number(createForm.maxScore)">
+                (max will sync to {{ questionsTotal || createForm.maxScore }})
+              </span>
+              .
+            </p>
+          </div>
+          <Button
+            icon-left="lucide-plus"
+            label="Add question"
+            @click="addQuestion"
+          />
+        </div>
+
+        <div
+          v-for="(q, index) in createQuestions"
+          :key="q.id"
+          class="grid gap-3 rounded-5 border border-outline-gray-1 bg-surface-gray-1 p-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_6rem_auto]"
+        >
+          <div
+            class="flex size-9 items-center justify-center rounded-full bg-surface-white text-sm-medium text-ink-gray-7"
+          >
+            {{ index + 1 }}
+          </div>
+          <FormControl
+            v-model="q.text"
+            type="textarea"
+            :label="`Question ${index + 1}`"
+            placeholder="e.g. Solve for x: 2x + 5 = 17. Show your working."
+          />
+          <FormControl
+            v-model="q.marks"
+            type="number"
+            label="Marks"
+          />
+          <div class="flex items-end">
+            <Button
+              icon="lucide-trash-2"
+              variant="subtle"
+              :aria-label="`Remove question ${index + 1}`"
+              @click="removeQuestion(q.id)"
+            />
+          </div>
+        </div>
+      </section>
+
       <p class="text-sm text-ink-gray-6">
-        After creating, you will open the mark sheet for learners in that class
-        only.
+        After creating, open <strong>Enter marks</strong> for the class, or use
+        <strong>Print paper</strong> to get the questions for learners.
       </p>
     </template>
   </div>

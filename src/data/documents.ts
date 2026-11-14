@@ -301,15 +301,57 @@ function examLearners(exam: CatalogRow) {
     : (schoolStore.students?.rows || []).slice(0, 8)
 }
 
+function examQuestions(exam: CatalogRow) {
+  let raw: unknown = exam.questions
+  if (typeof exam.questionsJson === 'string' && exam.questionsJson.trim()) {
+    try {
+      raw = JSON.parse(exam.questionsJson)
+    } catch {
+      raw = []
+    }
+  }
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((q, i) => {
+      if (!q || typeof q !== 'object') return null
+      const row = q as Record<string, unknown>
+      const text = String(row.text || '').trim()
+      if (!text) return null
+      return {
+        n: i + 1,
+        text,
+        marks: Math.max(0, Number(row.marks) || 0),
+      }
+    })
+    .filter(Boolean) as { n: number; text: string; marks: number }[]
+}
+
 function buildExamPaper(exam: CatalogRow): { title: string; html: string } {
   const max = Number(exam.maxScore || 100)
   const title = `Exam paper · ${exam.name}`
-  const lines = Array.from({ length: 12 })
-    .map(
-      () =>
-        `<div style="border-bottom:1px solid #c5c7e8;height:28px;margin:6px 0;"></div>`,
-    )
-    .join('')
+  const questions = examQuestions(exam)
+  const questionBlock = questions.length
+    ? `<ol style="padding-left:1.25rem;margin:0 0 1rem">
+        ${questions
+          .map(
+            (q) => `<li style="margin:0 0 1rem">
+              <div><strong>Question ${q.n}</strong>
+              ${q.marks ? ` <span class="muted">(${q.marks} mark${q.marks === 1 ? '' : 's'})</span>` : ''}</div>
+              <div style="margin-top:0.35rem">${escapeHtmlMultiline(q.text)}</div>
+              <div style="border-bottom:1px solid #c5c7e8;height:22px;margin:8px 0 4px"></div>
+              <div style="border-bottom:1px solid #c5c7e8;height:22px;margin:4px 0"></div>
+              <div style="border-bottom:1px solid #c5c7e8;height:22px;margin:4px 0"></div>
+            </li>`,
+          )
+          .join('')}
+      </ol>`
+    : `<p class="muted">No typed questions were saved for this exam. Learners may use the ruled space below.</p>
+      ${Array.from({ length: 12 })
+        .map(
+          () =>
+            `<div style="border-bottom:1px solid #c5c7e8;height:28px;margin:6px 0;"></div>`,
+        )
+        .join('')}`
   const html = wrap(
     title,
     `${letterhead('Examination Paper', String(exam.id))}
@@ -320,6 +362,7 @@ function buildExamPaper(exam: CatalogRow): { title: string; html: string } {
       ['Type', String(exam.type || 'Assessment')],
       ['Date', String(exam.date || '—')],
       ['Maximum marks', String(max)],
+      ['Questions', String(questions.length || '—')],
       ['Term', `${schoolSetup.currentTerm} ${schoolSetup.academicYear}`],
       ['Duration', String(exam.duration || 'As instructed')],
     ])}
@@ -330,9 +373,8 @@ function buildExamPaper(exam: CatalogRow): { title: string; html: string } {
     </table>
     <p class="muted"><strong>Instructions:</strong> Write clearly. Show working where required. Total marks ${esc(String(max))}. Do not open this paper until told to do so.</p>
     ${exam.subtitle ? `<p class="block">${escapeHtmlMultiline(String(exam.subtitle))}</p>` : ''}
-    <h2>Questions / answer space</h2>
-    <p class="muted">Teachers may attach typed questions, or learners write answers in the ruled space below.</p>
-    ${lines}
+    <h2>Questions</h2>
+    ${questionBlock}
     ${signatures('Invigilator', 'Subject teacher')}`,
   )
   return { title, html }

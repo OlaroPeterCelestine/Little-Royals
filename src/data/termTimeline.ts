@@ -11,6 +11,8 @@ export type TimelineKind =
   | 'holiday'
   | 'school'
 
+export type TimelineScale = 'day' | 'week' | 'month' | 'term' | 'year'
+
 export interface TimelineBar {
   id: string
   name: string
@@ -22,6 +24,24 @@ export interface TimelineBar {
   source: 'terms' | 'events' | 'exams'
 }
 
+export interface AxisTick {
+  label: string
+  sub?: string
+  pct: number
+  iso?: string
+}
+
+export interface CalendarDayCell {
+  iso: string
+  day: number
+  inMonth: boolean
+  isToday: boolean
+  weekday: string
+  bars: TimelineBar[]
+}
+
+const DAY_MS = 86400000
+
 function parseDay(value: unknown): number | null {
   const s = String(value || '').slice(0, 10)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null
@@ -29,12 +49,48 @@ function parseDay(value: unknown): number | null {
   return Number.isFinite(t) ? t : null
 }
 
-function addDays(iso: string, days: number) {
+export function toIso(ms: number) {
+  return new Date(ms).toISOString().slice(0, 10)
+}
+
+export function todayIso() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function startOfDay(ms: number) {
+  const d = new Date(ms)
+  return Date.parse(
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T12:00:00`,
+  )
+}
+
+function startOfWeek(ms: number) {
+  const d = new Date(startOfDay(ms))
+  const day = d.getDay()
+  const mondayOffset = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + mondayOffset)
+  return startOfDay(d.getTime())
+}
+
+function startOfMonth(ms: number) {
+  const d = new Date(ms)
+  return Date.parse(
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01T12:00:00`,
+  )
+}
+
+function endOfMonth(ms: number) {
+  const d = new Date(ms)
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+  return Date.parse(
+    `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}T12:00:00`,
+  )
+}
+
+export function addDays(iso: string, days: number) {
   const t = parseDay(iso)
   if (t == null) return iso
-  const d = new Date(t)
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
+  return toIso(t + days * DAY_MS)
 }
 
 function kindFromEvent(row: CatalogRow): TimelineKind {
@@ -120,59 +176,276 @@ export function currentTermRow() {
   const terms = schoolStore['academic-terms']?.rows || []
   const open = terms.find((t) => t.status === 'Open')
   if (open) return open
-  const named = terms.find((t) =>
-    String(t.name).includes(schoolSetup.currentTerm.replace(/Term\s*/i, '').trim()) ||
-    String(t.name) === schoolSetup.currentTerm,
+  const named = terms.find(
+    (t) =>
+      String(t.name).includes(
+        schoolSetup.currentTerm.replace(/Term\s*/i, '').trim(),
+      ) || String(t.name) === schoolSetup.currentTerm,
   )
   return named || terms[terms.length - 1] || null
-}
-
-export function barLeftPct(bar: TimelineBar, rangeStart: number, rangeEnd: number) {
-  const s = parseDay(bar.start)
-  if (s == null || rangeEnd <= rangeStart) return 0
-  return Math.max(0, Math.min(100, ((s - rangeStart) / (rangeEnd - rangeStart)) * 100))
-}
-
-export function barWidthPct(bar: TimelineBar, rangeStart: number, rangeEnd: number) {
-  const s = parseDay(bar.start)
-  const e = parseDay(bar.end) ?? s
-  if (s == null || e == null || rangeEnd <= rangeStart) return 2
-  const width = ((Math.max(e, s) - s) / (rangeEnd - rangeStart)) * 100
-  return Math.max(1.5, Math.min(100, width))
-}
-
-export function todayPct(rangeStart: number, rangeEnd: number) {
-  const now = Date.parse(
-    `${new Date().toISOString().slice(0, 10)}T12:00:00`,
-  )
-  if (rangeEnd <= rangeStart) return null
-  if (now < rangeStart || now > rangeEnd) return null
-  return ((now - rangeStart) / (rangeEnd - rangeStart)) * 100
-}
-
-export function monthTicks(rangeStart: number, rangeEnd: number) {
-  const ticks: { label: string; pct: number }[] = []
-  const start = new Date(rangeStart)
-  const end = new Date(rangeEnd)
-  const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
-  while (cursor <= end) {
-    const t = cursor.getTime()
-    if (t >= rangeStart && t <= rangeEnd) {
-      ticks.push({
-        label: cursor.toLocaleString('en-GB', { month: 'short' }),
-        pct: ((t - rangeStart) / (rangeEnd - rangeStart)) * 100,
-      })
-    }
-    cursor.setMonth(cursor.getMonth() + 1)
-  }
-  return ticks
 }
 
 export function parseRange(startIso: string, endIso: string) {
   const start = parseDay(startIso)
   const end = parseDay(endIso)
   if (start == null || end == null) return null
-  return { start, end: Math.max(end, start + 86400000) }
+  return { start, end: Math.max(end, start + DAY_MS) }
+}
+
+export function resolveScaleRange(
+  scale: TimelineScale,
+  anchorIso: string,
+  term?: CatalogRow | null,
+) {
+  const anchor = parseDay(anchorIso) ?? parseDay(todayIso())!
+  if (scale === 'day') {
+    const s = startOfDay(anchor)
+    return { start: s, end: s + DAY_MS }
+  }
+  if (scale === 'week') {
+    const s = startOfWeek(anchor)
+    return { start: s, end: s + 7 * DAY_MS }
+  }
+  if (scale === 'month') {
+    return { start: startOfMonth(anchor), end: endOfMonth(anchor) + DAY_MS }
+  }
+  if (scale === 'term' && term) {
+    const r = parseRange(String(term.start), String(term.end))
+    if (r) return r
+  }
+  if (scale === 'term') {
+    const s = startOfMonth(anchor)
+    return { start: s, end: s + 90 * DAY_MS }
+  }
+  const year = Number(schoolSetup.academicYear) || new Date(anchor).getFullYear()
+  return parseRange(`${year}-01-01`, `${year}-12-31`)!
+}
+
+export function shiftAnchor(
+  scale: TimelineScale,
+  anchorIso: string,
+  direction: -1 | 1,
+) {
+  const t = parseDay(anchorIso) ?? parseDay(todayIso())!
+  const d = new Date(t)
+  if (scale === 'day') d.setDate(d.getDate() + direction)
+  else if (scale === 'week') d.setDate(d.getDate() + 7 * direction)
+  else if (scale === 'month') d.setMonth(d.getMonth() + direction)
+  else if (scale === 'term') d.setMonth(d.getMonth() + 3 * direction)
+  else d.setFullYear(d.getFullYear() + direction)
+  return toIso(d.getTime())
+}
+
+export function scaleTitle(
+  scale: TimelineScale,
+  anchorIso: string,
+  termName?: string,
+) {
+  const t = parseDay(anchorIso) ?? parseDay(todayIso())!
+  const d = new Date(t)
+  if (scale === 'day') {
+    return d.toLocaleDateString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+  }
+  if (scale === 'week') {
+    const start = new Date(startOfWeek(t))
+    const end = new Date(startOfWeek(t) + 6 * DAY_MS)
+    return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+  }
+  if (scale === 'month') {
+    return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+  }
+  if (scale === 'term') return termName || 'Term'
+  return `Year ${schoolSetup.academicYear || d.getFullYear()}`
+}
+
+export function axisTicks(
+  scale: TimelineScale,
+  rangeStart: number,
+  rangeEnd: number,
+): AxisTick[] {
+  const ticks: AxisTick[] = []
+  const span = rangeEnd - rangeStart
+  if (span <= 0) return ticks
+
+  if (scale === 'day') {
+    for (let h = 0; h < 24; h += 3) {
+      ticks.push({
+        label: `${String(h).padStart(2, '0')}:00`,
+        pct: (h / 24) * 100,
+      })
+    }
+    return ticks
+  }
+
+  if (scale === 'week' || scale === 'month') {
+    let cursor = startOfDay(rangeStart)
+    while (cursor < rangeEnd) {
+      const d = new Date(cursor)
+      ticks.push({
+        label: String(d.getDate()),
+        sub: d.toLocaleDateString('en-GB', { weekday: 'short' }),
+        pct: ((cursor - rangeStart) / span) * 100,
+        iso: toIso(cursor),
+      })
+      cursor += DAY_MS
+    }
+    return ticks
+  }
+
+  if (scale === 'term') {
+    let cursor = startOfWeek(rangeStart)
+    while (cursor < rangeEnd) {
+      if (cursor >= rangeStart) {
+        const d = new Date(cursor)
+        ticks.push({
+          label: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+          sub: 'Wk',
+          pct: ((cursor - rangeStart) / span) * 100,
+          iso: toIso(cursor),
+        })
+      }
+      cursor += 7 * DAY_MS
+    }
+    return ticks
+  }
+
+  let cursor = startOfMonth(rangeStart)
+  while (cursor < rangeEnd) {
+    if (cursor >= rangeStart) {
+      const d = new Date(cursor)
+      ticks.push({
+        label: d.toLocaleDateString('en-GB', { month: 'short' }),
+        pct: ((cursor - rangeStart) / span) * 100,
+        iso: toIso(cursor),
+      })
+    }
+    const next = new Date(cursor)
+    next.setMonth(next.getMonth() + 1)
+    cursor = startOfMonth(next.getTime())
+  }
+  return ticks
+}
+
+export function calendarCells(
+  scale: TimelineScale,
+  rangeStart: number,
+  rangeEnd: number,
+  bars: TimelineBar[],
+  anchorIso: string,
+): CalendarDayCell[] {
+  const today = todayIso()
+  const cells: CalendarDayCell[] = []
+
+  if (scale === 'day') {
+    const iso = toIso(rangeStart)
+    cells.push({
+      iso,
+      day: new Date(rangeStart).getDate(),
+      inMonth: true,
+      isToday: iso === today,
+      weekday: new Date(rangeStart).toLocaleDateString('en-GB', {
+        weekday: 'long',
+      }),
+      bars: barsOnDay(bars, iso),
+    })
+    return cells
+  }
+
+  if (scale === 'week') {
+    for (let i = 0; i < 7; i++) {
+      const ms = rangeStart + i * DAY_MS
+      const iso = toIso(ms)
+      const d = new Date(ms)
+      cells.push({
+        iso,
+        day: d.getDate(),
+        inMonth: true,
+        isToday: iso === today,
+        weekday: d.toLocaleDateString('en-GB', { weekday: 'short' }),
+        bars: barsOnDay(bars, iso),
+      })
+    }
+    return cells
+  }
+
+  // Month / term / year → month grid for the anchor month
+  const anchor = parseDay(anchorIso) ?? rangeStart
+  const monthStart = startOfMonth(
+    scale === 'month' ? rangeStart : anchor,
+  )
+  const monthEnd = endOfMonth(monthStart)
+  const gridStart = startOfWeek(monthStart)
+  const gridEnd = startOfWeek(monthEnd) + 7 * DAY_MS
+  const month = new Date(monthStart).getMonth()
+
+  for (let ms = gridStart; ms < gridEnd; ms += DAY_MS) {
+    const d = new Date(ms)
+    const iso = toIso(ms)
+    cells.push({
+      iso,
+      day: d.getDate(),
+      inMonth: d.getMonth() === month,
+      isToday: iso === today,
+      weekday: d.toLocaleDateString('en-GB', { weekday: 'short' }),
+      bars: barsOnDay(bars, iso),
+    })
+  }
+  return cells
+}
+
+export function barsOnDay(bars: TimelineBar[], iso: string) {
+  const t = parseDay(iso)
+  if (t == null) return []
+  return bars.filter((bar) => {
+    const s = parseDay(bar.start)
+    const e = parseDay(bar.end) ?? s
+    if (s == null || e == null) return false
+    return t >= s && t <= e
+  })
+}
+
+export function barLeftPct(
+  bar: TimelineBar,
+  rangeStart: number,
+  rangeEnd: number,
+) {
+  const s = parseDay(bar.start)
+  if (s == null || rangeEnd <= rangeStart) return 0
+  return Math.max(
+    0,
+    Math.min(100, ((s - rangeStart) / (rangeEnd - rangeStart)) * 100),
+  )
+}
+
+export function barWidthPct(
+  bar: TimelineBar,
+  rangeStart: number,
+  rangeEnd: number,
+) {
+  const s = parseDay(bar.start)
+  const e = parseDay(bar.end) ?? s
+  if (s == null || e == null || rangeEnd <= rangeStart) return 2
+  const left = Math.max(s, rangeStart)
+  const right = Math.min(Math.max(e, s) + DAY_MS * 0.35, rangeEnd)
+  const width = ((right - left) / (rangeEnd - rangeStart)) * 100
+  return Math.max(1.2, Math.min(100, width))
+}
+
+export function todayPct(rangeStart: number, rangeEnd: number) {
+  const now = parseDay(todayIso())
+  if (now == null || rangeEnd <= rangeStart) return null
+  if (now < rangeStart || now > rangeEnd) return null
+  return ((now - rangeStart) / (rangeEnd - rangeStart)) * 100
+}
+
+/** @deprecated use axisTicks */
+export function monthTicks(rangeStart: number, rangeEnd: number) {
+  return axisTicks('year', rangeStart, rangeEnd)
 }
 
 export const kindThemes: Record<
@@ -186,3 +459,11 @@ export const kindThemes: Record<
   holiday: { label: 'Holidays', color: '#be123c', soft: '#ffe4e6' },
   school: { label: 'School day', color: '#475569', soft: '#e2e8f0' },
 }
+
+export const scaleOptions: { label: string; value: TimelineScale }[] = [
+  { label: 'Day', value: 'day' },
+  { label: 'Week', value: 'week' },
+  { label: 'Month', value: 'month' },
+  { label: 'Term', value: 'term' },
+  { label: 'Year', value: 'year' },
+]
