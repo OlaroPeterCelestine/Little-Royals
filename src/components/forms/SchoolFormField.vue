@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { FormControl } from 'frappe-ui'
-import type { FormFieldSpec } from '../../lib/forms/types'
-import { getLiveModule } from '../../data/store'
-import { compareSchoolClasses } from '../../data/grades'
+import type { FormFieldSpec } from '@/lib/forms/types'
+import { getLiveModule } from '@/data/catalog/store'
+import { compareSchoolClasses } from '@/data/school/grades'
 import {
   sanitizeNumber,
   sanitizeText,
   type SanitizeKind,
-} from '../../lib/sanitize'
+} from '@/lib/sanitize'
+import {
+  isPhotoValue,
+  readImageFileAsDataUrl,
+} from '@/lib/personPhoto'
 
 const props = defineProps<{
   field: FormFieldSpec
@@ -129,6 +133,29 @@ function onUpdate(v: unknown) {
   }
   emit('update:modelValue', sanitizeText(v, kind))
 }
+
+async function onPhotoSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) {
+    emit('update:modelValue', '')
+    return
+  }
+  try {
+    const dataUrl = await readImageFileAsDataUrl(file)
+    emit('update:modelValue', dataUrl)
+  } catch {
+    emit('update:modelValue', '')
+  }
+}
+
+function clearPhoto() {
+  emit('update:modelValue', '')
+}
+
+const photoPreview = computed(() =>
+  isPhotoValue(props.modelValue) ? String(props.modelValue) : '',
+)
 </script>
 
 <template>
@@ -170,17 +197,34 @@ function onUpdate(v: unknown) {
       <p v-if="field.help" class="text-xs text-ink-gray-5">{{ field.help }}</p>
     </div>
 
-    <div v-else class="space-y-1">
+    <div v-else class="space-y-2">
       <p class="text-sm font-medium text-ink-gray-8">
         {{ field.label }}{{ field.required ? ' *' : '' }}
       </p>
-      <input
-        type="file"
-        class="block w-full text-sm text-ink-gray-6"
-        @change="
-          onUpdate(($event.target as HTMLInputElement).files?.[0]?.name || '')
-        "
-      />
+      <div class="flex flex-wrap items-center gap-3">
+        <img
+          v-if="photoPreview"
+          :src="photoPreview"
+          alt=""
+          class="size-16 rounded-full object-cover ring-1 ring-outline-gray-2"
+        />
+        <div class="min-w-0 space-y-2">
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            class="block w-full max-w-xs text-sm text-ink-gray-6"
+            @change="onPhotoSelected"
+          />
+          <button
+            v-if="photoPreview"
+            type="button"
+            class="text-xs font-medium text-ink-red-4 hover:underline"
+            @click="clearPhoto"
+          >
+            Remove photo
+          </button>
+        </div>
+      </div>
       <p v-if="field.help" class="text-xs text-ink-gray-5">{{ field.help }}</p>
     </div>
   </div>

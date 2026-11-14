@@ -1,4 +1,4 @@
-import type { CatalogRow } from '../data/catalog'
+import type { CatalogRow } from '@/data/catalog/catalog'
 
 /** Primitive values accepted in create/update forms */
 export type FieldValue = string | number | boolean | null | undefined

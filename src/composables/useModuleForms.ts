@@ -1,9 +1,9 @@
 import { reactive } from 'vue'
 import { dialog, toast } from 'frappe-ui'
-import { deleteRecords, getLiveModule } from '../data/store'
-import type { CatalogRow } from '../data/catalog'
-import { canCurrentUser } from '../data/permissions'
-import { currentUser } from '../data/activity'
+import { deleteRecords, getLiveModule } from '@/data/catalog/store'
+import type { CatalogRow } from '@/data/catalog/catalog'
+import { canCurrentUser } from '@/data/auth/permissions'
+import { currentUser } from '@/data/activity/activity'
 
 /** Shared New / Edit popup state (mounted once in App). */
 export const recordFormModal = reactive({

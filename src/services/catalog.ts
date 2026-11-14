@@ -1,4 +1,4 @@
-import { apiRequest, type ApiMeta } from './http'
+import { apiRequest, type ApiMeta } from '@/services/http'
 
 export type CatalogRow = {
   id: string
@@ -110,10 +110,19 @@ export function createCatalogService(module: string) {
   return {
     module,
 
-    async list(params?: { page?: number; limit?: number }): Promise<ListResult<CatalogRow>> {
+    async list(params?: {
+      page?: number
+      limit?: number
+      q?: string
+      status?: string
+      sort?: string
+    }): Promise<ListResult<CatalogRow>> {
       const q = new URLSearchParams()
       if (params?.page) q.set('page', String(params.page))
       if (params?.limit) q.set('limit', String(params.limit))
+      if (params?.q) q.set('q', params.q)
+      if (params?.status) q.set('status', params.status)
+      if (params?.sort) q.set('sort', params.sort)
       const qs = q.toString()
       const { data, meta } = await apiRequest<CatalogRow[] | { items: CatalogRow[] }>(
         `${base}${qs ? `?${qs}` : ''}`,

@@ -63,14 +63,23 @@ export function useAppBack(fallback: string | (() => string) = '/') {
     router.push(resolveFallback())
   }
 
+  const backLabel = computed(() => {
+    const from = returnTo.value || resolveFallback()
+    if (from.includes('/term-overview')) return 'Back to term overview'
+    if (from.includes('/calendar') || from.includes('/school-events'))
+      return 'Back to calendar'
+    if (from.startsWith('/students')) return 'Back to students'
+    if (from.startsWith('/people')) return 'Back to people'
+    if (from.startsWith('/gradebook')) return 'Back to exams'
+    if (from.startsWith('/attendance')) return 'Back to attendance'
+    if (from.startsWith('/payment')) return 'Back to payments'
+    return 'Back'
+  })
+
   return {
     returnTo,
     canUseHistory,
     goBack,
-    backLabel: computed(() =>
-      returnTo.value.includes('/term-overview')
-        ? 'Back to term overview'
-        : 'Back',
-    ),
+    backLabel,
   }
 }

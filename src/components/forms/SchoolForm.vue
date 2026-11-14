@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
 import { Button } from 'frappe-ui'
-import type { ModuleFormSpec } from '../../lib/forms/types'
-import { getLiveModule } from '../../data/store'
+import type { ModuleFormSpec } from '@/lib/forms/types'
+import { getLiveModule } from '@/data/catalog/store'
 import {
   learnerNumberFromStudentNumber,
   nextStudentNumber,
   schoolPayAccountFromStudentNumber,
-} from '../../data/studentNumber'
-import SchoolFormField from './SchoolFormField.vue'
+} from '@/data/students/studentNumber'
+import SchoolFormField from '@/components/forms/SchoolFormField.vue'
 
 const props = defineProps<{
   schema: ModuleFormSpec

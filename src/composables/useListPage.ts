@@ -1,6 +1,6 @@
 import { computed, ref, unref, watch, type MaybeRef, type Ref } from 'vue'
-import type { CatalogRow } from '../data/catalog'
-import { compareSchoolClasses } from '../data/grades'
+import type { CatalogRow } from '@/data/catalog/catalog'
+import { compareSchoolClasses } from '@/data/school/grades'
 
 export const PAGE_SIZE = 10
 

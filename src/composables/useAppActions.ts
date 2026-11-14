@@ -4,11 +4,11 @@ import {
   pendingApplicantCount,
   schoolStore,
   unpaidFeeCount,
-} from '../data/store'
-import { shortcuts } from '../data/workspace'
-import { logActivity } from '../data/activity'
-import { getCurrentSystemUser } from '../data/permissions'
-import { logout } from '../data/auth'
+} from '@/data/catalog/store'
+import { shortcuts } from '@/data/school/workspace'
+import { logActivity } from '@/data/activity/activity'
+import { getCurrentSystemUser } from '@/data/auth/permissions'
+import { logout } from '@/data/auth/auth'
 
 const SHORTCUT_KEY = 'pearl-visible-shortcuts'
 

@@ -1,6 +1,6 @@
 import { onMounted, onUnmounted, ref, shallowRef } from 'vue'
-import { authToken } from '../data/auth'
-import { apiBaseUrl, isApiEnabled } from '../lib/apiMode'
+import { authToken } from '@/data/auth/auth'
+import { apiBaseUrl, isApiEnabled } from '@/lib/apiMode'
 
 export type RealtimeEvent = {
   type: string

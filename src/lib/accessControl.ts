@@ -3,10 +3,10 @@ import {
   documentTypes,
   isFullAccessRole,
   type PermFlag,
-} from '../data/permissions'
-import { currentUser } from '../data/activity'
-import { normalizeRole } from '../data/roles'
-import type { NavGroup } from '../data/workspace'
+} from '@/data/auth/permissions'
+import { currentUser } from '@/data/activity/activity'
+import { normalizeRole } from '@/data/auth/roles'
+import type { NavGroup } from '@/data/school/workspace'
 
 /**
  * Map a desk path (and optional query) to catalog modules that gate visibility.

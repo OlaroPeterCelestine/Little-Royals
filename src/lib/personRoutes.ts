@@ -23,6 +23,8 @@ const LIST: Record<PersonModule, string> = {
 
 export function personListPath(module: string): string {
   if (module in LIST) return LIST[module as PersonModule]
+  // Calendar desk owns school-events (/school-events redirects to /calendar)
+  if (module === 'school-events') return '/calendar'
   return `/${module}`
 }
 

@@ -1,12 +1,12 @@
-import { apiRequest } from './http'
+import { apiRequest } from '@/services/http'
 import {
   createCatalogService,
   FRONTEND_MODULES,
   type CatalogService,
   type FrontendModule,
-} from './catalog'
+} from '@/services/catalog'
 
-export { API_BASE, ApiError, apiRequest } from './http'
+export { API_BASE, ApiError, apiRequest } from '@/services/http'
 export {
   createCatalogService,
   FRONTEND_MODULES,
@@ -14,7 +14,7 @@ export {
   type CatalogService,
   type FrontendModule,
   type ListResult,
-} from './catalog'
+} from '@/services/catalog'
 
 /** CRUD service for every desk module (list / get / create / update / remove). */
 export const catalogServices = Object.fromEntries(

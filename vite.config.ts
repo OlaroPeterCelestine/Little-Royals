@@ -1,6 +1,10 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import frappeui from 'frappe-ui/vite'
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig(({ mode }) => ({
   plugins: [
@@ -9,6 +13,11 @@ export default defineConfig(({ mode }) => ({
     frappeui({ frappeProxy: false, jinjaBootData: false, buildConfig: false }),
     vue(),
   ],
+  resolve: {
+    alias: {
+      '@': path.resolve(rootDir, 'src'),
+    },
+  },
   // frappe-ui ships TypeScript source with package `#imports`. Vite's esbuild
   // dep optimizer fails on those (e.g. charts → `#utils/debounce`), so keep
   // frappe-ui out of pre-bundling and let Vite resolve the package map.
@@ -54,15 +63,15 @@ export default defineConfig(({ mode }) => ({
           }
           // Seed / schema payloads — cache separately from UI chrome.
           if (
-            id.includes('/src/data/catalog.ts') ||
-            id.includes('/src/data/catalogExtra.ts')
+            id.includes('/src/data/catalog/catalog.ts') ||
+            id.includes('/src/data/catalog/catalogExtra.ts')
           ) {
             return 'catalog-data'
           }
-          if (id.includes('/src/data/formSchemas.ts')) {
+          if (id.includes('/src/data/catalog/formSchemas.ts')) {
             return 'form-schemas'
           }
-          if (id.includes('/src/data/documents.ts')) {
+          if (id.includes('/src/data/documents/documents.ts')) {
             return 'documents-lib'
           }
           return undefined

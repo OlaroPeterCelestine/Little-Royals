@@ -1,4 +1,4 @@
-import { sanitizeNumber, sanitizeText } from './sanitize'
+import { sanitizeNumber, sanitizeText } from '@/lib/sanitize'
 
 export type MarksCsvRow = {
   studentId: string

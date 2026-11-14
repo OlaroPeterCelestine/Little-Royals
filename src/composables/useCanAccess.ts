@@ -1,7 +1,7 @@
 import { computed, type MaybeRef, unref } from 'vue'
-import type { PermFlag } from '../data/permissions'
-import { canAccessModule, canAccessPath } from '../lib/accessControl'
-import { currentUser } from '../data/activity'
+import type { PermFlag } from '@/data/auth/permissions'
+import { canAccessModule, canAccessPath } from '@/lib/accessControl'
+import { currentUser } from '@/data/activity/activity'
 
 /** Reactive permission checks — re-evaluate when the signed-in role changes. */
 export function useCanAccess(

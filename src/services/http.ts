@@ -1,5 +1,5 @@
-import { authToken } from '../data/auth'
-import { apiBaseUrl, isApiEnabled } from '../lib/apiMode'
+import { authToken } from '@/data/auth/auth'
+import { apiBaseUrl, isApiEnabled } from '@/lib/apiMode'
 
 export const API_BASE = apiBaseUrl()
 
@@ -7,6 +7,9 @@ export type ApiMeta = {
   page?: number
   limit?: number
   total?: number
+  totalPages?: number
+  hasNext?: boolean
+  hasPrev?: boolean
 }
 
 export type ApiEnvelope<T> = {

@@ -1,6 +1,6 @@
 import { computed, unref, type MaybeRef } from 'vue'
-import { canCurrentUser, type PermFlag } from '../data/permissions'
-import { currentUser } from '../data/activity'
+import { canCurrentUser, type PermFlag } from '@/data/auth/permissions'
+import { currentUser } from '@/data/activity/activity'
 import { toast } from 'frappe-ui'
 
 /** Live create / write / delete / print flags for a module, based on Role Permissions. */
