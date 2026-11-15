@@ -5,8 +5,6 @@
 #   cp backend/.env.example backend/.env
 #   # edit secrets + domains
 #   ./scripts/deploy-vps.sh
-#
-# Optional TURN: TURN=1 ./scripts/deploy-vps.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -50,16 +48,10 @@ if [[ -z "${SCHOOL_DB_PASSWORD:-}" || "$SCHOOL_DB_PASSWORD" == "change-me-school
   exit 1
 fi
 
-PROFILES=()
-if [[ "${TURN:-0}" == "1" ]]; then
-  PROFILES+=(--profile turn)
-fi
-
 echo "==> Building & starting containers…"
 docker compose \
   --env-file "$ENV_DOCKER" \
   --env-file "$ENV_API" \
-  "${PROFILES[@]}" \
   up -d --build --remove-orphans
 
 echo "==> Waiting for API health…"
@@ -85,7 +77,6 @@ if [[ "$ok" -eq 1 ]]; then
   echo " Desk:   http://SERVER:${WEB_PORT}"
   echo " API:    http://SERVER:${API_PORT}"
   echo " Health: http://SERVER:${WEB_PORT}/health"
-  echo " Cloud:  /school-cloud"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 else
   echo "Containers started but health check timed out — check: docker compose logs -f api" >&2

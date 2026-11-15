@@ -571,8 +571,31 @@ export const router = createRouter({
     },
     {
       path: '/school-cloud',
-      name: 'school-cloud',
-      component: () => import('@/pages/admin/SchoolCloud.vue'),
+      redirect: '/communications',
+    },
+    {
+      path: '/mail',
+      redirect: '/communications',
+    },
+    {
+      path: '/video',
+      redirect: '/communications',
+    },
+    {
+      path: '/drive',
+      redirect: '/documents',
+    },
+    {
+      path: '/office',
+      redirect: '/documents',
+    },
+    {
+      path: '/tasks',
+      redirect: '/dashboard',
+    },
+    {
+      path: '/forms',
+      redirect: '/admissions',
     },
     {
       path: '/activity-log',

@@ -56,13 +56,6 @@ services:
       SCHOOL_CODE: ${SCHOOL_CODE:-LRKPS}
       SCHOOL_COUNTRY: ${SCHOOL_COUNTRY:-Uganda}
       FILES_DIR: /data/files
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_FROM: ${SMTP_FROM:-}
-      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Little Royals School}
-      SMTP_TLS: ${SMTP_TLS:-true}
     volumes:
       - api_files:/data/files
     depends_on:
@@ -88,9 +81,6 @@ services:
         VITE_WS_URL: ${VITE_WS_URL:-same-origin}
         VITE_APP_NAME: ${VITE_APP_NAME:-Little Royals Desk}
         VITE_APP_ENV: production
-        VITE_TURN_URL: ${VITE_TURN_URL:-}
-        VITE_TURN_USER: ${VITE_TURN_USER:-}
-        VITE_TURN_CRED: ${VITE_TURN_CRED:-}
     restart: unless-stopped
     ports:
       - "${WEB_HTTP_PORT:-8080}:80"
@@ -102,22 +92,6 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
-
-  # Optional TURN for video across NATs:
-  #   docker compose --profile turn up -d
-  coturn:
-    profiles: ["turn"]
-    image: coturn/coturn:4.6
-    restart: unless-stopped
-    network_mode: host
-    command:
-      - "-n"
-      - "--log-file=stdout"
-      - "--listening-port=3478"
-      - "--fingerprint"
-      - "--lt-cred-mech"
-      - "--user=${VITE_TURN_USER:-school}:${VITE_TURN_CRED:-changeme}"
-      - "--realm=school.local"
 
 volumes:
   pgdata:

@@ -27,7 +27,6 @@ const ROUTE_LOADERS: Record<string, () => Promise<unknown>> = {
   '/reports': () => import('@/pages/reports/Reports.vue'),
   '/users': () => import('@/pages/admin/Users.vue'),
   '/school-setup': () => import('@/pages/admin/SchoolSetup.vue'),
-  '/school-cloud': () => import('@/pages/admin/SchoolCloud.vue'),
 }
 
 const warmed = new Set<string>()

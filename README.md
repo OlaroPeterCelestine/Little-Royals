@@ -33,19 +33,3 @@ cp backend/.env.example backend/.env
 | `api` | Go API | `18080` |
 | `postgres` | Database | localhost only |
 | `redis` | Cache / realtime | internal |
-
-Useful commands:
-
-```bash
-docker compose --env-file .env.docker --env-file backend/.env ps
-docker compose --env-file .env.docker --env-file backend/.env logs -f api
-docker compose --env-file .env.docker --env-file backend/.env down
-```
-
-Optional TURN for video: `TURN=1 ./scripts/deploy-vps.sh`
-
-Point a reverse proxy (Caddy / Nginx / Traefik) at `:8080` for HTTPS. The desk nginx already proxies `/api`, `/health`, and WebSocket `/api/v1/ws` to the API container when `VITE_API_BASE_URL=same-origin`.
-
-## School cloud
-
-**Dashboard → School cloud** (`/school-cloud`): Drive, Mail, Calendar, Contacts, Talk, Boards, Forms, Docs — native packages, no Nextcloud.
