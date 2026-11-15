@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Badge,
@@ -235,9 +235,43 @@ const createQuestions = ref<ExamQuestion[]>([
   { id: `q-${Date.now()}`, text: '', marks: 10 },
 ])
 
+/** null = new paper; set when editing an existing exam */
+const editingExamId = ref<string | null>(null)
+const examDirty = ref(false)
+let suppressExamDirty = false
+
+function withExamStudioQuiet(fn: () => void) {
+  suppressExamDirty = true
+  fn()
+  Promise.resolve().then(() => {
+    suppressExamDirty = false
+    examDirty.value = false
+  })
+}
+
 const questionsTotal = computed(() =>
   createQuestions.value.reduce((sum, q) => sum + (Number(q.marks) || 0), 0),
 )
+
+const examPaperTitle = computed(() => {
+  const n = createForm.name.trim()
+  if (n) return n
+  return editingExamId.value ? 'Untitled exam' : 'New exam paper'
+})
+
+const examPaperPath = computed(() => {
+  const bits = [
+    createForm.className || 'Class',
+    createForm.course || 'Subject',
+    createForm.type || 'Exam',
+  ]
+  return `Exams · ${bits.join(' · ')}`
+})
+
+function markExamDirty() {
+  if (suppressExamDirty || !showCreate.value) return
+  examDirty.value = true
+}
 
 function addQuestion() {
   createQuestions.value.push({
@@ -245,15 +279,63 @@ function addQuestion() {
     text: '',
     marks: 5,
   })
+  markExamDirty()
 }
 
 function removeQuestion(id: string) {
   if (createQuestions.value.length <= 1) {
     createQuestions.value[0].text = ''
     createQuestions.value[0].marks = 10
+    markExamDirty()
     return
   }
   createQuestions.value = createQuestions.value.filter((q) => q.id !== id)
+  markExamDirty()
+}
+
+function parseExamQuestions(raw: unknown): ExamQuestion[] {
+  if (!raw) return [{ id: `q-${Date.now()}`, text: '', marks: 10 }]
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!Array.isArray(parsed) || !parsed.length) {
+      return [{ id: `q-${Date.now()}`, text: '', marks: 10 }]
+    }
+    return parsed.map((q: Record<string, unknown>, i: number) => ({
+      id: String(q.id || `q-${i + 1}`),
+      text: String(q.text || ''),
+      marks: Math.max(0, Number(q.marks) || 0),
+    }))
+  } catch {
+    return [{ id: `q-${Date.now()}`, text: '', marks: 10 }]
+  }
+}
+
+function resetExamStudio() {
+  createForm.name = ''
+  createForm.subtitle = ''
+  createForm.type = 'MOT'
+  createForm.maxScore = 100
+  createForm.date = new Date().toISOString().slice(0, 10)
+  createForm.status = 'Draft'
+  createQuestions.value = [{ id: `q-${Date.now()}`, text: '', marks: 10 }]
+  editingExamId.value = null
+  examDirty.value = false
+}
+
+function loadExamIntoStudio(exam: CatalogRow) {
+  editingExamId.value = exam.id
+  createForm.name = String(exam.name || '')
+  createForm.className = String(exam.className || createForm.className)
+  createForm.course = String(exam.course || createForm.course)
+  createForm.type = String(exam.type || 'MOT')
+  createForm.maxScore = Math.max(1, Number(exam.maxScore) || 100)
+  createForm.date =
+    String(exam.date || '').slice(0, 10) ||
+    new Date().toISOString().slice(0, 10)
+  createForm.status = String(exam.status || 'Draft')
+  createForm.subtitle = String(exam.subtitle || '')
+  createQuestions.value = parseExamQuestions(exam.questionsJson)
+  examDirty.value = false
 }
 
 const createSubjectOptions = computed(() =>
@@ -338,6 +420,18 @@ watch(
   (examId) => {
     if (examId && typeof examId === 'string') {
       selectedExamId.value = examId
+      const creating =
+        String(route.query.create || '') === '1' ||
+        showCreate.value
+      if (creating) {
+        const exam = exams.value.find((e) => e.id === examId)
+        if (exam && editingExamId.value !== examId) {
+          withExamStudioQuiet(() => loadExamIntoStudio(exam))
+          showCreate.value = true
+          tab.value = 'exams'
+        }
+        return
+      }
       // Only jump to marks when opened with ?exam= (e.g. from an exam detail)
       if (!route.query.tab || String(route.query.tab) === 'marks') {
         tab.value = 'marks'
@@ -423,29 +517,82 @@ function openCreateForm() {
     toast.error('Your role cannot create examinations')
     return
   }
-  if (filterClass.value !== 'All') {
-    createForm.className = filterClass.value
-  } else if (
-    !classSelectOptions.value.some((o) => o.value === createForm.className)
-  ) {
-    createForm.className = classSelectOptions.value[0]?.value || 'P.5 Blue'
-  }
+  withExamStudioQuiet(() => {
+    resetExamStudio()
+    if (filterClass.value !== 'All') {
+      createForm.className = filterClass.value
+    } else if (
+      !classSelectOptions.value.some((o) => o.value === createForm.className)
+    ) {
+      createForm.className = classSelectOptions.value[0]?.value || 'P.5 Blue'
+    }
+    const opts = createSubjectOptions.value
+    if (!opts.some((o) => o.value === createForm.course)) {
+      createForm.course = opts[0]?.value || 'Mathematics'
+    }
+  })
   showCreate.value = true
   tab.value = 'exams'
 }
 
+function openEditExam(examId: string) {
+  const exam = exams.value.find((e) => e.id === examId)
+  if (!exam) {
+    toast.error('Exam not found')
+    return
+  }
+  if (!canWrite.value && !canCreate.value) {
+    toast.error('Your role cannot edit examinations')
+    return
+  }
+  withExamStudioQuiet(() => loadExamIntoStudio(exam))
+  showCreate.value = true
+  tab.value = 'exams'
+  router.replace({
+    path: '/gradebook',
+    query: { tab: 'exams', create: '1', exam: examId },
+  })
+}
+
 function cancelCreate() {
+  if (examDirty.value) {
+    dialog.confirm({
+      title: 'Discard exam paper?',
+      message: 'You have unsaved changes. Close without saving?',
+      confirmLabel: 'Discard',
+      onConfirm: () => {
+        resetExamStudio()
+        showCreate.value = false
+      },
+    })
+    return
+  }
+  resetExamStudio()
   showCreate.value = false
 }
 
-function createExam() {
-  if (!canCreate.value) {
-    toast.error('Your role cannot create examinations')
+function collectExamQuestions() {
+  return createQuestions.value
+    .map((q, i) => ({
+      id: q.id || `q-${i + 1}`,
+      text: q.text.trim(),
+      marks: Math.max(0, Number(q.marks) || 0),
+    }))
+    .filter((q) => q.text.length > 0)
+}
+
+function saveExamPaper(asDraft: boolean) {
+  const canSaveExisting =
+    Boolean(editingExamId.value) && (canWrite.value || canCreate.value)
+  const canSaveNew = !editingExamId.value && canCreate.value
+  if (!canSaveExisting && !canSaveNew) {
+    toast.error('Your role cannot save examinations')
     return
   }
+
   const name = createForm.name.trim()
   if (name.length < 3) {
-    toast.error('Enter an examination name')
+    toast.error('Enter an examination name at the top of the paper')
     return
   }
   if (!createForm.className) {
@@ -456,16 +603,10 @@ function createExam() {
     toast.error('Choose a subject')
     return
   }
-  const questions = createQuestions.value
-    .map((q, i) => ({
-      id: q.id || `q-${i + 1}`,
-      text: q.text.trim(),
-      marks: Math.max(0, Number(q.marks) || 0),
-    }))
-    .filter((q) => q.text.length > 0)
 
+  const questions = collectExamQuestions()
   if (!questions.length) {
-    toast.error('Add at least one exam question')
+    toast.error('Add at least one exam question on the paper')
     return
   }
 
@@ -479,7 +620,11 @@ function createExam() {
     sectionForGrade(createForm.className) ||
     (isNurseryClass(createForm.className) ? 'Nursery' : 'Primary')
 
-  const record = addRecord('exams', {
+  let status = createForm.status || 'Draft'
+  if (asDraft) status = 'Draft'
+  else if (status === 'Draft') status = 'Open'
+
+  const payload = {
     name,
     className: createForm.className,
     course: createForm.course,
@@ -488,25 +633,135 @@ function createExam() {
     date: createForm.date,
     program,
     subtitle: createForm.subtitle.trim() || undefined,
-    status: createForm.status || 'Open',
+    status,
     questionsJson: JSON.stringify(questions),
     questionCount: questions.length,
-  })
+  }
 
-  toast.success(
-    `Exam “${name}” created with ${questions.length} question${questions.length === 1 ? '' : 's'}`,
-  )
+  let record: CatalogRow
+  if (editingExamId.value) {
+    updateRecord('exams', editingExamId.value, payload)
+    record =
+      exams.value.find((e) => e.id === editingExamId.value) ||
+      ({ id: editingExamId.value, ...payload } as CatalogRow)
+    logActivity({
+      action: 'Updated',
+      module: 'exams',
+      moduleLabel: 'Examination',
+      recordId: record.id,
+      recordName: name,
+      summary: asDraft
+        ? `Saved draft exam paper “${name}”`
+        : `Saved exam paper “${name}”`,
+      detail: `${questions.length} questions · max ${max}`,
+      severity: 'success',
+    })
+    toast.success(
+      asDraft
+        ? `Draft saved · ${questions.length} question${questions.length === 1 ? '' : 's'}`
+        : `Exam paper saved · ${questions.length} question${questions.length === 1 ? '' : 's'}`,
+    )
+  } else {
+    record = addRecord('exams', payload)
+    editingExamId.value = record.id
+    logActivity({
+      action: 'Created',
+      module: 'exams',
+      moduleLabel: 'Examination',
+      recordId: record.id,
+      recordName: name,
+      summary: asDraft
+        ? `Created draft exam “${name}”`
+        : `Created exam “${name}”`,
+      detail: `${questions.length} questions · max ${max}`,
+      severity: 'success',
+    })
+    toast.success(
+      asDraft
+        ? `Draft “${name}” saved`
+        : `Exam “${name}” saved with ${questions.length} question${questions.length === 1 ? '' : 's'}`,
+    )
+  }
+
+  createForm.status = status
+  examDirty.value = false
   selectedExamId.value = record.id
-  loadMarksForExam(record)
-  createForm.name = ''
-  createForm.subtitle = ''
-  createQuestions.value = [
-    { id: `q-${Date.now()}`, text: '', marks: 10 },
-  ]
   filterClass.value = String(record.className || filterClass.value)
-  showCreate.value = false
-  tab.value = 'marks'
+
+  if (!asDraft) {
+    loadMarksForExam(record)
+    showCreate.value = false
+    resetExamStudio()
+    tab.value = 'marks'
+    router.replace({
+      path: '/gradebook',
+      query: { tab: 'marks', exam: record.id },
+    })
+  } else {
+    router.replace({
+      path: '/gradebook',
+      query: { tab: 'exams', create: '1', exam: record.id },
+    })
+  }
 }
+
+function printExamStudioPaper() {
+  const questions = collectExamQuestions()
+  if (!createForm.name.trim() || !questions.length) {
+    toast.error('Save a name and at least one question before printing')
+    return
+  }
+  const preview: CatalogRow = {
+    id: editingExamId.value || 'preview',
+    name: createForm.name.trim(),
+    className: createForm.className,
+    course: createForm.course,
+    type: createForm.type,
+    maxScore: questionsTotal.value || createForm.maxScore,
+    date: createForm.date,
+    status: createForm.status,
+    subtitle: createForm.subtitle,
+    questionsJson: JSON.stringify(questions),
+    questionCount: questions.length,
+  }
+  printExamPack(preview, ['paper'])
+}
+
+function onExamStudioKeydown(e: KeyboardEvent) {
+  if (!showCreate.value) return
+  const mod = e.metaKey || e.ctrlKey
+  if (mod && e.key.toLowerCase() === 's') {
+    e.preventDefault()
+    saveExamPaper(e.shiftKey)
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onExamStudioKeydown)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onExamStudioKeydown)
+})
+
+watch(
+  () => [
+    createForm.name,
+    createForm.className,
+    createForm.course,
+    createForm.type,
+    createForm.maxScore,
+    createForm.date,
+    createForm.status,
+    createForm.subtitle,
+  ],
+  () => markExamDirty(),
+)
+
+watch(
+  createQuestions,
+  () => markExamDirty(),
+  { deep: true },
+)
 
 function saveMarks(submit: boolean) {
   const exam = selectedExam.value
@@ -888,231 +1143,319 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
     </div>
   </PageHeader>
 
-  <div class="school-page">
-    <ListStatCards :stats="stats" />
+  <div class="school-page" :class="{ 'school-page--exam-studio': showCreate && tab === 'exams' }">
+    <ListStatCards v-if="!(showCreate && tab === 'exams')" :stats="stats" />
 
-    <TabButtons v-model="tab" :options="tabs" class="school-tabs" />
+    <TabButtons
+      v-if="!(showCreate && tab === 'exams')"
+      v-model="tab"
+      :options="tabs"
+      class="school-tabs"
+    />
 
-    <!-- Class exams (+ create) -->
+    <!-- Class exams (+ Word-like paper studio) -->
     <template v-if="tab === 'exams'">
-      <div class="school-page-toolbar">
-        <FormControl
-          v-model="filterClass"
-          class="school-filter-select"
-          type="select"
-          label="Class"
-          :options="classOptions"
-        />
-        <div class="school-page-toolbar__grow" />
-        <Button
-          v-if="showCreate"
-          icon-left="lucide-list"
-          label="Back to list"
-          @click="cancelCreate"
-        />
-        <Button
-          v-else
-          icon-left="lucide-award"
-          label="Results"
-          @click="tab = 'results'"
-        />
-        <Button
-          v-if="canCreate && !showCreate"
-          variant="solid"
-          icon-left="lucide-plus"
-          label="Create exam"
-          @click="openCreateForm"
-        />
-      </div>
-
       <template v-if="showCreate">
-        <section
-          class="grid gap-4 rounded-6 border border-outline-gray-1 bg-surface-white p-5 sm:grid-cols-2"
-        >
-          <p class="sm:col-span-2 text-sm text-ink-gray-6">
-            Create a class exam — pick the class, subject, and questions, then
-            enter marks for that class.
-          </p>
-          <FormControl
-            v-model="createForm.name"
-            class="sm:col-span-2"
-            label="Examination name"
-            type="text"
-            placeholder="e.g. Term III MOT · Mathematics"
-          />
-          <FormControl
-            v-model="createForm.className"
-            type="select"
-            label="Class"
-            :options="classSelectOptions"
-          />
-          <FormControl
-            v-model="createForm.course"
-            type="select"
-            label="Subject"
-            :options="createSubjectOptions"
-          />
-          <FormControl
-            v-model="createForm.type"
-            type="select"
-            label="Assessment type"
-            :options="typeOptions"
-          />
-          <FormControl
-            v-model="createForm.maxScore"
-            type="number"
-            label="Maximum marks"
-          />
-          <FormControl
-            v-model="createForm.date"
-            type="date"
-            label="Exam date"
-          />
-          <FormControl
-            v-model="createForm.status"
-            type="select"
-            label="Status"
-            :options="statusOptions"
-          />
-          <FormControl
-            v-model="createForm.subtitle"
-            class="sm:col-span-2"
-            type="textarea"
-            label="Notes"
-            placeholder="Topics covered, materials, or marking notes"
-          />
-        </section>
-
-        <section
-          class="space-y-3 rounded-6 border border-outline-gray-1 bg-surface-white p-5"
-        >
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 class="text-base-medium text-ink-gray-9">Exam questions</h2>
-              <p class="text-sm text-ink-gray-6">
-                Type each question here. They print on the exam paper. Marks
-                total {{ questionsTotal }}
-                <span
-                  v-if="questionsTotal !== Number(createForm.maxScore)"
-                >
-                  (max will sync to
-                  {{ questionsTotal || createForm.maxScore }})
-                </span>
-                .
-              </p>
+        <div class="exam-studio">
+          <header class="exam-studio__titlebar">
+            <div class="exam-studio__titlebar-left">
+              <Button
+                size="sm"
+                icon-left="lucide-arrow-left"
+                label="Close"
+                @click="cancelCreate"
+              />
+              <div class="exam-studio__file">
+                <p class="exam-studio__name">
+                  {{ examPaperTitle
+                  }}<span v-if="examDirty" class="exam-studio__dirty"> *</span>
+                </p>
+                <p class="exam-studio__path">{{ examPaperPath }}</p>
+              </div>
             </div>
+            <div class="exam-studio__titlebar-right">
+              <span v-if="examDirty" class="exam-studio__unsaved">Unsaved</span>
+              <Badge
+                :label="String(createForm.status || 'Draft')"
+                :theme="statusTheme(String(createForm.status))"
+                variant="subtle"
+              />
+              <kbd class="exam-studio__kbd">⌘S save</kbd>
+            </div>
+          </header>
+
+          <div class="exam-studio__ribbon" role="toolbar" aria-label="Exam paper">
             <Button
+              size="sm"
+              icon-left="lucide-save"
+              label="Save draft"
+              :disabled="!(canCreate || canWrite)"
+              @click="saveExamPaper(true)"
+            />
+            <Button
+              size="sm"
+              variant="solid"
+              icon-left="lucide-check"
+              :label="editingExamId ? 'Save & mark' : 'Save exam'"
+              :disabled="!(canCreate || canWrite)"
+              @click="saveExamPaper(false)"
+            />
+            <Button
+              size="sm"
+              icon-left="lucide-printer"
+              label="Print preview"
+              :disabled="!canPrint"
+              @click="printExamStudioPaper"
+            />
+            <div class="exam-studio__ribbon-grow" />
+            <Button
+              size="sm"
               icon-left="lucide-plus"
               label="Add question"
               @click="addQuestion"
             />
           </div>
 
-          <div
-            v-for="(q, index) in createQuestions"
-            :key="q.id"
-            class="grid gap-3 rounded-5 border border-outline-gray-1 bg-surface-gray-1 p-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_6rem_auto]"
-          >
-            <div
-              class="flex size-9 items-center justify-center rounded-full bg-surface-white text-sm-medium text-ink-gray-7"
-            >
-              {{ index + 1 }}
-            </div>
+          <div class="exam-studio__meta">
             <FormControl
-              v-model="q.text"
-              type="textarea"
-              :label="`Question ${index + 1}`"
-              placeholder="e.g. Solve for x: 2x + 5 = 17. Show your working."
+              v-model="createForm.className"
+              type="select"
+              label="Class"
+              :options="classSelectOptions"
             />
             <FormControl
-              v-model="q.marks"
-              type="number"
-              label="Marks"
+              v-model="createForm.course"
+              type="select"
+              label="Subject"
+              :options="createSubjectOptions"
             />
-            <div class="flex items-end">
+            <FormControl
+              v-model="createForm.type"
+              type="select"
+              label="Type"
+              :options="typeOptions"
+            />
+            <FormControl
+              v-model="createForm.date"
+              type="date"
+              label="Date"
+            />
+            <FormControl
+              v-model="createForm.status"
+              type="select"
+              label="Status"
+              :options="statusOptions"
+            />
+          </div>
+
+          <div class="exam-studio__canvas">
+            <article class="exam-studio__paper" aria-label="Exam paper">
+              <header class="exam-studio__school">
+                <p class="exam-studio__school-name">
+                  {{ schoolSetup.name || 'Little Royals Kindergarten and Primary School' }}
+                </p>
+                <p class="exam-studio__school-meta">
+                  {{ createForm.className }} · {{ createForm.course }} ·
+                  {{ createForm.type }} · {{ createForm.date }}
+                </p>
+                <p class="exam-studio__school-marks">
+                  Total marks:
+                  <strong>{{ questionsTotal || createForm.maxScore }}</strong>
+                </p>
+              </header>
+
+              <input
+                v-model="createForm.name"
+                class="exam-studio__title-input"
+                type="text"
+                placeholder="Examination title (e.g. Term III MOT · Mathematics)"
+                aria-label="Examination title"
+              />
+
+              <textarea
+                v-model="createForm.subtitle"
+                class="exam-studio__instructions"
+                rows="2"
+                placeholder="Instructions for learners (optional) — e.g. Answer all questions. Show working."
+                aria-label="Exam instructions"
+              />
+
+              <div class="exam-studio__questions">
+                <div
+                  v-for="(q, index) in createQuestions"
+                  :key="q.id"
+                  class="exam-studio__q"
+                >
+                  <div class="exam-studio__q-head">
+                    <span class="exam-studio__q-num">{{ index + 1 }}.</span>
+                    <input
+                      v-model.number="q.marks"
+                      class="exam-studio__q-marks"
+                      type="number"
+                      min="0"
+                      aria-label="Marks for question"
+                    />
+                    <span class="exam-studio__q-marks-label">marks</span>
+                    <button
+                      type="button"
+                      class="exam-studio__q-remove"
+                      :aria-label="`Remove question ${index + 1}`"
+                      @click="removeQuestion(q.id)"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <textarea
+                    v-model="q.text"
+                    class="exam-studio__q-text"
+                    rows="3"
+                    :placeholder="`Type question ${index + 1} here…`"
+                  />
+                  <div class="exam-studio__q-lines" aria-hidden="true">
+                    <span /><span /><span />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                class="exam-studio__add-inline"
+                @click="addQuestion"
+              >
+                + Add another question
+              </button>
+
+              <footer class="exam-studio__footer">
+                End of paper · {{ createQuestions.length }} question{{
+                  createQuestions.length === 1 ? '' : 's'
+                }}
+                · {{ questionsTotal }} marks
+              </footer>
+            </article>
+          </div>
+
+          <div class="exam-studio__sticky-save">
+            <p class="exam-studio__sticky-hint">
+              {{
+                examDirty
+                  ? 'Changes not saved yet'
+                  : editingExamId
+                    ? 'All changes saved'
+                    : 'New paper — save when ready'
+              }}
+            </p>
+            <div class="exam-studio__sticky-actions">
+              <Button size="sm" label="Close" @click="cancelCreate" />
               <Button
-                icon="lucide-trash-2"
-                variant="subtle"
-                :aria-label="`Remove question ${index + 1}`"
-                @click="removeQuestion(q.id)"
+                size="sm"
+                label="Save draft"
+                :disabled="!(canCreate || canWrite)"
+                @click="saveExamPaper(true)"
+              />
+              <Button
+                size="sm"
+                variant="solid"
+                icon-left="lucide-check"
+                :label="editingExamId ? 'Save & enter marks' : 'Save exam'"
+                :disabled="!(canCreate || canWrite)"
+                @click="saveExamPaper(false)"
               />
             </div>
           </div>
-        </section>
-
-        <div class="school-page-toolbar">
-          <Button label="Cancel" @click="cancelCreate" />
-          <div class="school-page-toolbar__grow" />
-          <Button
-            v-if="canCreate"
-            variant="solid"
-            icon-left="lucide-plus"
-            label="Create exam"
-            @click="createExam"
-          />
         </div>
       </template>
 
-      <section
-        v-else
-        class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"
-      >
-        <button
-          v-for="exam in filteredExams"
-          :key="exam.id"
-          type="button"
-          class="flex w-full flex-wrap items-center justify-between gap-3 border-b border-outline-gray-1 px-4 py-3.5 text-left last:border-b-0 hover:bg-surface-gray-1"
-          @click="openMarks(exam.id)"
-        >
-          <div class="min-w-0 space-y-1">
-            <p class="text-sm-medium text-ink-gray-9">{{ exam.name }}</p>
-            <p class="text-xs text-ink-gray-5">
-              {{ exam.className || '—' }} · {{ exam.course || '—' }} · max
-              {{ exam.maxScore || 100 }} · {{ exam.date || '—' }}
-            </p>
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <Badge
-              :label="String(exam.type || 'Exam')"
-              theme="blue"
-              variant="subtle"
-            />
-            <Badge
-              :label="String(exam.status || 'Draft')"
-              :theme="statusTheme(String(exam.status))"
-              variant="subtle"
-            />
-            <Button
-              v-if="canPrint"
-              size="sm"
-              icon-left="lucide-printer"
-              label="Print"
-              @click.stop="printExam(exam, ['paper', 'marksheet'], $event)"
-            />
-            <Button
-              size="sm"
-              icon-left="lucide-pen-line"
-              label="Enter marks"
-              @click.stop="openMarks(exam.id)"
-            />
-          </div>
-        </button>
-        <div
-          v-if="!filteredExams.length"
-          class="flex flex-col items-center gap-3 px-4 py-12 text-center"
-        >
-          <p class="text-sm text-ink-gray-5">
-            No exams for this class yet. Create one to start marking.
-          </p>
+      <template v-else>
+        <div class="school-page-toolbar">
+          <FormControl
+            v-model="filterClass"
+            class="school-filter-select"
+            type="select"
+            label="Class"
+            :options="classOptions"
+          />
+          <div class="school-page-toolbar__grow" />
+          <Button
+            icon-left="lucide-award"
+            label="Results"
+            @click="tab = 'results'"
+          />
           <Button
             v-if="canCreate"
             variant="solid"
             icon-left="lucide-plus"
-            label="Create exam"
+            label="New exam paper"
             @click="openCreateForm"
           />
         </div>
-      </section>
+
+        <section
+          class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"
+        >
+          <button
+            v-for="exam in filteredExams"
+            :key="exam.id"
+            type="button"
+            class="flex w-full flex-wrap items-center justify-between gap-3 border-b border-outline-gray-1 px-4 py-3.5 text-left last:border-b-0 hover:bg-surface-gray-1"
+            @click="openMarks(exam.id)"
+          >
+            <div class="min-w-0 space-y-1">
+              <p class="text-sm-medium text-ink-gray-9">{{ exam.name }}</p>
+              <p class="text-xs text-ink-gray-5">
+                {{ exam.className || '—' }} · {{ exam.course || '—' }} · max
+                {{ exam.maxScore || 100 }} · {{ exam.date || '—' }}
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <Badge
+                :label="String(exam.type || 'Exam')"
+                theme="blue"
+                variant="subtle"
+              />
+              <Badge
+                :label="String(exam.status || 'Draft')"
+                :theme="statusTheme(String(exam.status))"
+                variant="subtle"
+              />
+              <Button
+                v-if="canWrite || canCreate"
+                size="sm"
+                icon-left="lucide-file-pen"
+                label="Edit paper"
+                @click.stop="openEditExam(exam.id)"
+              />
+              <Button
+                v-if="canPrint"
+                size="sm"
+                icon-left="lucide-printer"
+                label="Print"
+                @click.stop="printExam(exam, ['paper', 'marksheet'], $event)"
+              />
+              <Button
+                size="sm"
+                icon-left="lucide-pen-line"
+                label="Enter marks"
+                @click.stop="openMarks(exam.id)"
+              />
+            </div>
+          </button>
+          <div
+            v-if="!filteredExams.length"
+            class="flex flex-col items-center gap-3 px-4 py-12 text-center"
+          >
+            <p class="text-sm text-ink-gray-5">
+              No exams for this class yet. Open a new exam paper to start.
+            </p>
+            <Button
+              v-if="canCreate"
+              variant="solid"
+              icon-left="lucide-plus"
+              label="New exam paper"
+              @click="openCreateForm"
+            />
+          </div>
+        </section>
+      </template>
     </template>
 
     <!-- Enter marks -->
@@ -1163,6 +1506,13 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
           :label="String(selectedExam.status)"
           :theme="statusTheme(String(selectedExam.status))"
           variant="subtle"
+        />
+        <Button
+          v-if="canWrite || canCreate"
+          size="sm"
+          icon-left="lucide-file-pen"
+          label="Edit paper"
+          @click="openEditExam(selectedExam.id)"
         />
         <span v-if="dirty" class="school-page-toolbar__meta">Unsaved</span>
         <div class="school-page-toolbar__grow" />
@@ -1303,7 +1653,7 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
               v-if="canCreate"
               variant="solid"
               icon-left="lucide-plus"
-              label="Create exam"
+              label="New exam paper"
               @click="openCreateForm"
             />
           </div>
@@ -1315,6 +1665,30 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
           </p>
         </div>
       </section>
+
+      <div
+        v-if="selectedExam && dirty"
+        class="exam-marks-sticky"
+        role="status"
+      >
+        <p class="exam-marks-sticky__hint">Unsaved marks — save before leaving</p>
+        <div class="exam-marks-sticky__actions">
+          <Button
+            size="sm"
+            label="Save draft"
+            :disabled="!(canWrite || canCreate)"
+            @click="saveMarks(false)"
+          />
+          <Button
+            v-if="canWrite"
+            size="sm"
+            variant="solid"
+            icon-left="lucide-send"
+            label="Submit marks"
+            @click="saveMarks(true)"
+          />
+        </div>
+      </div>
     </template>
 
     <!-- Results (was separate /exam-results page) -->
