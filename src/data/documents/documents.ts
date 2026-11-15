@@ -4,6 +4,7 @@ import {
   canvasConfigFor,
   defaultSignatureDataUrl,
   defaultStampDataUrl,
+  designCssFromConfig,
   type DocumentCanvasConfig,
 } from '@/data/documents/documentCanvas'
 import { formatSchoolAddress, schoolSetup } from '@/data/school/schoolSetup'
@@ -628,12 +629,16 @@ export const studioEditCss = `
     transition: outline-color 0.12s ease, background 0.12s ease;
   }
   .doc-edit:hover {
-    outline-color: rgb(139 92 246 / 55%);
-    background: rgb(139 92 246 / 6%);
+    outline-color: rgb(46 49 146 / 45%);
+    background: rgb(46 49 146 / 5%);
   }
   .doc-edit:focus {
-    outline-color: #8b5cf6;
-    background: rgb(139 92 246 / 10%);
+    outline-color: #2b579a;
+    background: rgb(43 87 154 / 8%);
+    box-shadow: 0 0 0 2px rgb(43 87 154 / 12%);
+  }
+  ::selection {
+    background: rgb(43 87 154 / 28%);
   }
 `
 
@@ -715,13 +720,14 @@ export function wrap(
       ? ''
       : opts?.overlaysHtml || (cfg ? overlayHtmlFromCanvas(cfg) : '')
   const bodyWithNote = `${body}${note}`
+  const designCss = cfg ? designCssFromConfig(cfg) : ''
   const extraCss = studioEditForBuild ? studioEditCss : ''
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <title>${esc(title)}</title>
-  <style>${statutoryDocumentCss}${extraCss}</style>
+  <style>${statutoryDocumentCss}${designCss}${extraCss}</style>
 </head>
 <body>
   <div class="sheet">

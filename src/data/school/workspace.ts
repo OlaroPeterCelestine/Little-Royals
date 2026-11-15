@@ -56,13 +56,6 @@ export const educationNav: NavGroup[] = [
     ],
   },
   {
-    title: 'People',
-    items: [
-      { label: 'Students', icon: 'lucide-graduation-cap', route: '/students' },
-      { label: 'Alumni', icon: 'lucide-graduation-cap', route: '/alumni' },
-    ],
-  },
-  {
     title: 'Admissions',
     items: [
       {
@@ -71,6 +64,13 @@ export const educationNav: NavGroup[] = [
         route: '/admissions',
       },
       { label: 'Scan to data', icon: 'lucide-scan-text', route: '/scan' },
+    ],
+  },
+  {
+    title: 'People',
+    items: [
+      { label: 'Students', icon: 'lucide-graduation-cap', route: '/students' },
+      { label: 'Alumni', icon: 'lucide-graduation-cap', route: '/alumni' },
     ],
   },
   {
@@ -87,6 +87,11 @@ export const educationNav: NavGroup[] = [
         route: '/study-coverage',
       },
       { label: 'Timetable', icon: 'lucide-calendar-clock', route: '/timetable' },
+      {
+        label: 'Exams & marks',
+        icon: 'lucide-table-2',
+        route: '/gradebook?tab=exams',
+      },
     ],
   },
   {
@@ -96,16 +101,6 @@ export const educationNav: NavGroup[] = [
         label: 'Attendance',
         icon: 'lucide-clipboard-check',
         route: '/attendance',
-      },
-    ],
-  },
-  {
-    title: 'Exams & Results',
-    items: [
-      {
-        label: 'Exams & marks',
-        icon: 'lucide-table-2',
-        route: '/gradebook?tab=exams',
       },
     ],
   },

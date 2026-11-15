@@ -884,7 +884,7 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
 <template>
   <PageHeader>
     <div class="flex min-w-0 flex-wrap items-center gap-2">
-      <AppBackButton only-when-from fallback="/term-overview" />
+      <AppBackButton only-when-from fallback="/academics" />
       <PageHeaderTitle title="Exams & marks" />
     </div>
   </PageHeader>
