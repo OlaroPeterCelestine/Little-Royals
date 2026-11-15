@@ -1701,7 +1701,8 @@ header:has([data-slot='page-header-title']) {
   height: 100%;
   border: 0;
   background: #fff;
-  pointer-events: none;
+  /* Allow clicking document text to edit; stamp/signature handles sit above. */
+  pointer-events: auto;
 }
 
 .doc-studio-empty {

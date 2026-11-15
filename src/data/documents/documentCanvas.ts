@@ -22,6 +22,8 @@ export interface DocumentCanvasConfig {
   leftSigner: string
   rightSigner: string
   note: string
+  /** Free-text edits from the studio (field labels → value). */
+  textOverrides: Record<string, string>
 }
 
 const STORAGE_KEY = 'lr_document_canvas_v1'
@@ -45,6 +47,7 @@ export function defaultCanvasConfig(): DocumentCanvasConfig {
     leftSigner: 'Class teacher',
     rightSigner: 'Head teacher',
     note: '',
+    textOverrides: {},
   }
 }
 
@@ -82,10 +85,26 @@ watch(
 
 export function canvasConfigFor(kind: CanvasDocumentKind): DocumentCanvasConfig {
   const existing = documentCanvasStore.byKind[kind]
-  if (existing) return existing
+  if (existing) {
+    if (!existing.textOverrides) existing.textOverrides = {}
+    return existing
+  }
   const created = defaultCanvasConfig()
   documentCanvasStore.byKind[kind] = created
   return created
+}
+
+export function setTextOverride(
+  kind: CanvasDocumentKind,
+  key: string,
+  value: string,
+) {
+  const cfg = canvasConfigFor(kind)
+  cfg.textOverrides[key] = value
+}
+
+export function clearTextOverrides(kind: CanvasDocumentKind) {
+  canvasConfigFor(kind).textOverrides = {}
 }
 
 export function resetCanvasConfig(kind: CanvasDocumentKind) {

@@ -27,6 +27,9 @@ import {
 } from '@/data/documents/documents'
 import CatalogTable from '@/components/list/CatalogTable.vue'
 import ListToolbar from '@/components/list/ListToolbar.vue'
+import ListStatCards from '@/components/list/ListStatCards.vue'
+import RelatedLinks from '@/components/list/RelatedLinks.vue'
+import type { ListStat } from '@/composables/useListPage'
 
 export type DeskTab = {
   label: string
@@ -34,11 +37,23 @@ export type DeskTab = {
   module: string
 }
 
-const props = defineProps<{
-  tabs: DeskTab[]
-  /** query key for tab, default `tab` */
-  queryKey?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    tabs: DeskTab[]
+    /** query key for tab, default `tab` */
+    queryKey?: string
+    /** Show auto stats for the active tab module (default true). */
+    showStats?: boolean
+    /** Related desk links for this hub (default true). */
+    showRelated?: boolean
+    /** Optional override; when set, replaces auto status stats. */
+    stats?: ListStat[]
+  }>(),
+  {
+    showStats: true,
+    showRelated: true,
+  },
+)
 
 const route = useRoute()
 const router = useRouter()
@@ -131,12 +146,19 @@ const {
   pageRows,
   totalPages,
   rangeLabel,
+  stats: autoStats,
   hasActiveFilters,
   resetFilters,
   goToPage,
 } = useListPage(rows, {
   extraFilterKey,
   extraFilterLabel,
+})
+
+const displayStats = computed(() => {
+  if (!props.showStats) return []
+  if (props.stats?.length) return props.stats
+  return autoStats.value
 })
 
 watch(moduleKey, () => {
@@ -215,12 +237,16 @@ function clearSelection() {
 </script>
 
 <template>
+  <RelatedLinks v-if="showRelated" />
+
   <TabButtons
     v-if="tabs.length > 1"
     v-model="tab"
     :options="tabButtons"
     class="school-tabs"
   />
+
+  <ListStatCards v-if="displayStats.length" :stats="displayStats" />
 
   <Alert
     v-if="showSelectionWarning && !selection.length"
@@ -327,5 +353,12 @@ function clearSelection() {
     @prev="goToPage(page - 1)"
     @next="goToPage(page + 1)"
     @go="goToPage"
-  />
+  >
+    <template v-if="$slots['row-actions']" #actions="slotProps">
+      <slot
+        name="row-actions"
+        v-bind="{ ...slotProps, moduleKey, canWrite, canPrint: allowPrint }"
+      />
+    </template>
+  </CatalogTable>
 </template>

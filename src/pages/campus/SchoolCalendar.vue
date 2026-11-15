@@ -14,6 +14,9 @@ import { openCreateDialog } from '@/composables/useModuleForms'
 import { canCurrentUser } from '@/data/auth/permissions'
 import { pushWithReturn } from '@/composables/useAppBack'
 import type { CatalogRow } from '@/data/catalog/catalog'
+import ListStatCards from '@/components/list/ListStatCards.vue'
+import RelatedLinks from '@/components/list/RelatedLinks.vue'
+import type { ListStat } from '@/composables/useListPage'
 
 const router = useRouter() // used by pushWithReturn
 
@@ -154,7 +157,7 @@ const selectedLabel = computed(() => {
   })
 })
 
-const monthStats = computed(() => {
+const monthStats = computed((): ListStat[] => {
   const inMonth = events.value.filter((e) => {
     const raw = String(e.date || '')
     return (
@@ -163,21 +166,32 @@ const monthStats = computed(() => {
       )
     )
   })
-  return {
-    total: inMonth.length,
-    schoolDays: inMonth.filter((e) =>
-      String(e.type).toLowerCase().includes('school'),
-    ).length,
-    activities: inMonth.filter((e) =>
-      String(e.type).toLowerCase().includes('activity'),
-    ).length,
-    exams: inMonth.filter((e) =>
-      String(e.type).toLowerCase().includes('exam'),
-    ).length,
-    holidays: inMonth.filter((e) =>
-      String(e.type).toLowerCase().includes('holiday'),
-    ).length,
-  }
+  return [
+    {
+      title: 'This month',
+      value: inMonth.length,
+      caption: monthLabel.value,
+    },
+    {
+      title: 'School days',
+      value: inMonth.filter((e) =>
+        String(e.type).toLowerCase().includes('school'),
+      ).length,
+    },
+    {
+      title: 'Exams',
+      value: inMonth.filter((e) =>
+        String(e.type).toLowerCase().includes('exam'),
+      ).length,
+    },
+    {
+      title: 'Holidays',
+      value: inMonth.filter((e) =>
+        String(e.type).toLowerCase().includes('holiday'),
+      ).length,
+      caption: `${inMonth.filter((e) => String(e.type).toLowerCase().includes('activity')).length} activities`,
+    },
+  ]
 })
 
 function prevMonth() {
@@ -255,38 +269,8 @@ function addEvent() {
       />
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-      <div class="rounded-6 border border-outline-gray-1 bg-surface-white p-4">
-        <p class="text-xs text-ink-gray-5">This month</p>
-        <p class="text-xl font-semibold text-ink-gray-9">
-          {{ monthStats.total }}
-        </p>
-      </div>
-      <div class="rounded-6 border border-outline-gray-1 bg-surface-white p-4">
-        <p class="text-xs text-ink-gray-5">School days</p>
-        <p class="text-xl font-semibold text-ink-gray-9">
-          {{ monthStats.schoolDays }}
-        </p>
-      </div>
-      <div class="rounded-6 border border-outline-gray-1 bg-surface-white p-4">
-        <p class="text-xs text-ink-gray-5">Activities</p>
-        <p class="text-xl font-semibold text-ink-gray-9">
-          {{ monthStats.activities }}
-        </p>
-      </div>
-      <div class="rounded-6 border border-outline-gray-1 bg-surface-white p-4">
-        <p class="text-xs text-ink-gray-5">Exams</p>
-        <p class="text-xl font-semibold text-ink-gray-9">
-          {{ monthStats.exams }}
-        </p>
-      </div>
-      <div class="rounded-6 border border-outline-gray-1 bg-surface-white p-4">
-        <p class="text-xs text-ink-gray-5">Holidays</p>
-        <p class="text-xl font-semibold text-ink-gray-9">
-          {{ monthStats.holidays }}
-        </p>
-      </div>
-    </div>
+    <RelatedLinks />
+    <ListStatCards :stats="monthStats" />
 
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2">

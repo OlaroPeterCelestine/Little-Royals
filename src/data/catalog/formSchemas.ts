@@ -1,8 +1,15 @@
 import type { ModuleFormSpec } from '@/lib/forms/types'
-import { gradeSelectOptions, sectionSelectOptions } from '@/data/school/grades'
+import {
+  gradeSelectOptions,
+  sectionSelectOptions,
+  STREAM_OPTIONS,
+  ugandaClassLevelOptions,
+} from '@/data/school/grades'
 
 const sectionOpts = [...sectionSelectOptions]
 const classOpts = [...gradeSelectOptions]
+const ugandaClassOpts = [...ugandaClassLevelOptions]
+const streamOpts = [...STREAM_OPTIONS]
 const relationOpts = [
   { label: 'Mother', value: 'Mother' },
   { label: 'Father', value: 'Father' },
@@ -368,6 +375,65 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
     ],
   },
 
+  admissions: {
+    module: 'admissions',
+    title: 'New Admission',
+    singular: 'Admission',
+    sections: [
+      {
+        title: 'Learner',
+        fields: [
+          { name: 'name', label: 'Learner full name', type: 'text', required: true },
+          { name: 'dateOfBirth', label: 'Date of birth', type: 'date', required: true },
+          { name: 'gender', label: 'Gender', type: 'select', required: true, options: genderOpts },
+          { name: 'program', label: 'Section', type: 'select', required: true, options: sectionOpts },
+          { name: 'className', label: 'Class', type: 'select', required: true, options: classOpts },
+          { name: 'previousSchool', label: 'Previous school', type: 'text' },
+          { name: 'application', label: 'Application ref', type: 'text' },
+        ],
+      },
+      {
+        title: 'Parent / guardian',
+        fields: [
+          { name: 'parentName', label: 'Parent name', type: 'text', required: true },
+          { name: 'parentPhone', label: 'Parent phone', type: 'phone', required: true },
+          { name: 'parentEmail', label: 'Parent email', type: 'email' },
+        ],
+      },
+      {
+        title: 'Admission',
+        fields: [
+          { name: 'term', label: 'Term', type: 'text', required: true },
+          { name: 'admissionDate', label: 'Admission date', type: 'date', required: true },
+          { name: 'reportingDate', label: 'Reporting date', type: 'date' },
+          {
+            name: 'fee',
+            label: 'Admission fee',
+            type: 'select',
+            required: true,
+            options: [
+              { label: 'Unpaid', value: 'Unpaid' },
+              { label: 'Partial', value: 'Partial' },
+              { label: 'Paid', value: 'Paid' },
+            ],
+          },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            required: true,
+            options: [
+              { label: 'Pending', value: 'Pending' },
+              { label: 'Admitted', value: 'Admitted' },
+              { label: 'Withdrawn', value: 'Withdrawn' },
+            ],
+          },
+          { name: 'subtitle', label: 'Notes', type: 'textarea' },
+        ],
+      },
+    ],
+  },
+
   'academic-years': {
     module: 'academic-years',
     title: 'Create Academic Year',
@@ -583,15 +649,56 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
     sections: [
       {
         title: 'Class',
+        description:
+          'Uganda education ladder — Nursery (Baby · Middle · Top) and Primary (P.1–P.7).',
         fields: [
-          { name: 'name', label: 'Class name', type: 'text', required: true, placeholder: 'Baby Class, P1…' },
-          { name: 'program', label: 'Section', type: 'select', required: true, options: sectionOpts },
-          { name: 'grade', label: 'Level / order', type: 'number', required: true },
+          {
+            name: 'grade',
+            label: 'Class level',
+            type: 'select',
+            required: true,
+            options: ugandaClassOpts,
+            help: 'Baby Class → Top Class, then P.1 through P.7',
+          },
+          {
+            name: 'stream',
+            label: 'Stream (optional)',
+            type: 'select',
+            options: streamOpts,
+            help: 'e.g. A / B or colour stream for parallel classes',
+          },
+          {
+            name: 'name',
+            label: 'Class name',
+            type: 'readonly',
+            auto: true,
+            help: 'Built from class level + stream',
+          },
+          {
+            name: 'program',
+            label: 'Section',
+            type: 'readonly',
+            auto: true,
+            help: 'Nursery or Primary — set from the class level',
+          },
           { name: 'capacity', label: 'Capacity', type: 'number' },
           { name: 'teacher', label: 'Class teacher', type: 'select', optionsFrom: 'staff' },
           { name: 'year', label: 'Academic year', type: 'select', optionsFrom: 'academic-years' },
-          { name: 'room', label: 'Classroom', type: 'select', optionsFrom: 'rooms' },
-          { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }] },
+          {
+            name: 'room',
+            label: 'Classroom',
+            type: 'text',
+            placeholder: 'e.g. Block A · 1, Nursery 1',
+          },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            options: [
+              { label: 'Active', value: 'Active' },
+              { label: 'Inactive', value: 'Inactive' },
+            ],
+          },
         ],
       },
     ],
@@ -722,8 +829,8 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           {
             name: 'room',
             label: 'Room',
-            type: 'select',
-            optionsFrom: 'rooms',
+            type: 'text',
+            placeholder: 'e.g. Block B · 5, Lab, Hall',
           },
           {
             name: 'status',
@@ -923,8 +1030,14 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'className', label: 'Class', type: 'select', required: true, options: classOpts },
           { name: 'course', label: 'Subject', type: 'select', required: true, optionsFrom: 'courses' },
           { name: 'teacher', label: 'Teacher', type: 'select', required: true, optionsFrom: 'staff' },
-          { name: 'topic', label: 'Topic', type: 'select', required: true, optionsFrom: 'topics' },
-          { name: 'subtopic', label: 'Subtopic', type: 'text' },
+          {
+            name: 'topic',
+            label: 'Study coverage unit',
+            type: 'select',
+            required: true,
+            optionsFrom: 'study-coverage',
+          },
+          { name: 'subtopic', label: 'Subtopic / week focus', type: 'text' },
           { name: 'week', label: 'Week number', type: 'number', required: true },
           { name: 'name', label: 'Title', type: 'text', required: true },
           { name: 'objectives', label: 'Objectives', type: 'textarea', required: true },
@@ -1525,7 +1638,12 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'category', label: 'Category', type: 'text' },
           { name: 'department', label: 'Department', type: 'select', optionsFrom: 'departments' },
           { name: 'className', label: 'Class', type: 'select', options: classOpts },
-          { name: 'location', label: 'Location', type: 'select', optionsFrom: 'rooms' },
+          {
+            name: 'location',
+            label: 'Location',
+            type: 'text',
+            placeholder: 'e.g. Block A · 1, Staff room',
+          },
           {
             name: 'condition',
             label: 'Condition',
@@ -1564,8 +1682,8 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       {
         title: 'Catalogue item',
         fields: [
+          { name: 'sku', label: 'SKU / code', type: 'text', required: true, placeholder: 'e.g. UNI-SHIRT-P' },
           { name: 'name', label: 'Item name', type: 'text', required: true, placeholder: 'e.g. Exercise book A4 (96pg)' },
-          { name: 'sku', label: 'SKU / code', type: 'text', required: true },
           {
             name: 'category',
             label: 'School category',
@@ -1781,6 +1899,82 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
     ],
   },
 
+  'study-coverage': {
+    module: 'study-coverage',
+    title: 'Add Study Coverage',
+    singular: 'Study coverage',
+    sections: [
+      {
+        title: 'What to study',
+        description:
+          'Plan what this class covers in a given term (Uganda Baby Class–P.7).',
+        fields: [
+          {
+            name: 'className',
+            label: 'Class level',
+            type: 'select',
+            required: true,
+            options: ugandaClassOpts,
+          },
+          {
+            name: 'term',
+            label: 'Term',
+            type: 'select',
+            required: true,
+            options: [
+              { label: 'Term I', value: 'Term I' },
+              { label: 'Term II', value: 'Term II' },
+              { label: 'Term III', value: 'Term III' },
+            ],
+          },
+          {
+            name: 'course',
+            label: 'Subject / learning area',
+            type: 'text',
+            required: true,
+            placeholder: 'e.g. English, Mathematics, Numeracy Play',
+          },
+          {
+            name: 'coverage',
+            label: 'Coverage (what is meant to be studied)',
+            type: 'textarea',
+            required: true,
+            help: 'List the skills, topics and outcomes for this class and term.',
+          },
+          { name: 'weeks', label: 'Weeks planned', type: 'number' },
+          {
+            name: 'academicYear',
+            label: 'Academic year',
+            type: 'select',
+            optionsFrom: 'academic-years',
+          },
+          {
+            name: 'name',
+            label: 'Title',
+            type: 'readonly',
+            auto: true,
+            help: 'Built from class · term · subject',
+          },
+          {
+            name: 'program',
+            label: 'Section',
+            type: 'readonly',
+            auto: true,
+          },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            options: [
+              { label: 'Active', value: 'Active' },
+              { label: 'Draft', value: 'Draft' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
   departments: {
     module: 'departments',
     title: 'Create Department',
@@ -1973,9 +2167,6 @@ const FALLBACK_OPTIONS_FROM: Record<string, string> = {
   student: 'students',
   learner: 'students',
   pupil: 'students',
-  room: 'rooms',
-  classroom: 'rooms',
-  location: 'rooms',
   department: 'departments',
   year: 'academic-years',
   academicyear: 'academic-years',
@@ -1998,7 +2189,8 @@ const FALLBACK_OPTIONS_FROM: Record<string, string> = {
   item: 'inventory-items',
   vehicle: 'transport-vehicles',
   book: 'library-books',
-  topic: 'topics',
+  topic: 'study-coverage',
+  coverage: 'study-coverage',
   scheme: 'schemes-of-work',
   application: 'applicants',
   feestructure: 'fee-structures',

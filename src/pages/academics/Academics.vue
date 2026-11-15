@@ -28,6 +28,7 @@ import { useModuleAccess } from '@/composables/useModuleAccess'
 import CatalogTable from '@/components/list/CatalogTable.vue'
 import ListToolbar from '@/components/list/ListToolbar.vue'
 import PageIntro from '@/components/list/PageIntro.vue'
+import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import { buildListColumnTracks } from '@/lib/listColumns'
 
 type SectionTab = 'all' | 'nursery' | 'primary'
@@ -386,6 +387,7 @@ function clearSelection() {
       "
     />
 
+    <RelatedLinks />
     <PageIntro
       description="Nursery and primary teaching in one place — filter by section, then pick a tool."
       :stats="overviewStats"
@@ -408,12 +410,7 @@ function clearSelection() {
             variant="solid"
             icon-left="lucide-table-2"
             label="Open gradebook"
-            @click="router.push('/gradebook')"
-          />
-          <Button
-            icon-left="lucide-file-badge"
-            label="Report cards"
-            @click="router.push('/report-cards')"
+            @click="router.push('/gradebook?tab=exams')"
           />
         </div>
       </div>

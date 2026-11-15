@@ -31,6 +31,7 @@ import { useModuleAccess } from '@/composables/useModuleAccess'
 import { pushWithReturn } from '@/composables/useAppBack'
 import CatalogTable from '@/components/list/CatalogTable.vue'
 import PageIntro from '@/components/list/PageIntro.vue'
+import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import { buildListColumnTracks } from '@/lib/listColumns'
 import { getLiveModule } from '@/data/catalog/store'
 import { useListPage } from '@/composables/useListPage'
@@ -227,6 +228,7 @@ function primaryAction() {
   </PageHeader>
 
   <div class="school-page space-y-5">
+    <RelatedLinks />
     <PageIntro :description="intro" :stats="stats" />
 
     <div class="flex flex-wrap items-end justify-between gap-3">

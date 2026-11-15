@@ -128,7 +128,28 @@ export function syncStockStatuses() {
   }
 }
 
+const OPEN_PURCHASE_STATUSES = new Set([
+  'Draft',
+  'Submitted',
+  'Approved',
+  'Ordered',
+])
+
+/** Existing open purchase request for this stock line (avoid duplicates). */
+export function openPurchaseForStock(stockId: string): CatalogRow | null {
+  return (
+    (schoolStore['purchase-requests']?.rows || []).find(
+      (r) =>
+        String(r.stockId || '') === stockId &&
+        OPEN_PURCHASE_STATUSES.has(String(r.status || '')),
+    ) || null
+  )
+}
+
 export function createPurchaseRequestFromStock(stock: CatalogRow): CatalogRow {
+  const existing = openPurchaseForStock(stock.id)
+  if (existing) return existing
+
   const qty = suggestedOrderQty(stock)
   const status = stockStatusFromLevels(stock)
   const reason =
@@ -152,6 +173,89 @@ export function createPurchaseRequestFromStock(stock: CatalogRow): CatalogRow {
     reason,
     status: 'Submitted',
   })
+}
+
+/** Ensure a catalogue item has a stock row in Main store (opening balance). */
+export function ensureStockForItem(
+  item: CatalogRow,
+  openingQty = 0,
+): CatalogRow {
+  const existing = (schoolStore['inventory-stock']?.rows || []).find(
+    (r) =>
+      r.name === item.name ||
+      String(r.itemId || '') === item.id ||
+      String(r.sku || '') === String(item.sku || ''),
+  )
+  if (existing) return existing
+  return addRecord('inventory-stock', {
+    name: item.name,
+    itemId: item.id,
+    sku: String(item.sku || ''),
+    store: 'Main store',
+    department: String(item.department || ''),
+    className: String(item.className || 'All classes'),
+    qty: openingQty,
+    critical: 2,
+    reorder: 5,
+    maxStock: Math.max(20, openingQty || 20),
+    status: openingQty > 0 ? 'Available' : 'Out of stock',
+  })
+}
+
+/**
+ * Receive goods for a purchase request: bump stock and mark request Received.
+ */
+export function receivePurchaseRequest(
+  requestId: string,
+  qtyIn?: number,
+): { stock: CatalogRow; request: CatalogRow } {
+  const request = schoolStore['purchase-requests']?.rows.find(
+    (r) => r.id === requestId,
+  )
+  if (!request) throw new Error('Purchase request not found')
+  const qty = qtyIn ?? numField(request, 'qty')
+  if (!Number.isFinite(qty) || qty <= 0) {
+    throw new Error('Receive quantity must be positive')
+  }
+
+  let stock =
+    (schoolStore['inventory-stock']?.rows || []).find(
+      (r) => r.id === String(request.stockId || ''),
+    ) ||
+    (schoolStore['inventory-stock']?.rows || []).find(
+      (r) => r.name === request.name,
+    )
+
+  if (!stock) {
+    stock = addRecord('inventory-stock', {
+      name: String(request.name),
+      store: String(request.store || 'Main store'),
+      department: String(request.department || ''),
+      className: String(request.className || 'All classes'),
+      qty: 0,
+      critical: 2,
+      reorder: 5,
+      maxStock: Math.max(20, qty * 2),
+      status: 'Out of stock',
+    })
+  }
+
+  const updatedStock = receiveStock(stock.id, qty, `GRN · ${request.id}`)
+  const updatedRequest = updateRecord('purchase-requests', request.id, {
+    name: request.name,
+    qty: numField(request, 'qty'),
+    store: String(request.store || ''),
+    department: String(request.department || ''),
+    className: String(request.className || ''),
+    requestedBy: String(request.requestedBy || ''),
+    neededBy: String(request.neededBy || ''),
+    priority: String(request.priority || 'Normal'),
+    stockId: updatedStock.id,
+    reason: String(request.reason || ''),
+    status: 'Received',
+    subtitle: `Received ${qty} into ${updatedStock.store || 'store'}`,
+  })
+  return { stock: updatedStock, request: updatedRequest }
 }
 
 /** Receive goods into a stock row (from supplier / donation). */

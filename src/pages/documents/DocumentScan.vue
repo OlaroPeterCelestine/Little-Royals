@@ -22,6 +22,7 @@ import {
 } from '@/data/documents/documentScan'
 import { addRecord } from '@/data/catalog/store'
 import { canCurrentUser } from '@/data/auth/permissions'
+import ListStatCards from '@/components/list/ListStatCards.vue'
 
 const router = useRouter()
 
@@ -52,6 +53,34 @@ const canCreate = computed(() =>
 
 const hasImage = computed(() => Boolean(previewUrl.value))
 const hasFields = computed(() => Boolean(fields.value.name.trim()))
+
+const scanStats = computed(() => {
+  const filled = Object.values(fields.value).filter(
+    (v) => String(v || '').trim(),
+  ).length
+  return [
+    {
+      title: 'Targets',
+      value: scanTargets.length,
+      caption: 'form types you can scan into',
+    },
+    {
+      title: 'Image',
+      value: hasImage.value ? 1 : 0,
+      caption: hasImage.value ? fileName.value || 'ready' : 'none uploaded',
+    },
+    {
+      title: 'Confidence',
+      value: Math.round(confidence.value),
+      caption: confidence.value ? 'OCR %' : 'scan to measure',
+    },
+    {
+      title: 'Fields filled',
+      value: filled,
+      caption: hasFields.value ? 'ready to save' : 'review after scan',
+    },
+  ]
+})
 
 watch(target, () => {
   if (rawText.value) {
@@ -210,6 +239,8 @@ onBeforeUnmount(() => {
       invoice, receipt, or contact card. We read the text on your device and
       fill the fields — review, then save into the school desk.
     </p>
+
+    <ListStatCards :stats="scanStats" />
 
     <input
       ref="fileInput"

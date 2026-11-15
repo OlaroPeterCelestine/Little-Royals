@@ -149,6 +149,7 @@ export const PARENT_ALLOWED_PREFIXES = [
   '/parent-portal',
   '/calendar',
   '/announcements',
+  '/communications',
   '/report-cards',
   '/me',
   '/login',

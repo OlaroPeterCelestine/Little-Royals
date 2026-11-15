@@ -19,16 +19,20 @@ import { currentUser } from '@/data/activity/activity'
 import { canAccessModule } from '@/lib/accessControl'
 import {
   createPurchaseRequestFromStock,
+  ensureStockForItem,
   inventoryHealth,
   isBelowThreshold,
   issueStockToClass,
   lowStockRows,
   numField,
+  openPurchaseForStock,
+  receivePurchaseRequest,
   receiveStock,
   stockStatusFromLevels,
   suggestedOrderQty,
   syncStockStatuses,
 } from '@/data/inventory/inventoryStock'
+import { gradeSelectOptions } from '@/data/school/grades'
 import { useListPage } from '@/composables/useListPage'
 import {
   openCreateDialog,
@@ -44,6 +48,7 @@ import { useModuleAccess } from '@/composables/useModuleAccess'
 import CatalogTable from '@/components/list/CatalogTable.vue'
 import ListToolbar from '@/components/list/ListToolbar.vue'
 import PageIntro from '@/components/list/PageIntro.vue'
+import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import { buildListColumnTracks } from '@/lib/listColumns'
 
 type InventoryTab =
@@ -366,9 +371,21 @@ const recentIssues = computed(() =>
 )
 
 function createRecord() {
-  if (tab.value === 'overview') return
+  if (tab.value === 'overview') tab.value = 'items'
   if (!requirePerm('create', 'create records')) return
-  openCreateDialog(moduleKey.value)
+  const key = moduleKey.value
+  openCreateDialog(key, (row) => {
+    if (key !== 'inventory-items') return
+    try {
+      ensureStockForItem(row, 0)
+      toast.success(
+        `“${row.name}” registered — stock row ready in Main store (qty 0). Receive goods when they arrive.`,
+      )
+      tab.value = 'stock'
+    } catch {
+      /* catalogue saved even if stock seed fails */
+    }
+  })
 }
 
 function editRecord(row: CatalogRow, event?: Event) {
@@ -428,9 +445,12 @@ function requestPurchaseFor(row: CatalogRow) {
     return
   }
   try {
+    const existing = openPurchaseForStock(row.id)
     const created = createPurchaseRequestFromStock(row)
     toast.success(
-      `Purchase request · ${created.name} (qty ${created.qty}) for the school store`,
+      existing
+        ? `Already open · ${created.name} (${created.qty}) — review Purchases`
+        : `Purchase request · ${created.name} (qty ${created.qty})`,
     )
     tab.value = 'requests'
   } catch (err) {
@@ -448,13 +468,84 @@ function requestAllBelowThreshold() {
     toast.info('School store stock is healthy — nothing below threshold')
     return
   }
-  let n = 0
+  let created = 0
+  let skipped = 0
   for (const row of rows) {
+    if (openPurchaseForStock(row.id)) {
+      skipped += 1
+      continue
+    }
     createPurchaseRequestFromStock(row)
-    n += 1
+    created += 1
   }
-  toast.success(`Raised ${n} purchase request${n === 1 ? '' : 's'} for term restock`)
+  if (!created && skipped) {
+    toast.info(
+      `${skipped} alert${skipped === 1 ? '' : 's'} already have open purchase requests`,
+    )
+  } else {
+    toast.success(
+      `Raised ${created} purchase request${created === 1 ? '' : 's'}${
+        skipped ? ` · ${skipped} already open` : ''
+      }`,
+    )
+  }
   tab.value = 'requests'
+}
+
+const issueClassOptions = computed(() => [
+  { label: 'All classes', value: 'All classes' },
+  ...gradeSelectOptions,
+])
+
+function startIssueFlow() {
+  if (!canIssue.value || !canWriteStock.value) {
+    toast.error('Your role cannot issue store items')
+    return
+  }
+  tab.value = 'stock'
+  thresholdFilter.value = 'all'
+  toast.info('Pick a stock line, then use Issue on that row')
+}
+
+function promptReceivePurchase(row: CatalogRow) {
+  if (!canWriteStock.value) {
+    toast.error('Your role cannot receive stock')
+    return
+  }
+  if (String(row.status) === 'Received') {
+    toast.info('This purchase is already marked received')
+    return
+  }
+  dialog.prompt({
+    title: `Receive purchase · ${row.name}`,
+    message: `Book goods into ${row.store || 'Main store'} and close this purchase request.`,
+    icon: 'lucide-package-check',
+    theme: 'green',
+    confirmLabel: 'Receive & close request',
+    fields: [
+      {
+        name: 'qty',
+        label: 'Quantity received',
+        type: 'text',
+        required: true,
+        defaultValue: String(row.qty || 1),
+      },
+    ],
+    onConfirm: async ({ values }) => {
+      try {
+        const qty = Number(values.qty)
+        const result = receivePurchaseRequest(row.id, qty)
+        syncStockStatuses()
+        toast.success(
+          `Received ${qty} · ${result.stock.name} now ${result.stock.qty} on hand`,
+        )
+        tab.value = 'stock'
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not receive')
+        throw err
+      }
+    },
+  })
 }
 
 function promptReceive(row: CatalogRow) {
@@ -525,11 +616,8 @@ function promptIssue(row: CatalogRow) {
         label: 'Class',
         type: 'select',
         required: true,
-        options: [
-          { label: String(row.className || 'All classes'), value: String(row.className || 'All classes') },
-          ...classOptions.value.filter((o) => o.value !== 'All'),
-        ],
-        defaultValue: String(row.className || ''),
+        options: issueClassOptions.value,
+        defaultValue: String(row.className || 'All classes'),
       },
       {
         name: 'issuedTo',
@@ -579,22 +667,28 @@ function statusTheme(status: string) {
     <PageHeaderTitle title="School store" />
     <div class="flex flex-wrap gap-2">
       <Button
-        v-if="canIssue && tab !== 'overview'"
+        v-if="canIssue && canWriteStock"
         icon-left="lucide-hand-coins"
         label="Issue to class"
-        @click="tab = 'issues'; createRecord()"
+        @click="startIssueFlow"
       />
       <Button
-        v-if="canRequestPurchase"
+        v-if="canRequestPurchase && belowThresholdCount"
         icon-left="lucide-shopping-cart"
-        label="Request purchase"
-        @click="tab = 'requests'; createRecord()"
+        label="Restock alerts"
+        @click="requestAllBelowThreshold"
       />
       <Button
-        v-if="tab !== 'overview' && canCreate"
+        v-if="canCreate || tab === 'overview'"
         variant="solid"
         icon-left="lucide-plus"
-        :label="listTab ? TAB_META[listTab].createLabel : 'Add'"
+        :label="
+          tab === 'overview' || tab === 'items'
+            ? 'Register item'
+            : listTab
+              ? TAB_META[listTab].createLabel
+              : 'Add'
+        "
         @click="createRecord"
       />
     </div>
@@ -630,10 +724,38 @@ function statusTheme(status: string) {
       "
     />
 
+    <RelatedLinks />
+
     <PageIntro
-      description="Little Royals school store — uniforms, stationery, lab, sick-bay, PE and classroom stock with thresholds, purchase requests, and issue-to-class."
+      description="Register items → keep stock levels → issue to class or buy when low → receive goods when they arrive."
       :stats="overviewStats"
     />
+
+    <div class="inv-flow mb-4">
+      <button type="button" class="inv-flow__step" @click="tab = 'items'">
+        <span class="inv-flow__n">1</span>
+        <span class="inv-flow__t">Catalogue</span>
+      </button>
+      <span class="inv-flow__arrow" aria-hidden="true">→</span>
+      <button type="button" class="inv-flow__step" @click="tab = 'stock'">
+        <span class="inv-flow__n">2</span>
+        <span class="inv-flow__t">Stock</span>
+      </button>
+      <span class="inv-flow__arrow" aria-hidden="true">→</span>
+      <button
+        type="button"
+        class="inv-flow__step"
+        @click="tab = 'stock'; thresholdFilter = 'below'"
+      >
+        <span class="inv-flow__n">3</span>
+        <span class="inv-flow__t">Issue or buy</span>
+      </button>
+      <span class="inv-flow__arrow" aria-hidden="true">→</span>
+      <button type="button" class="inv-flow__step" @click="tab = 'requests'">
+        <span class="inv-flow__n">4</span>
+        <span class="inv-flow__t">Receive</span>
+      </button>
+    </div>
 
     <Alert
       v-if="belowThresholdCount"
@@ -878,34 +1000,31 @@ function statusTheme(status: string) {
         </template>
       </ListToolbar>
 
-      <div
-        v-if="tab === 'stock' && pageRows.length"
-        class="mb-3 flex flex-wrap gap-2"
+      <p
+        v-if="tab === 'stock'"
+        class="mb-3 text-sm text-ink-gray-5"
       >
-        <template v-for="row in pageRows" :key="`ops-${row.id}`">
-          <Button
-            v-if="canWriteStock"
-            size="sm"
-            icon-left="lucide-package-plus"
-            :label="`Receive · ${row.name}`"
-            @click="promptReceive(row)"
-          />
-          <Button
-            v-if="canIssue && canWriteStock && numField(row, 'qty') > 0"
-            size="sm"
-            icon-left="lucide-hand-coins"
-            :label="`Issue · ${row.name}`"
-            @click="promptIssue(row)"
-          />
-          <Button
-            v-if="canRequestPurchase && isBelowThreshold(row)"
-            size="sm"
-            icon-left="lucide-shopping-cart"
-            :label="`Buy · ${row.name}`"
-            @click="requestPurchaseFor(row)"
-          />
-        </template>
-      </div>
+        On each stock line: <strong>Receive</strong> goods,
+        <strong>Issue</strong> to a class, or <strong>Buy</strong> when below
+        threshold.
+      </p>
+      <p
+        v-else-if="tab === 'requests'"
+        class="mb-3 text-sm text-ink-gray-5"
+      >
+        When supplier goods arrive, use <strong>Receive</strong> on the purchase
+        row — stock goes up and the request closes.
+      </p>
+      <p
+        v-else-if="tab === 'issues'"
+        class="mb-3 text-sm text-ink-gray-5"
+      >
+        Issues are logged when you hand items to a class from
+        <button type="button" class="inv-inline-link" @click="startIssueFlow">
+          Stock
+        </button>
+        (preferred). Or add a manual issue record.
+      </p>
 
       <CatalogTable
         v-if="mod"
@@ -927,12 +1046,121 @@ function statusTheme(status: string) {
         @prev="goToPage(page - 1)"
         @next="goToPage(page + 1)"
         @go="goToPage"
-      />
+      >
+        <template #actions="{ item }">
+          <template v-if="tab === 'stock'">
+            <Button
+              v-if="canWriteStock"
+              class="relative shrink-0"
+              icon="lucide-package-plus"
+              tooltip="Receive into store"
+              aria-label="Receive"
+              @click.stop="promptReceive(item)"
+            />
+            <Button
+              v-if="canIssue && canWriteStock && numField(item, 'qty') > 0"
+              class="relative shrink-0"
+              icon="lucide-hand-coins"
+              tooltip="Issue to class"
+              aria-label="Issue"
+              @click.stop="promptIssue(item)"
+            />
+            <Button
+              v-if="canRequestPurchase && isBelowThreshold(item)"
+              class="relative shrink-0"
+              icon="lucide-shopping-cart"
+              tooltip="Raise purchase request"
+              aria-label="Buy"
+              @click.stop="requestPurchaseFor(item)"
+            />
+          </template>
+          <template v-else-if="tab === 'requests'">
+            <Button
+              v-if="
+                canWriteStock &&
+                !['Received', 'Cancelled'].includes(String(item.status || ''))
+              "
+              class="relative shrink-0"
+              icon="lucide-package-check"
+              tooltip="Receive goods & close request"
+              aria-label="Receive purchase"
+              @click.stop="promptReceivePurchase(item)"
+            />
+          </template>
+          <Button
+            class="relative shrink-0"
+            icon="lucide-eye"
+            :tooltip="`Open ${item.name}`"
+            aria-label="Open"
+            @click.stop="openDetail(item)"
+          />
+          <Button
+            v-if="canWrite"
+            class="relative shrink-0"
+            icon="lucide-pencil"
+            :tooltip="`Edit ${item.name}`"
+            aria-label="Edit"
+            @click="editRecord(item, $event)"
+          />
+        </template>
+      </CatalogTable>
     </template>
   </div>
 </template>
 
 <style scoped>
+.inv-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+.inv-flow__step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--outline-gray-1);
+  background: var(--surface-white);
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--ink-gray-7);
+}
+.inv-flow__step:hover {
+  border-color: color-mix(in srgb, var(--school-blue) 40%, white);
+  color: var(--ink-gray-9);
+}
+.inv-flow__n {
+  display: inline-flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--school-blue) 12%, white);
+  color: var(--school-blue);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.inv-flow__t {
+  font-weight: 550;
+}
+.inv-flow__arrow {
+  color: var(--ink-gray-4);
+  font-size: 0.85rem;
+}
+.inv-inline-link {
+  color: var(--school-blue);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
 .inv-quick {
   display: flex;
   flex-direction: column;

@@ -28,6 +28,7 @@ import {
 } from '@/data/school/schoolSetup'
 import { sanitizeText } from '@/lib/sanitize'
 import SchoolLogo from '@/components/layout/SchoolLogo.vue'
+import ListStatCards from '@/components/list/ListStatCards.vue'
 
 type SetupTab =
   | 'identity'
@@ -75,6 +76,43 @@ const geoPreview = computed(() => {
     mapsUrl: mapsLinkForGeofence(form),
     valid: Boolean(center && radius),
   }
+})
+
+const setupStats = computed(() => {
+  const required = [
+    form.name,
+    form.shortName,
+    form.phone,
+    form.email,
+    form.addressLine1,
+    form.currentTerm,
+    form.academicYear,
+  ]
+  const filled = required.filter((v) => String(v || '').trim()).length
+  return [
+    {
+      title: 'Profile fields',
+      value: filled,
+      caption: `of ${required.length} key fields`,
+    },
+    {
+      title: 'Geofence',
+      value: geoPreview.value.valid ? 1 : 0,
+      caption: geoPreview.value.valid
+        ? `${geoPreview.value.radius} m radius`
+        : 'not configured',
+    },
+    {
+      title: 'Term',
+      value: 1,
+      caption: `${form.currentTerm || '—'} · ${form.academicYear || '—'}`,
+    },
+    {
+      title: 'Unsaved',
+      value: dirty.value ? 1 : 0,
+      caption: dirty.value ? 'changes pending save' : 'all saved',
+    },
+  ]
 })
 
 const radiusOptions = [
@@ -297,6 +335,7 @@ function resetDefaults() {
   </PageHeader>
 
   <div class="school-page max-w-4xl">
+    <ListStatCards :stats="setupStats" />
     <TabButtons v-model="tab" :options="tabs" class="school-tabs" />
 
     <section

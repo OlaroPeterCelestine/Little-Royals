@@ -9,6 +9,7 @@ import {
 import { formatSchoolAddress, schoolSetup } from '@/data/school/schoolSetup'
 import { schoolStore } from '@/data/catalog/store'
 import { escapeHtml, escapeHtmlMultiline } from '@/lib/security'
+import { admissionRequirements } from '@/data/admissions/requirements'
 
 export { escapeHtml as esc }
 
@@ -98,8 +99,9 @@ export const documentCatalog: DocumentDef[] = [
   },
   {
     kind: 'admission-letter',
-    label: 'Letter of admission',
-    description: 'Statutory admission offer letter for new pupils',
+    label: 'Offer of admission',
+    description:
+      'Formal admission offer letter with conditions and registration requirements',
     icon: 'lucide-mail',
     modules: ['admissions'],
     important: true,
@@ -417,6 +419,91 @@ export const statutoryDocumentCss = `
     background: #f7f8fc;
     font-size: 11px;
   }
+  ol.req-list {
+    margin: 8px 0 14px;
+    padding: 0 0 0 1.25rem;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 11.5px;
+  }
+  ol.req-list li {
+    margin: 0 0 7px;
+    padding-left: 2px;
+  }
+  ol.req-list .req-detail {
+    display: block;
+    margin-top: 2px;
+    color: #555;
+    font-size: 10.5px;
+  }
+  ol.req-list .req-optional {
+    color: #666;
+    font-size: 10px;
+    font-style: italic;
+  }
+  /* Formal admission offer letter */
+  .letter-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0 0 16px;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px;
+  }
+  .letter-meta .ref-lines p { margin: 0 0 3px; }
+  .letter-meta .date-line { text-align: right; white-space: nowrap; }
+  .letter-address {
+    margin: 0 0 14px;
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .letter-address p { margin: 0; }
+  .letter-re {
+    margin: 14px 0 12px;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #1f226e;
+    text-align: center;
+    border-top: 1px solid #1f226e;
+    border-bottom: 1px solid #1f226e;
+    padding: 8px 6px;
+  }
+  .letter-body p {
+    margin: 0 0 11px;
+    text-align: justify;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .letter-body .salutation { margin-bottom: 12px; }
+  .letter-body .closing {
+    margin-top: 18px;
+    margin-bottom: 4px;
+  }
+  .letter-schedule {
+    margin: 14px 0 10px;
+    padding: 10px 12px;
+    border: 1px solid #9ea2d4;
+    background: #fafbff;
+  }
+  .letter-schedule h4 {
+    margin: 0 0 8px;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #1f226e;
+  }
+  .letter-schedule table.fields { margin: 0; }
+  .letter-conditions {
+    margin: 12px 0;
+    padding-left: 1.15rem;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .letter-conditions li { margin: 0 0 6px; }
   .badge {
     display: inline-block;
     border: 1px solid #1f226e;
@@ -531,6 +618,25 @@ export const statutoryDocumentCss = `
   }
 `
 
+/** Extra CSS when the Documents studio allows clicking text to edit. */
+export const studioEditCss = `
+  .doc-edit {
+    outline: 1.5px dashed transparent;
+    border-radius: 2px;
+    min-width: 0.75ch;
+    cursor: text;
+    transition: outline-color 0.12s ease, background 0.12s ease;
+  }
+  .doc-edit:hover {
+    outline-color: rgb(139 92 246 / 55%);
+    background: rgb(139 92 246 / 6%);
+  }
+  .doc-edit:focus {
+    outline-color: #8b5cf6;
+    background: rgb(139 92 246 / 10%);
+  }
+`
+
 function issueDate() {
   return new Date().toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -578,13 +684,13 @@ export function letterhead(
       </div>
     </div>
     <div class="doc-title">
-      <p class="kind">${esc(kind)}</p>
-      <h2>${esc(docTitle)}</h2>
+      <p class="kind">${et('doc:kind', kind)}</p>
+      <h2>${et('doc:title', docTitle)}</h2>
     </div>
     <div class="ref-grid">
-      <div><span>Document reference</span><strong>${esc(refNo)}</strong></div>
-      <div><span>Date of issue</span><strong>${esc(issueDate())}</strong></div>
-      <div><span>Academic period</span><strong>${esc(schoolSetup.currentTerm)} ${esc(schoolSetup.academicYear)}</strong></div>
+      <div><span>Document reference</span><strong>${et('doc:ref', refNo)}</strong></div>
+      <div><span>Date of issue</span><strong>${et('doc:issue-date', issueDate())}</strong></div>
+      <div><span>Academic period</span><strong>${et('doc:period', `${schoolSetup.currentTerm} ${schoolSetup.academicYear}`)}</strong></div>
     </div>
   `
 }
@@ -595,9 +701,13 @@ export function wrap(
   opts?: { overlaysHtml?: string; omitOverlays?: boolean },
 ) {
   const cfg = activeCanvas()
-  const note =
-    cfg?.note?.trim()
-      ? `<div class="canvas-note">${esc(cfg.note.trim())}</div>`
+  const noteRaw = cfg?.note?.trim() || ''
+  const note = noteRaw
+    ? studioEditForBuild
+      ? etBlock('doc:note', noteRaw, 'canvas-note')
+      : `<div class="canvas-note">${esc(textValue('doc:note', noteRaw))}</div>`
+    : studioEditForBuild
+      ? etBlock('doc:note', '', 'canvas-note')
       : ''
   // Studio preview omits overlays — drag handles show stamp/signature once.
   const overlays =
@@ -605,12 +715,13 @@ export function wrap(
       ? ''
       : opts?.overlaysHtml || (cfg ? overlayHtmlFromCanvas(cfg) : '')
   const bodyWithNote = `${body}${note}`
+  const extraCss = studioEditForBuild ? studioEditCss : ''
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <title>${esc(title)}</title>
-  <style>${statutoryDocumentCss}</style>
+  <style>${statutoryDocumentCss}${extraCss}</style>
 </head>
 <body>
   <div class="sheet">
@@ -618,8 +729,8 @@ export function wrap(
     ${overlays}
     <div class="sheet-inner">${bodyWithNote}
       <div class="footer">
-        <span>Confidential · For parent / school use only · ${esc(schoolSetup.shortName)}</span>
-        <span>${esc(schoolSetup.currentTerm)} ${esc(schoolSetup.academicYear)} · ${esc(schoolSetup.currency)}</span>
+        <span>${et('doc:footer-left', `Confidential · For parent / school use only · ${schoolSetup.shortName}`)}</span>
+        <span>${et('doc:footer-right', `${schoolSetup.currentTerm} ${schoolSetup.academicYear} · ${schoolSetup.currency}`)}</span>
       </div>
     </div>
   </div>
@@ -630,10 +741,10 @@ export function wrap(
 export function fieldTable(rows: Array<[string, string]>) {
   return `<table class="fields">
     ${rows
-      .map(
-        ([k, v]) =>
-          `<tr><th>${esc(k)}</th><td>${esc(v || '—')}</td></tr>`,
-      )
+      .map(([k, v]) => {
+        const key = `field:${k}`
+        return `<tr><th>${esc(k)}</th><td>${et(key, v || '—')}</td></tr>`
+      })
       .join('')}
   </table>`
 }
@@ -675,19 +786,19 @@ export function signatures(
   return `<div class="sign-row">
     <div class="sign-block">
       <div class="line">
-        <div class="role">${esc(leftLabel)}</div>
-        <div>Name &amp; signature</div>
+        <div class="role">${et('sign:left-role', leftLabel)}</div>
+        <div>${et('sign:left-caption', 'Name & signature')}</div>
       </div>
-      <div class="date-line">Date</div>
+      <div class="date-line">${et('sign:left-date', 'Date')}</div>
     </div>
     ${stampHtml}
     <div class="sign-block">
       ${sigImg}
       <div class="line">
-        <div class="role">${esc(rightLabel)}</div>
-        <div>${esc(schoolSetup.headTeacher)}</div>
+        <div class="role">${et('sign:right-role', rightLabel)}</div>
+        <div>${et('sign:right-name', schoolSetup.headTeacher)}</div>
       </div>
-      <div class="date-line">Date</div>
+      <div class="date-line">${et('sign:right-date', 'Date')}</div>
     </div>
   </div>`
 }
@@ -886,6 +997,35 @@ export function printExamPack(
 }
 
 let omitOverlaysForBuild = false
+let studioEditForBuild = false
+let applyTextOverridesForBuild = true
+
+function textValue(key: string, fallback: string): string {
+  if (applyTextOverridesForBuild) {
+    const override = activeCanvas()?.textOverrides?.[key]
+    if (override != null && String(override).length > 0) return String(override)
+  }
+  return fallback || ''
+}
+
+/** Editable span when studio edit mode is on; otherwise escaped plain text. */
+function et(key: string, fallback: string): string {
+  const value = textValue(key, fallback)
+  if (!studioEditForBuild) return esc(value || '—')
+  return `<span class="doc-edit" data-edit-key="${esc(key)}" contenteditable="true" spellcheck="true">${esc(value || '—')}</span>`
+}
+
+/** Editable block (paragraphs / notices). */
+function etBlock(key: string, fallback: string, className = ''): string {
+  const value = textValue(key, fallback)
+  const cls = ['doc-edit', className].filter(Boolean).join(' ')
+  if (!studioEditForBuild) {
+    return className
+      ? `<div class="${esc(className)}">${esc(value)}</div>`
+      : esc(value)
+  }
+  return `<div class="${esc(cls)}" data-edit-key="${esc(key)}" contenteditable="true" spellcheck="true">${esc(value)}</div>`
+}
 
 function buildDocumentHtmlInner(
   kind: DocumentKind,
@@ -899,14 +1039,18 @@ function buildDocumentHtmlInner(
       `${letterhead('Fee Invoice', String(row.invoice || row.id), { kindLabel: 'Statutory fee invoice' })}
       ${section('Invoice particulars')}
       ${fieldTable([
-        ['Student', row.name],
+        ['Student', String(row.name)],
         ['Invoice no.', String(row.invoice || row.id)],
         ['Amount due', String(row.amount || '—')],
         ['Amount paid', String(row.paid || '—')],
         ['Status', String(row.status || '—')],
         ['Currency', schoolSetup.currency],
       ])}
-      <div class="notice">Please settle outstanding balances at the school accounts office. This invoice is an official school record — retain for your files.</div>
+      ${etBlock(
+        'body:invoice-notice',
+        'Please settle outstanding balances at the school accounts office. This invoice is an official school record — retain for your files.',
+        'notice',
+      )}
       ${signatures('Accounts officer', 'Head teacher')}`,
     )
     return { title, html }
@@ -918,7 +1062,7 @@ function buildDocumentHtmlInner(
     const html = wrap(
       title,
       `${letterhead('Official Fee Receipt', receiptNo, { kindLabel: 'Statutory payment receipt' })}
-      <p>Received with thanks from the guardian of <strong>${esc(row.name)}</strong>.</p>
+      <p>Received with thanks from the guardian of <strong>${et('body:receipt-student', row.name)}</strong>.</p>
       ${section('Receipt particulars')}
       ${fieldTable([
         ['Receipt no.', receiptNo],
@@ -928,40 +1072,144 @@ function buildDocumentHtmlInner(
         ['Payment status', String(row.status || '—')],
         ['Currency', schoolSetup.currency],
       ])}
-      <div class="notice">This receipt is computer-generated on school letterhead and is valid with the school stamp and authorised signature.</div>
+      ${etBlock(
+        'body:receipt-notice',
+        'This receipt is computer-generated on school letterhead and is valid with the school stamp and authorised signature.',
+        'notice',
+      )}
       ${signatures('Cashier / Accounts', 'Head teacher')}`,
     )
     return { title, html }
   }
 
   if (kind === 'admission-letter') {
-    const title = `Letter of Admission · ${row.name}`
+    const title = `Offer of Admission · ${row.name}`
     const program = String(row.program || 'Primary')
-    const term = String(row.term || `${schoolSetup.currentTerm}`)
+    const className = String(row.className || row.grade || row.class || '—')
+    const term = String(row.term || schoolSetup.currentTerm)
+    const year = String(row.academicYear || schoolSetup.academicYear)
+    const parentName = String(row.parentName || 'Parent / Guardian')
+    const learnerName = String(row.name)
+    const refNo = String(row.id)
+    const appRef = String(row.application || '—')
+    const admissionDateRaw = String(
+      row.admissionDate || row.applied || new Date().toISOString().slice(0, 10),
+    )
+    const admissionDateNice = (() => {
+      const d = new Date(admissionDateRaw)
+      return Number.isNaN(d.getTime())
+        ? admissionDateRaw
+        : d.toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })
+    })()
+    const reportingDate = String(
+      row.reportingDate ||
+        `the first day of ${term} ${year} (or as advised by the Admissions Office)`,
+    )
+    const feeLine = String(row.fee || 'As per the current fee schedule')
+    const dob = String(row.dateOfBirth || '—')
+    const gender = String(row.gender || '—')
+    const previousSchool = String(row.previousSchool || '—')
+    const parentPhone = String(row.parentPhone || '—')
+    const parentEmail = String(row.parentEmail || '—')
+    const issued = issueDate()
+
+    const requirements = admissionRequirements(program)
+    const reqHtml = `<ol class="req-list">${requirements
+      .map((r) => {
+        const detail = r.detail
+          ? `<span class="req-detail">${esc(r.detail)}</span>`
+          : ''
+        const optional = r.required
+          ? ''
+          : ` <span class="req-optional">(if applicable)</span>`
+        return `<li>${et(`req:${r.id}`, r.label)}${optional}${detail}</li>`
+      })
+      .join('')}</ol>`
+
     const html = wrap(
       title,
-      `${letterhead('Letter of Admission', String(row.id), { kindLabel: 'Statutory admission offer' })}
-      <p>Dear Parent / Guardian,</p>
-      <p class="block">
-        We are pleased to offer <strong>${esc(row.name)}</strong> admission to
-        <strong>${esc(schoolSetup.name)}</strong> for the
-        <strong>${esc(program)}</strong> section,
-        <strong>${esc(term)} ${esc(schoolSetup.academicYear)}</strong>.
-      </p>
-      ${section('Admission particulars')}
-      ${fieldTable([
-        ['Admission / Ref', row.id],
-        ['Student', row.name],
-        ['Section', program],
-        ['Term', `${term} ${schoolSetup.academicYear}`],
-        ['Admission fee', String(row.fee || 'As per fee schedule')],
-        ['Status', String(row.status || '—')],
-      ])}
-      <div class="notice">
-        Complete registration at the school office within 14 days of this letter.
-        Bring a birth certificate / passport photo and settle any admission fees.
+      `${letterhead('Offer of Admission', refNo, {
+        kindLabel: 'Official admission offer letter',
+      })}
+      <div class="letter-meta">
+        <div class="ref-lines">
+          <p><strong>Our Ref:</strong> ${et('letter:ref', refNo)}</p>
+          <p><strong>Application:</strong> ${et('letter:app', appRef)}</p>
+        </div>
+        <div class="date-line">
+          <p><strong>Date:</strong> ${et('letter:date', issued)}</p>
+        </div>
       </div>
-      <p>We look forward to welcoming your child to the Little Royals family.</p>
+      <div class="letter-address">
+        <p>${et('letter:to-name', parentName)}</p>
+        <p>${et('letter:to-role', 'Parent / Guardian')}</p>
+        <p>${et('letter:to-phone', parentPhone !== '—' ? parentPhone : '')}</p>
+        <p>${et('letter:to-email', parentEmail !== '—' ? parentEmail : '')}</p>
+      </div>
+      <p class="salutation letter-body">${et('body:admission-greeting', `Dear ${parentName},`)}</p>
+      <div class="letter-re">
+        ${et(
+          'letter:re',
+          `Re: Offer of admission — ${learnerName} (${className}, ${program}) · ${term} ${year}`,
+        )}
+      </div>
+      <div class="letter-body">
+        ${etBlock(
+          'body:admission-para1',
+          `Following your application for a place at ${schoolSetup.name}, we are pleased to offer ${learnerName} admission into the ${program} section, Class ${className}, for ${term} ${year}.`,
+        )}
+        ${etBlock(
+          'body:admission-para2',
+          `This offer is made in accordance with the school’s admissions policy and the Uganda national curriculum (NCDC). The place is held for fourteen (14) days from the date of this letter. Please complete registration at the school office on or before the reporting date indicated below.`,
+        )}
+        ${etBlock(
+          'body:admission-para3',
+          `Kindly report with ${learnerName} on ${reportingDate}. Admission / registration fees (${feeLine}) must be settled at the Accounts Office and an official receipt retained. Registration is complete only after documents have been verified and fees receipted.`,
+        )}
+      </div>
+      <div class="letter-schedule">
+        <h4>${et('letter:schedule-title', 'Schedule A — Particulars of the offer')}</h4>
+        ${fieldTable([
+          ['Learner’s full name', learnerName],
+          ['Date of birth', dob],
+          ['Gender', gender],
+          ['Section / class', `${program} · ${className}`],
+          ['Academic year / term', `${year} · ${term}`],
+          ['Previous school', previousSchool],
+          ['Admission date', admissionDateNice],
+          ['Reporting date', reportingDate],
+          ['Admission fee status', feeLine],
+        ])}
+      </div>
+      <div class="letter-body">
+        <p><strong>${et('letter:conditions-heading', 'Conditions of this offer')}</strong></p>
+        <ol class="letter-conditions">
+          <li>${et('letter:cond1', 'Acceptance of this offer and completion of registration within fourteen (14) days.')}</li>
+          <li>${et('letter:cond2', 'Submission of all required documents listed in Schedule B below.')}</li>
+          <li>${et('letter:cond3', 'Payment of the admission / registration fee and first-term fees (or an approved instalment plan).')}</li>
+          <li>${et('letter:cond4', 'Compliance with the school rules, uniform policy, and fee regulations of Little Royals Kindergarten and Primary School.')}</li>
+        </ol>
+      </div>
+      <div class="letter-schedule">
+        <h4>${et('letter:req-title', 'Schedule B — Requirements to complete registration')}</h4>
+        ${etBlock(
+          'body:admission-req-intro',
+          'Please bring the following to the Admissions / Accounts Office when you report:',
+          'block',
+        )}
+        ${reqHtml}
+      </div>
+      <div class="letter-body">
+        ${etBlock(
+          'body:admission-para4',
+          `Should you have any questions, contact the Admissions Office on ${schoolSetup.phone}${schoolSetup.phoneAlt ? ` / ${schoolSetup.phoneAlt}` : ''} or ${schoolSetup.email}. We congratulate you on this offer and look forward to welcoming ${learnerName} to the Little Royals family.`,
+        )}
+        <p class="closing">${et('body:admission-yours', 'Yours faithfully,')}</p>
+      </div>
       ${signatures('Admissions officer', 'Head teacher')}`,
     )
     return { title, html }
@@ -1131,16 +1379,28 @@ export function buildDocumentHtml(
   kind: DocumentKind,
   moduleKey: string,
   row: CatalogRow,
-  opts?: { omitOverlays?: boolean },
+  opts?: {
+    omitOverlays?: boolean
+    /** Make field values / titles contenteditable in the studio iframe. */
+    studioEdit?: boolean
+    /** Merge saved studio text overrides (default true for print/download). */
+    applyTextOverrides?: boolean
+  },
 ): { title: string; html: string } {
   const prevOmit = omitOverlaysForBuild
+  const prevEdit = studioEditForBuild
+  const prevApply = applyTextOverridesForBuild
   omitOverlaysForBuild = Boolean(opts?.omitOverlays)
+  studioEditForBuild = Boolean(opts?.studioEdit)
+  applyTextOverridesForBuild = opts?.applyTextOverrides !== false
   try {
     return withDocumentCanvas(kind, () =>
       buildDocumentHtmlInner(kind, moduleKey, row),
     )
   } finally {
     omitOverlaysForBuild = prevOmit
+    studioEditForBuild = prevEdit
+    applyTextOverridesForBuild = prevApply
   }
 }
 

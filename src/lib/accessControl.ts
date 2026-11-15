@@ -7,6 +7,7 @@ import {
 import { currentUser } from '@/data/activity/activity'
 import { normalizeRole } from '@/data/auth/roles'
 import type { NavGroup } from '@/data/school/workspace'
+import { modulesForDeskPath } from '@/data/school/deskLinks'
 
 /**
  * Map a desk path (and optional query) to catalog modules that gate visibility.
@@ -33,6 +34,9 @@ export function modulesForPath(pathWithQuery: string): string[] {
   }
 
   if (root === 'fees' && segments[1] === 'offset') return ['fees']
+
+  const deskModules = modulesForDeskPath(path)
+  if (deskModules) return deskModules
 
   const special: Record<string, string[]> = {
     'term-overview': ['academic-terms', 'school-events', 'exams', 'gradebook'],

@@ -126,10 +126,47 @@ export const gradeSelectOptions = SCHOOL_GRADES.map((value) => ({
   value,
 }))
 
+/** Create Class / selects: Uganda ladder with section labels. */
+export const ugandaClassLevelOptions = [
+  ...NURSERY_GRADES.map((value) => ({
+    label: `Nursery · ${value}`,
+    value,
+  })),
+  ...LOWER_PRIMARY_GRADES.map((value) => ({
+    label: `Lower primary · ${value}`,
+    value,
+  })),
+  ...UPPER_PRIMARY_GRADES.map((value) => ({
+    label: `Upper primary · ${value}`,
+    value,
+  })),
+]
+
+export const STREAM_OPTIONS = [
+  { label: 'None (whole class)', value: '' },
+  { label: 'A', value: 'A' },
+  { label: 'B', value: 'B' },
+  { label: 'C', value: 'C' },
+  { label: 'Yellow', value: 'Yellow' },
+  { label: 'Blue', value: 'Blue' },
+  { label: 'Red', value: 'Red' },
+  { label: 'Green', value: 'Green' },
+  { label: 'Gold', value: 'Gold' },
+]
+
 export const sectionSelectOptions = SECTIONS.map((value) => ({
   label: value,
   value,
 }))
+
+/** Display name for a class stream, e.g. P.1 + Yellow → "P.1 Yellow". */
+export function classDisplayName(grade: unknown, stream?: unknown): string {
+  const g = String(grade || '').trim()
+  const s = String(stream || '').trim()
+  if (!g) return s
+  if (!s) return g
+  return `${g} ${s}`
+}
 
 /** Ladder index: Baby → Middle → Top → P.1 … P.7 (unknowns last). */
 export function schoolClassRank(value: unknown): number {

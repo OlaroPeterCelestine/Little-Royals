@@ -23,6 +23,7 @@ import {
   sortSchoolClassNames,
 } from '@/data/school/grades'
 import ListStatCards from '@/components/list/ListStatCards.vue'
+import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import CatalogTabDesk from '@/components/list/CatalogTabDesk.vue'
 import AppBackButton from '@/components/layout/AppBackButton.vue'
 import type { CatalogRow } from '@/data/catalog/catalog'
@@ -38,22 +39,25 @@ import { sanitizeNumber } from '@/lib/sanitize'
 const router = useRouter()
 const route = useRoute()
 
-type DeskTab = 'exams' | 'marks' | 'create' | 'results' | 'settings'
+type DeskTab = 'exams' | 'marks' | 'results' | 'settings'
 
 function parseTab(raw: unknown): DeskTab {
   const v = String(raw || '').toLowerCase()
   if (v === 'marks' || v === 'mark') return 'marks'
-  if (v === 'create' || v === 'new') return 'create'
   if (v === 'results' || v === 'exam-results') return 'results'
   if (v === 'settings' || v === 'exam-settings') return 'settings'
+  // Legacy ?tab=create opens Class exams with the create form
   return 'exams'
 }
 
 const tab = ref<DeskTab>(parseTab(route.query.tab))
+const showCreate = ref(
+  ['create', 'new'].includes(String(route.query.tab || '').toLowerCase()) ||
+    String(route.query.create || '') === '1',
+)
 const tabs = [
   { label: 'Class exams', value: 'exams' },
   { label: 'Enter marks', value: 'marks' },
-  { label: 'Create exam', value: 'create' },
   { label: 'Results', value: 'results' },
   { label: 'Settings', value: 'settings' },
 ]
@@ -90,14 +94,34 @@ watch(
   (value) => {
     const query = { ...route.query, tab: value } as Record<string, string>
     if (value === 'exams') delete query.exam
+    else {
+      showCreate.value = false
+      delete query.create
+    }
+    if (value === 'exams' && showCreate.value) query.create = '1'
+    else delete query.create
     router.replace({ path: '/gradebook', query })
   },
   { immediate: true },
 )
 
+watch(showCreate, (open) => {
+  if (tab.value !== 'exams') return
+  const query = { ...route.query, tab: 'exams' } as Record<string, string>
+  if (open) query.create = '1'
+  else delete query.create
+  router.replace({ path: '/gradebook', query })
+})
+
 watch(
   () => route.query.tab,
   (value) => {
+    const raw = String(value || '').toLowerCase()
+    if (raw === 'create' || raw === 'new') {
+      showCreate.value = true
+      if (tab.value !== 'exams') tab.value = 'exams'
+      return
+    }
     const next = parseTab(value)
     if (tab.value !== next) tab.value = next
   },
@@ -395,6 +419,26 @@ function openMarks(examId: string) {
   })
 }
 
+function openCreateForm() {
+  if (!canCreate.value) {
+    toast.error('Your role cannot create examinations')
+    return
+  }
+  if (filterClass.value !== 'All') {
+    createForm.className = filterClass.value
+  } else if (
+    !classSelectOptions.value.some((o) => o.value === createForm.className)
+  ) {
+    createForm.className = classSelectOptions.value[0]?.value || 'P.5 Blue'
+  }
+  showCreate.value = true
+  tab.value = 'exams'
+}
+
+function cancelCreate() {
+  showCreate.value = false
+}
+
 function createExam() {
   if (!canCreate.value) {
     toast.error('Your role cannot create examinations')
@@ -460,6 +504,8 @@ function createExam() {
   createQuestions.value = [
     { id: `q-${Date.now()}`, text: '', marks: 10 },
   ]
+  filterClass.value = String(record.className || filterClass.value)
+  showCreate.value = false
   tab.value = 'marks'
 }
 
@@ -844,11 +890,12 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
   </PageHeader>
 
   <div class="school-page">
+    <RelatedLinks />
     <ListStatCards :stats="stats" />
 
     <TabButtons v-model="tab" :options="tabs" class="school-tabs" />
 
-    <!-- Class exams -->
+    <!-- Class exams (+ create) -->
     <template v-if="tab === 'exams'">
       <div class="school-page-toolbar">
         <FormControl
@@ -860,20 +907,156 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
         />
         <div class="school-page-toolbar__grow" />
         <Button
+          v-if="showCreate"
+          icon-left="lucide-list"
+          label="Back to list"
+          @click="cancelCreate"
+        />
+        <Button
+          v-else
           icon-left="lucide-award"
           label="Results"
           @click="tab = 'results'"
         />
         <Button
-          v-if="canCreate"
+          v-if="canCreate && !showCreate"
           variant="solid"
           icon-left="lucide-plus"
           label="Create exam"
-          @click="tab = 'create'"
+          @click="openCreateForm"
         />
       </div>
 
+      <template v-if="showCreate">
+        <section
+          class="grid gap-4 rounded-6 border border-outline-gray-1 bg-surface-white p-5 sm:grid-cols-2"
+        >
+          <p class="sm:col-span-2 text-sm text-ink-gray-6">
+            Create a class exam — pick the class, subject, and questions, then
+            enter marks for that class.
+          </p>
+          <FormControl
+            v-model="createForm.name"
+            class="sm:col-span-2"
+            label="Examination name"
+            type="text"
+            placeholder="e.g. Term III MOT · Mathematics"
+          />
+          <FormControl
+            v-model="createForm.className"
+            type="select"
+            label="Class"
+            :options="classSelectOptions"
+          />
+          <FormControl
+            v-model="createForm.course"
+            type="select"
+            label="Subject"
+            :options="createSubjectOptions"
+          />
+          <FormControl
+            v-model="createForm.type"
+            type="select"
+            label="Assessment type"
+            :options="typeOptions"
+          />
+          <FormControl
+            v-model="createForm.maxScore"
+            type="number"
+            label="Maximum marks"
+          />
+          <FormControl
+            v-model="createForm.date"
+            type="date"
+            label="Exam date"
+          />
+          <FormControl
+            v-model="createForm.status"
+            type="select"
+            label="Status"
+            :options="statusOptions"
+          />
+          <FormControl
+            v-model="createForm.subtitle"
+            class="sm:col-span-2"
+            type="textarea"
+            label="Notes"
+            placeholder="Topics covered, materials, or marking notes"
+          />
+        </section>
+
+        <section
+          class="space-y-3 rounded-6 border border-outline-gray-1 bg-surface-white p-5"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-base-medium text-ink-gray-9">Exam questions</h2>
+              <p class="text-sm text-ink-gray-6">
+                Type each question here. They print on the exam paper. Marks
+                total {{ questionsTotal }}
+                <span
+                  v-if="questionsTotal !== Number(createForm.maxScore)"
+                >
+                  (max will sync to
+                  {{ questionsTotal || createForm.maxScore }})
+                </span>
+                .
+              </p>
+            </div>
+            <Button
+              icon-left="lucide-plus"
+              label="Add question"
+              @click="addQuestion"
+            />
+          </div>
+
+          <div
+            v-for="(q, index) in createQuestions"
+            :key="q.id"
+            class="grid gap-3 rounded-5 border border-outline-gray-1 bg-surface-gray-1 p-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_6rem_auto]"
+          >
+            <div
+              class="flex size-9 items-center justify-center rounded-full bg-surface-white text-sm-medium text-ink-gray-7"
+            >
+              {{ index + 1 }}
+            </div>
+            <FormControl
+              v-model="q.text"
+              type="textarea"
+              :label="`Question ${index + 1}`"
+              placeholder="e.g. Solve for x: 2x + 5 = 17. Show your working."
+            />
+            <FormControl
+              v-model="q.marks"
+              type="number"
+              label="Marks"
+            />
+            <div class="flex items-end">
+              <Button
+                icon="lucide-trash-2"
+                variant="subtle"
+                :aria-label="`Remove question ${index + 1}`"
+                @click="removeQuestion(q.id)"
+              />
+            </div>
+          </div>
+        </section>
+
+        <div class="school-page-toolbar">
+          <Button label="Cancel" @click="cancelCreate" />
+          <div class="school-page-toolbar__grow" />
+          <Button
+            v-if="canCreate"
+            variant="solid"
+            icon-left="lucide-plus"
+            label="Create exam"
+            @click="createExam"
+          />
+        </div>
+      </template>
+
       <section
+        v-else
         class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"
       >
         <button
@@ -916,12 +1099,21 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
             />
           </div>
         </button>
-        <p
+        <div
           v-if="!filteredExams.length"
-          class="px-4 py-12 text-center text-sm text-ink-gray-5"
+          class="flex flex-col items-center gap-3 px-4 py-12 text-center"
         >
-          No exams for this class yet. Create one to start marking.
-        </p>
+          <p class="text-sm text-ink-gray-5">
+            No exams for this class yet. Create one to start marking.
+          </p>
+          <Button
+            v-if="canCreate"
+            variant="solid"
+            icon-left="lucide-plus"
+            label="Create exam"
+            @click="openCreateForm"
+          />
+        </div>
       </section>
     </template>
 
@@ -1102,12 +1294,21 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
               @click="printLearnerResult(row)"
             />
           </div>
-          <p
+          <div
             v-if="!selectedExam"
-            class="px-4 py-12 text-center text-sm text-ink-gray-5"
+            class="flex flex-col items-center gap-3 px-4 py-12 text-center"
           >
-            Select an examination, or create one for your class.
-          </p>
+            <p class="text-sm text-ink-gray-5">
+              Select an examination, or create one under Class exams.
+            </p>
+            <Button
+              v-if="canCreate"
+              variant="solid"
+              icon-left="lucide-plus"
+              label="Create exam"
+              @click="openCreateForm"
+            />
+          </div>
           <p
             v-else-if="!marks.length"
             class="px-4 py-12 text-center text-sm text-ink-gray-5"
@@ -1118,137 +1319,23 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
       </section>
     </template>
 
-    <!-- Create exam -->
-    <template v-else-if="tab === 'create'">
-      <section
-        class="grid gap-4 rounded-6 border border-outline-gray-1 bg-surface-white p-5 sm:grid-cols-2"
-      >
-        <FormControl
-          v-model="createForm.name"
-          class="sm:col-span-2"
-          label="Examination name"
-          type="text"
-          placeholder="e.g. Term III MOT · Mathematics"
-        />
-        <FormControl
-          v-model="createForm.className"
-          type="select"
-          label="Class"
-          :options="classSelectOptions"
-        />
-        <FormControl
-          v-model="createForm.course"
-          type="select"
-          label="Subject"
-          :options="createSubjectOptions"
-        />
-        <FormControl
-          v-model="createForm.type"
-          type="select"
-          label="Assessment type"
-          :options="typeOptions"
-        />
-        <FormControl
-          v-model="createForm.maxScore"
-          type="number"
-          label="Maximum marks"
-        />
-        <FormControl
-          v-model="createForm.date"
-          type="date"
-          label="Exam date"
-        />
-        <FormControl
-          v-model="createForm.status"
-          type="select"
-          label="Status"
-          :options="statusOptions"
-        />
-        <FormControl
-          v-model="createForm.subtitle"
-          class="sm:col-span-2"
-          type="textarea"
-          label="Notes"
-          placeholder="Topics covered, materials, or marking notes"
-        />
-      </section>
-
-      <section
-        class="space-y-3 rounded-6 border border-outline-gray-1 bg-surface-white p-5"
-      >
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 class="text-base-medium text-ink-gray-9">Exam questions</h2>
-            <p class="text-sm text-ink-gray-6">
-              Type each question here. They print on the exam paper. Marks total
-              {{ questionsTotal }}
-              <span v-if="questionsTotal !== Number(createForm.maxScore)">
-                (max will sync to {{ questionsTotal || createForm.maxScore }})
-              </span>
-              .
-            </p>
-          </div>
-          <Button
-            icon-left="lucide-plus"
-            label="Add question"
-            @click="addQuestion"
-          />
-        </div>
-
-        <div
-          v-for="(q, index) in createQuestions"
-          :key="q.id"
-          class="grid gap-3 rounded-5 border border-outline-gray-1 bg-surface-gray-1 p-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_6rem_auto]"
-        >
-          <div
-            class="flex size-9 items-center justify-center rounded-full bg-surface-white text-sm-medium text-ink-gray-7"
-          >
-            {{ index + 1 }}
-          </div>
-          <FormControl
-            v-model="q.text"
-            type="textarea"
-            :label="`Question ${index + 1}`"
-            placeholder="e.g. Solve for x: 2x + 5 = 17. Show your working."
-          />
-          <FormControl
-            v-model="q.marks"
-            type="number"
-            label="Marks"
-          />
-          <div class="flex items-end">
-            <Button
-              icon="lucide-trash-2"
-              variant="subtle"
-              :aria-label="`Remove question ${index + 1}`"
-              @click="removeQuestion(q.id)"
-            />
-          </div>
-        </div>
-      </section>
-
-      <div class="school-page-toolbar">
-        <p class="school-page-toolbar__meta school-page-toolbar__grow">
-          After creating, open Enter marks for the class.
-        </p>
-        <Button
-          v-if="canCreate"
-          variant="solid"
-          icon-left="lucide-plus"
-          label="Create exam"
-          @click="createExam"
-        />
-      </div>
-    </template>
-
     <!-- Results (was separate /exam-results page) -->
     <template v-else-if="tab === 'results'">
-      <CatalogTabDesk :tabs="resultsTabs" />
+      <CatalogTabDesk
+        :tabs="resultsTabs"
+        :show-stats="false"
+        :show-related="false"
+      />
     </template>
 
     <!-- Settings (was separate sidebar pages) -->
     <template v-else-if="tab === 'settings'">
-      <CatalogTabDesk :tabs="settingsTabs" query-key="settings" />
+      <CatalogTabDesk
+        :tabs="settingsTabs"
+        query-key="settings"
+        :show-stats="false"
+        :show-related="false"
+      />
     </template>
   </div>
 </template>

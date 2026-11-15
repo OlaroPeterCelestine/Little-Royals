@@ -8,6 +8,10 @@ import {
   nextStudentNumber,
   schoolPayAccountFromStudentNumber,
 } from '@/data/students/studentNumber'
+import {
+  classDisplayName,
+  sectionForGrade,
+} from '@/data/school/grades'
 import SchoolFormField from '@/components/forms/SchoolFormField.vue'
 
 const props = defineProps<{
@@ -56,8 +60,56 @@ watch(
   ([first, last]) => {
     if (!props.schema.sections.some((s) => s.fields.some((f) => f.name === 'name' && f.auto)))
       return
+    if (props.schema.module === 'classes') return
     const full = `${String(first || '').trim()} ${String(last || '').trim()}`.trim()
     if (full) values.name = full
+  },
+)
+
+watch(
+  () => [props.schema.module, values.grade, values.stream] as const,
+  () => {
+    if (props.schema.module !== 'classes') return
+    const grade = String(values.grade || '').trim()
+    if (!grade) return
+    values.program = sectionForGrade(grade)
+    if (
+      props.schema.sections.some((s) =>
+        s.fields.some((f) => f.name === 'name' && f.auto),
+      )
+    ) {
+      values.name = classDisplayName(grade, values.stream)
+    }
+  },
+)
+
+watch(
+  () =>
+    [
+      props.schema.module,
+      values.className,
+      values.term,
+      values.course,
+      values.coverage,
+    ] as const,
+  () => {
+    if (props.schema.module !== 'study-coverage') return
+    const className = String(values.className || '').trim()
+    const term = String(values.term || '').trim()
+    const course = String(values.course || '').trim()
+    if (className) values.program = sectionForGrade(className)
+    if (
+      props.schema.sections.some((s) =>
+        s.fields.some((f) => f.name === 'name' && f.auto),
+      ) &&
+      className &&
+      term &&
+      course
+    ) {
+      values.name = `${className} · ${term} · ${course}`
+    }
+    const coverage = String(values.coverage || '').trim()
+    if (coverage) values.subtitle = coverage
   },
 )
 

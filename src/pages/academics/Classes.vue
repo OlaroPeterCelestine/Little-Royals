@@ -34,6 +34,7 @@ import { useModuleAccess } from '@/composables/useModuleAccess'
 import CatalogTable from '@/components/list/CatalogTable.vue'
 import ListToolbar from '@/components/list/ListToolbar.vue'
 import PageIntro from '@/components/list/PageIntro.vue'
+import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import { buildListColumnTracks } from '@/lib/listColumns'
 import { pushWithReturn } from '@/composables/useAppBack'
 
@@ -268,6 +269,8 @@ function clearSelection() {
           : undefined
       "
     />
+
+    <RelatedLinks />
 
     <PageIntro
       v-if="mod"

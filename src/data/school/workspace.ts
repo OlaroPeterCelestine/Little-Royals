@@ -1,5 +1,6 @@
 import { catalog, countByStatus } from '@/data/catalog/catalog'
 import { catalogExtra } from '@/data/catalog/catalogExtra'
+import { deskRouteForModule } from '@/data/school/deskLinks'
 
 export interface ModuleItem {
   label: string
@@ -80,7 +81,11 @@ export const educationNav: NavGroup[] = [
       { label: 'Classes', icon: 'lucide-users', route: '/classes' },
       { label: 'Subjects', icon: 'lucide-book-open', route: '/courses' },
       { label: 'Curriculum', icon: 'lucide-book-copy', route: '/curriculum' },
-      { label: 'Topics', icon: 'lucide-list-tree', route: '/topics' },
+      {
+        label: 'Study coverage',
+        icon: 'lucide-list-tree',
+        route: '/study-coverage',
+      },
       { label: 'Timetable', icon: 'lucide-calendar-clock', route: '/timetable' },
     ],
   },
@@ -101,11 +106,6 @@ export const educationNav: NavGroup[] = [
         label: 'Exams & marks',
         icon: 'lucide-table-2',
         route: '/gradebook?tab=exams',
-      },
-      {
-        label: 'Report cards',
-        icon: 'lucide-file-badge',
-        route: '/report-cards',
       },
     ],
   },
@@ -138,8 +138,11 @@ export const educationNav: NavGroup[] = [
   {
     title: 'Communication',
     items: [
-      { label: 'Announcements', icon: 'lucide-megaphone', route: '/announcements' },
-      { label: 'Messages', icon: 'lucide-messages-square', route: '/communications' },
+      {
+        label: 'Messages & announcements',
+        icon: 'lucide-messages-square',
+        route: '/communications?tab=announcements',
+      },
       { label: 'Calendar', icon: 'lucide-calendar-days', route: '/calendar' },
     ],
   },
@@ -215,8 +218,11 @@ export const parentNav: NavGroup[] = [
     items: [
       { label: 'Parent Portal', icon: 'lucide-house', route: '/parent-portal' },
       { label: 'School Calendar', icon: 'lucide-calendar-days', route: '/calendar' },
-      { label: 'Announcements', icon: 'lucide-megaphone', route: '/announcements' },
-      { label: 'Report Cards', icon: 'lucide-file-badge', route: '/report-cards' },
+      {
+        label: 'Announcements',
+        icon: 'lucide-megaphone',
+        route: '/communications?tab=announcements',
+      },
     ],
   },
 ]
@@ -295,6 +301,14 @@ export const tools: ToolItem[] = [
 
 const allCatalog = { ...catalog, ...catalogExtra }
 
+const hiddenMasterModules = new Set([
+  'academic-terms',
+  'program-enrollments',
+  'course-enrollments',
+  'waiting-list',
+  'topics',
+])
+
 export const masterGroups: MasterGroup[] = Array.from(
   Object.values(allCatalog).reduce((map, mod) => {
     const list = map.get(mod.group) || []
@@ -306,23 +320,14 @@ export const masterGroups: MasterGroup[] = Array.from(
   title,
   icon: 'lucide-folder',
   links: mods
-    .filter(
-      (m) =>
-        m.key !== 'academic-terms' &&
-        m.key !== 'program-enrollments' &&
-        m.key !== 'course-enrollments',
-    )
+    .filter((m) => !hiddenMasterModules.has(m.key))
     .map((m) => ({
       label: m.key === 'academic-years' ? 'Years & terms' : m.title,
-      route: m.key === 'academic-years' ? '/years-and-terms' : `/${m.key}`,
+      route: deskRouteForModule(m.key),
     })),
 }))
 
-const hiddenCommandModules = new Set([
-  'academic-terms',
-  'program-enrollments',
-  'course-enrollments',
-])
+const hiddenCommandModules = new Set([...hiddenMasterModules])
 
 export const commandItems = [
   ...shortcuts.map((s) => ({
@@ -335,7 +340,7 @@ export const commandItems = [
     .filter((m) => !hiddenCommandModules.has(m.key))
     .map((m) => ({
       label: m.key === 'academic-years' ? 'Years & terms' : m.title,
-      route: m.key === 'academic-years' ? '/years-and-terms' : `/${m.key}`,
+      route: deskRouteForModule(m.key),
       group: m.group,
     })),
   { label: 'Users & Roles', route: '/users', group: 'Settings' },
@@ -346,4 +351,15 @@ export const commandItems = [
   { label: 'Reports', route: '/reports', group: 'Settings' },
   { label: 'Parent Portal', route: '/parent-portal', group: 'Communication' },
   { label: 'My profile', route: '/me', group: 'Settings' },
+  { label: 'Library', route: '/library', group: 'Library' },
+  { label: 'Transport', route: '/transport', group: 'Transport' },
+  { label: 'Meals', route: '/meals', group: 'Meals' },
+  { label: 'Health & safety', route: '/health', group: 'Health' },
+  { label: 'Discipline', route: '/discipline', group: 'Discipline' },
+  {
+    label: 'Messages & announcements',
+    route: '/communications?tab=announcements',
+    group: 'Communication',
+  },
+  { label: 'Study coverage', route: '/study-coverage', group: 'Academics' },
 ]

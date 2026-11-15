@@ -32,6 +32,7 @@ import { useModuleAccess } from '@/composables/useModuleAccess'
 import ListPagination from '@/components/list/ListPagination.vue'
 import ListToolbar from '@/components/list/ListToolbar.vue'
 import PageIntro from '@/components/list/PageIntro.vue'
+import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import { pushWithReturn } from '@/composables/useAppBack'
 
 const router = useRouter()
@@ -111,6 +112,7 @@ function openDetail(id: string) {
   </PageHeader>
 
   <div class="school-page">
+    <RelatedLinks />
     <PageIntro
       description="Enrolled pupils across nursery and primary — search, filter, and manage from one desk."
       :stats="studentStats"

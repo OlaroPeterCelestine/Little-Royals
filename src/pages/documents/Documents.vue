@@ -19,16 +19,20 @@ import {
 } from '@/data/documents/documents'
 import {
   canvasConfigFor,
+  clearTextOverrides,
   defaultSignatureDataUrl,
   defaultStampDataUrl,
   readFileAsDataUrl,
   resetCanvasConfig,
+  setTextOverride,
   type DocOverlayAsset,
 } from '@/data/documents/documentCanvas'
 import { schoolSetup } from '@/data/school/schoolSetup'
 import { getLiveModule } from '@/data/catalog/store'
 import type { CatalogRow } from '@/data/catalog/catalog'
 import { canCurrentUser } from '@/data/auth/permissions'
+import ListStatCards from '@/components/list/ListStatCards.vue'
+import RelatedLinks from '@/components/list/RelatedLinks.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -67,6 +71,47 @@ const currentDef = computed(
 const canvas = computed(() =>
   selectedKind.value ? canvasConfigFor(selectedKind.value) : null,
 )
+
+const docStats = computed(() => {
+  const kinds = importantDocuments
+  let withStamp = 0
+  let withSig = 0
+  let customized = 0
+  for (const doc of kinds) {
+    const cfg = canvasConfigFor(doc.kind)
+    if (cfg.stamp.visible) withStamp += 1
+    if (cfg.signature.visible) withSig += 1
+    if (
+      Object.keys(cfg.textOverrides || {}).length ||
+      cfg.stamp.src ||
+      cfg.signature.src
+    ) {
+      customized += 1
+    }
+  }
+  return [
+    {
+      title: 'Document types',
+      value: kinds.length,
+      caption: 'official layouts',
+    },
+    {
+      title: 'Stamp on',
+      value: withStamp,
+      caption: 'canvas stamp visible',
+    },
+    {
+      title: 'Signature on',
+      value: withSig,
+      caption: 'canvas signature visible',
+    },
+    {
+      title: 'Customised',
+      value: customized,
+      caption: 'text / stamp / signature edits',
+    },
+  ]
+})
 
 const moduleOptions = computed(() => {
   const mods = currentDef.value?.modules || []
@@ -109,15 +154,28 @@ watch(
   { immediate: true },
 )
 
+/** Structural deps only — textOverrides are applied inside the iframe so typing does not remount. */
 const previewHtml = computed(() => {
   if (!selectedKind.value || !selectedRow.value) return ''
+  const c = canvas.value
+  if (c) {
+    void c.note
+    void c.leftSigner
+    void c.rightSigner
+    void c.stamp.visible
+    void c.signature.visible
+  }
+  void editMode.value
   try {
-    // Omit stamp/signature from HTML — studio drag handles show them once.
     return buildDocumentHtml(
       selectedKind.value,
       selectedModule.value,
       selectedRow.value,
-      { omitOverlays: true },
+      {
+        omitOverlays: true,
+        studioEdit: editMode.value,
+        applyTextOverrides: false,
+      },
     ).html
   } catch {
     return ''
@@ -131,12 +189,49 @@ const previewTitle = computed(() => {
       selectedKind.value,
       selectedModule.value,
       selectedRow.value,
-      { omitOverlays: true },
+      { omitOverlays: true, applyTextOverrides: true },
     ).title
   } catch {
     return currentDef.value?.label || 'Document'
   }
 })
+
+const previewFrameKey = computed(
+  () =>
+    `${selectedKind.value}|${selectedModule.value}|${selectedRecordId.value}|${editMode.value}|${canvas.value?.note || ''}|${canvas.value?.leftSigner || ''}|${canvas.value?.rightSigner || ''}`,
+)
+
+function onPreviewFrameLoad() {
+  const doc = frameRef.value?.contentDocument
+  const kind = selectedKind.value
+  if (!doc || !kind || !editMode.value) return
+  const cfg = canvasConfigFor(kind)
+  doc.querySelectorAll<HTMLElement>('[data-edit-key]').forEach((el) => {
+    const key = el.getAttribute('data-edit-key')
+    if (!key) return
+    const saved = cfg.textOverrides?.[key]
+    if (saved != null && saved !== '') {
+      el.textContent = saved
+    }
+    el.addEventListener('input', () => {
+      setTextOverride(kind, key, el.textContent || '')
+    })
+    el.addEventListener('blur', () => {
+      setTextOverride(kind, key, (el.textContent || '').trim())
+    })
+  })
+}
+
+function resetDocumentText() {
+  if (!selectedKind.value) return
+  clearTextOverrides(selectedKind.value)
+  // Remount iframe to restore template defaults.
+  editMode.value = false
+  requestAnimationFrame(() => {
+    editMode.value = true
+  })
+  toast.success('Document text edits cleared')
+}
 
 function assertCanPrint(moduleKey: string) {
   if (
@@ -288,6 +383,8 @@ function resetLayout() {
 
 const stageRef = ref<HTMLElement | null>(null)
 const paperRef = ref<HTMLElement | null>(null)
+const frameRef = ref<HTMLIFrameElement | null>(null)
+const editMode = ref(true)
 
 function zoomIn() {
   zoom.value = Math.min(ZOOM_MAX, zoom.value + ZOOM_STEP)
@@ -394,6 +491,9 @@ function setOverlayVisible(target: 'stamp' | 'signature', value: string) {
       Select a document to open the canvas studio — same statutory layout as
       print, with digital stamp and signature you can place and customise.
     </p>
+
+    <RelatedLinks />
+    <ListStatCards :stats="docStats" />
 
     <section class="school-section">
       <h2 class="school-section-title">Important documents</h2>
@@ -528,9 +628,12 @@ function setOverlayVisible(target: 'stamp' | 'signature', value: string) {
           >
             <iframe
               v-if="previewHtml"
+              ref="frameRef"
+              :key="previewFrameKey"
               class="doc-studio-frame"
               title="Document preview"
               :srcdoc="previewHtml"
+              @load="onPreviewFrameLoad"
             />
             <div v-else class="doc-studio-empty">
               No record available for this document yet.
@@ -592,7 +695,30 @@ function setOverlayVisible(target: 'stamp' | 'signature', value: string) {
       <aside class="doc-studio-panel">
         <div class="doc-studio-panel__head">
           <h2>Properties</h2>
-          <p>Drag on the page · resize from the corner</p>
+          <p>
+            Click any purple-dashed text on the page to edit · drag stamp /
+            signature · resize from the corner
+          </p>
+        </div>
+
+        <div class="doc-studio-panel-block">
+          <p class="doc-studio-panel-block__title">Page text</p>
+          <FormControl
+            :model-value="editMode ? 'yes' : 'no'"
+            type="select"
+            label="Edit text on page"
+            :options="[
+              { label: 'On — click fields to type', value: 'yes' },
+              { label: 'Off — view only', value: 'no' },
+            ]"
+            @update:model-value="(v: string) => (editMode = v === 'yes')"
+          />
+          <Button
+            size="sm"
+            icon-left="lucide-type"
+            label="Reset text edits"
+            @click="resetDocumentText"
+          />
         </div>
 
         <div class="doc-studio-panel-block">

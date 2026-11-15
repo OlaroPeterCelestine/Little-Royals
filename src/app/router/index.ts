@@ -241,6 +241,8 @@ export const router = createRouter({
     { path: '/programs/:id', redirect: '/classes' },
     { path: '/programs/:id/edit', redirect: '/classes' },
     { path: '/sections', redirect: '/classes' },
+    { path: '/subjects', redirect: '/courses' },
+    { path: '/subjects/:id', redirect: (to) => `/courses/${to.params.id}` },
 
     {
       path: '/attendance',
@@ -344,8 +346,7 @@ export const router = createRouter({
     },
     {
       path: '/announcements',
-      name: 'announcements',
-      component: () => import('@/pages/communications/Announcements.vue'),
+      redirect: { path: '/communications', query: { tab: 'announcements' } },
     },
     {
       path: '/communications',
@@ -355,12 +356,18 @@ export const router = createRouter({
     {
       path: '/sms-messages',
       name: 'sms-messages',
-      redirect: { path: '/communications', query: { channel: 'SMS' } },
+      redirect: {
+        path: '/communications',
+        query: { tab: 'messages', channel: 'SMS' },
+      },
     },
     {
       path: '/message-templates',
       name: 'message-templates',
-      redirect: { path: '/communications', query: { channel: 'templates' } },
+      redirect: {
+        path: '/communications',
+        query: { tab: 'messages', channel: 'templates' },
+      },
     },
     {
       path: '/parent-portal',
@@ -418,8 +425,11 @@ export const router = createRouter({
     },
     {
       path: '/report-cards',
-      name: 'report-cards',
-      component: () => import('@/pages/exams/ReportCards.vue'),
+      redirect: '/students',
+    },
+    {
+      path: '/report-cards/:id',
+      redirect: (to) => `/students/${to.params.id}`,
     },
     {
       path: '/timetable',
@@ -505,6 +515,14 @@ export const router = createRouter({
     {
       path: '/course-enrollments/:id',
       redirect: { path: '/admissions', query: { tab: 'admissions' } },
+    },
+    {
+      path: '/topics',
+      redirect: '/study-coverage',
+    },
+    {
+      path: '/topics/:id',
+      redirect: (to) => `/study-coverage/${to.params.id}`,
     },
     {
       path: '/term-overview',

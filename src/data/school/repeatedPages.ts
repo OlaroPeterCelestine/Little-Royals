@@ -9,7 +9,7 @@ export const repeatedPageClusters = [
     id: 'exams',
     primary: '/gradebook',
     label: 'Exams & marks',
-    tabs: ['exams', 'marks', 'create', 'results', 'settings'],
+    tabs: ['exams', 'marks', 'results', 'settings'],
     absorb: [
       '/exams',
       '/exam-results',

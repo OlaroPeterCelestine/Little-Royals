@@ -11,6 +11,7 @@ import {
 import { schoolStore } from '@/data/catalog/store'
 import { schoolSetup } from '@/data/school/schoolSetup'
 import { currentUser } from '@/data/activity/activity'
+import { printRecordDocument } from '@/data/documents/documents'
 import ListStatCards from '@/components/list/ListStatCards.vue'
 
 const router = useRouter()
@@ -132,8 +133,18 @@ const stats = computed(() => [
 ])
 
 function printReport(id: string) {
-  router.push({ path: '/report-cards', query: { id } })
-  toast.success('Open report card to print')
+  const card = reportCards.value.find((r) => r.id === id)
+  const row = card || student.value
+  if (!row) {
+    toast.error('Report card not found')
+    return
+  }
+  printRecordDocument(
+    'report-card',
+    card ? 'report-cards' : 'students',
+    row,
+  )
+  toast.success(`Report card · ${row.name}`)
 }
 
 function payFees() {

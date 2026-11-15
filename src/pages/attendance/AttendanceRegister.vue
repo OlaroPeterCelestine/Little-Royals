@@ -10,6 +10,7 @@ import {
 } from 'frappe-ui'
 import { gradeSelectOptions } from '@/data/school/grades'
 import { addRecord, getLiveModule } from '@/data/catalog/store'
+import ListStatCards from '@/components/list/ListStatCards.vue'
 
 const router = useRouter()
 const students = computed(() => getLiveModule('students')?.rows || [])
@@ -49,6 +50,25 @@ const sessionOptions = ['Morning', 'Afternoon', 'Period'].map((v) => ({
 }))
 
 const saving = ref(false)
+
+const registerStats = computed(() => {
+  const list = classLearners.value
+  const counts = { Present: 0, Absent: 0, Late: 0, Excused: 0 }
+  for (const learner of list) {
+    const s = (statuses[learner.id] || 'Present') as keyof typeof counts
+    if (s in counts) counts[s] += 1
+  }
+  return [
+    { title: 'Learners', value: list.length, caption: form.className },
+    { title: 'Present', value: counts.Present },
+    { title: 'Absent', value: counts.Absent },
+    {
+      title: 'Late / excused',
+      value: counts.Late + counts.Excused,
+      caption: `${counts.Late} late · ${counts.Excused} excused`,
+    },
+  ]
+})
 
 function saveRegister() {
   if (!classLearners.value.length) {
@@ -94,6 +114,8 @@ function saveRegister() {
       Class-based register — mark every learner in one pass. Do not open a
       separate form per pupil.
     </p>
+
+    <ListStatCards :stats="registerStats" />
 
     <section class="school-card grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <FormControl v-model="form.date" type="date" label="Date *" />
