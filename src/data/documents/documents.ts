@@ -212,7 +212,7 @@ const esc = escapeHtml
 
 /** Shared statutory print CSS — all official school documents use this shell. */
 export const statutoryDocumentCss = `
-  @page { size: A4; margin: 12mm; }
+  @page { size: A4; margin: 12mm 12mm 14mm; }
   * { box-sizing: border-box; }
   body {
     font-family: "Times New Roman", Times, Georgia, serif;
@@ -232,6 +232,8 @@ export const statutoryDocumentCss = `
     outline: 1px solid #1f226e;
     outline-offset: 4px;
     background: #fff;
+    /* Long letters (admission) must paginate cleanly */
+    overflow: visible;
   }
   .watermark {
     position: absolute;
@@ -523,6 +525,37 @@ export const statutoryDocumentCss = `
     margin-top: 36px;
     font-family: "Helvetica Neue", Arial, sans-serif;
     font-size: 11px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* Keep small chrome together — never force Schedule A / big tables onto a new page */
+  .head,
+  .regs,
+  .ribbon,
+  .contact,
+  .accent {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .letter-schedule,
+  .letter-conditions,
+  .letter-body,
+  table.fields,
+  table.data {
+    page-break-inside: auto;
+    break-inside: auto;
+    page-break-before: auto;
+    break-before: auto;
+  }
+  table.fields tr,
+  table.data tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .letter-body p,
+  .letter-body .block {
+    orphans: 2;
+    widows: 2;
   }
   .sign-block { flex: 1; min-width: 0; }
   .sign-block .line {
@@ -604,18 +637,91 @@ export const statutoryDocumentCss = `
   }
   .footer {
     margin-top: 22px;
-    padding-top: 8px;
+    padding-top: 10px;
     border-top: 1px solid #b8bbe0;
     font-family: "Helvetica Neue", Arial, sans-serif;
     font-size: 9px;
     color: #555;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: end;
+    gap: 0.75rem 1rem;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .footer-serial span,
+  .footer-meta span {
+    display: block;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #1f226e;
+    margin-bottom: 3px;
+  }
+  .footer-serial strong {
+    display: block;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: #111;
+  }
+  .footer-meta { text-align: right; }
+  .footer-seal {
     display: flex;
-    justify-content: space-between;
-    gap: 1rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2px;
+    min-width: 4.5rem;
+  }
+  .footer-seal img {
+    width: 52px;
+    height: 52px;
+    object-fit: contain;
+  }
+  .footer-seal em {
+    font-style: normal;
+    font-size: 7.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #2e3192;
   }
   @media print {
+    @page {
+      size: A4;
+      margin: 12mm 12mm 14mm;
+    }
     body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-    .sheet { outline-offset: 3px; }
+    .sheet {
+      max-width: none;
+      margin: 0;
+      border: 2.5px solid #1f226e;
+      outline: 1px solid #1f226e;
+      outline-offset: 3px;
+      padding: 10px 12px 8px;
+      -webkit-box-decoration-break: clone;
+      box-decoration-break: clone;
+    }
+    .sheet-inner {
+      border: none;
+      outline: none;
+      padding: 0;
+    }
+    .watermark {
+      position: fixed;
+      inset: 30% 10%;
+      opacity: 0.04;
+    }
+    .doc-overlay-layer {
+      position: absolute;
+      top: auto !important;
+      bottom: 18mm;
+    }
+    .footer {
+      page-break-before: avoid;
+      break-before: avoid;
+    }
   }
 `
 
@@ -650,11 +756,32 @@ function issueDate() {
   })
 }
 
+/** Active document reference for serial footer (set by letterhead). */
+let activeDocRef = ''
+
+/** Official serial for the printed sheet (school code · year · ref). */
+export function documentSerial(refNo: string) {
+  const code = String(schoolSetup.initials || schoolSetup.shortName || 'LR')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .slice(0, 6)
+    .toUpperCase() || 'LR'
+  const year = String(schoolSetup.academicYear || new Date().getFullYear())
+    .replace(/[^0-9]/g, '')
+    .slice(0, 4) || String(new Date().getFullYear())
+  const compact = String(refNo || 'DOC')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .slice(-10)
+    .toUpperCase()
+  const padded = (compact || '0001').padStart(4, '0')
+  return `${code}-${year}-${padded}`
+}
+
 export function letterhead(
   docTitle: string,
   refNo: string,
   opts?: { kindLabel?: string },
 ) {
+  activeDocRef = String(refNo || '')
   const address = escapeHtmlMultiline(formatSchoolAddress())
   const kind = opts?.kindLabel || 'Statutory school document'
   return `
@@ -703,7 +830,7 @@ export function letterhead(
 export function wrap(
   title: string,
   body: string,
-  opts?: { overlaysHtml?: string; omitOverlays?: boolean },
+  opts?: { overlaysHtml?: string; omitOverlays?: boolean; serial?: string },
 ) {
   const cfg = activeCanvas()
   const noteRaw = cfg?.note?.trim() || ''
@@ -722,6 +849,10 @@ export function wrap(
   const bodyWithNote = `${body}${note}`
   const designCss = cfg ? designCssFromConfig(cfg) : ''
   const extraCss = studioEditForBuild ? studioEditCss : ''
+  const serial =
+    opts?.serial ||
+    documentSerial(activeDocRef || title)
+  const sealSrc = cfg?.stamp.src || defaultStampDataUrl()
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -734,9 +865,20 @@ export function wrap(
     <div class="watermark" aria-hidden="true">${esc(schoolSetup.initials || 'LR')}</div>
     ${overlays}
     <div class="sheet-inner">${bodyWithNote}
-      <div class="footer">
-        <span>${et('doc:footer-left', `Confidential · For parent / school use only · ${schoolSetup.shortName}`)}</span>
-        <span>${et('doc:footer-right', `${schoolSetup.currentTerm} ${schoolSetup.academicYear} · ${schoolSetup.currency}`)}</span>
+      <div class="footer" role="contentinfo">
+        <div class="footer-serial">
+          <span>${et('doc:serial-label', 'Serial No.')}</span>
+          <strong>${et('doc:serial', serial)}</strong>
+        </div>
+        <div class="footer-seal">
+          <img src="${esc(sealSrc)}" alt="Official school seal" />
+          <em>${et('doc:seal-label', 'Official seal')}</em>
+        </div>
+        <div class="footer-meta">
+          <span>${et('doc:footer-school-label', 'Issued by')}</span>
+          ${et('doc:footer-school', schoolSetup.shortName)}
+          <br />${et('doc:footer-period', `${schoolSetup.currentTerm} ${schoolSetup.academicYear}`)}
+        </div>
       </div>
     </div>
   </div>
@@ -1197,7 +1339,7 @@ function buildDocumentHtmlInner(
           <li>${et('letter:cond1', 'Acceptance of this offer and completion of registration within fourteen (14) days.')}</li>
           <li>${et('letter:cond2', 'Submission of all required documents listed in Schedule B below.')}</li>
           <li>${et('letter:cond3', 'Payment of the admission / registration fee and first-term fees (or an approved instalment plan).')}</li>
-          <li>${et('letter:cond4', 'Compliance with the school rules, uniform policy, and fee regulations of Little Royals Kindergarten and Primary School.')}</li>
+          <li>${et('letter:cond4', `Compliance with the school rules, uniform policy, and fee regulations of ${schoolSetup.name}.`)}</li>
         </ol>
       </div>
       <div class="letter-schedule">
@@ -1212,7 +1354,7 @@ function buildDocumentHtmlInner(
       <div class="letter-body">
         ${etBlock(
           'body:admission-para4',
-          `Should you have any questions, contact the Admissions Office on ${schoolSetup.phone}${schoolSetup.phoneAlt ? ` / ${schoolSetup.phoneAlt}` : ''} or ${schoolSetup.email}. We congratulate you on this offer and look forward to welcoming ${learnerName} to the Little Royals family.`,
+          `Should you have any questions, contact the Admissions Office on ${schoolSetup.phone}${schoolSetup.phoneAlt ? ` / ${schoolSetup.phoneAlt}` : ''} or ${schoolSetup.email}. We congratulate you on this offer and look forward to welcoming ${learnerName} to the ${schoolSetup.shortName} family.`,
         )}
         <p class="closing">${et('body:admission-yours', 'Yours faithfully,')}</p>
       </div>
@@ -1260,17 +1402,48 @@ function buildDocumentHtmlInner(
   }
 
   if (kind === 'report-card') {
-    const student = moduleKey === 'students' ? row : findStudentByName(row.name) || row
+    // Prefer fields from a published report-cards row; fall back to student + results.
+    const isCard = moduleKey === 'report-cards'
+    const student =
+      moduleKey === 'students'
+        ? row
+        : findStudentByName(String(row.student || row.name)) ||
+          (row.studentId
+            ? schoolStore.students?.rows.find(
+                (s) => String(s.id) === String(row.studentId),
+              )
+            : undefined) ||
+          row
+    const learnerName = String(
+      isCard ? row.student || row.name || student.name : student.name,
+    )
     const results = (schoolStore['exam-results']?.rows || []).filter(
-      (r) => r.name === student.name,
+      (r) => r.name === learnerName,
     )
     const attendance = (schoolStore.attendance?.rows || []).filter(
-      (r) => r.name === student.name,
+      (r) => r.name === learnerName,
     )
     const present = attendance.filter((r) =>
       ['Present', 'Late'].includes(String(r.status)),
     ).length
-    const title = `Report Card · ${student.name}`
+    const average =
+      row.average != null && String(row.average) !== ''
+        ? String(row.average)
+        : student.average != null
+          ? String(student.average)
+          : '—'
+    const division = String(row.division || '—')
+    const position = String(row.position || '—')
+    const teacherComment = String(row.teacherComment || '')
+    const headComment = String(row.headComment || '')
+    const studentNo = String(
+      row.studentId || student.id || row.id || '—',
+    )
+    const className = String(
+      row.className || row.grade || student.className || '—',
+    )
+    const program = String(row.program || student.program || '—')
+    const title = `Report Card · ${learnerName}`
     const resultRows =
       results.length > 0
         ? results
@@ -1280,16 +1453,26 @@ function buildDocumentHtmlInner(
             )
             .join('')
         : `<tr><td colspan="4">No posted results for this term yet.</td></tr>`
+    const commentsHtml =
+      teacherComment || headComment
+        ? `${section('Comments')}
+      ${fieldTable([
+        ['Class teacher', teacherComment || '—'],
+        ['Head teacher', headComment || '—'],
+      ])}`
+        : ''
     const html = wrap(
       title,
-      `${letterhead('Term Report Card', String(student.id), { kindLabel: 'Statutory learner report' })}
+      `${letterhead('Term Report Card', studentNo, { kindLabel: 'Statutory learner report' })}
       ${section('Learner particulars')}
       ${fieldTable([
-        ['Student', student.name],
-        ['Student number', student.id],
-        ['Class', String(student.className || '—')],
-        ['Section', String(student.program || '—')],
-        ['Average', student.average != null ? String(student.average) : '—'],
+        ['Student', learnerName],
+        ['Student number', studentNo],
+        ['Class', className],
+        ['Section', program],
+        ['Average', average],
+        ['Division', division],
+        ['Position', position],
         [
           'Attendance',
           attendance.length
@@ -1302,6 +1485,7 @@ function buildDocumentHtmlInner(
         <thead><tr><th>Subject / paper</th><th>Mark %</th><th>Agg / band</th><th>Status</th></tr></thead>
         <tbody>${resultRows}</tbody>
       </table>
+      ${commentsHtml}
       <div class="notice">
         Nursery reports use readiness bands (Emerging–Exceeding). Primary uses
         UNEB-style aggregates (D1–F9). Contact the school on
@@ -1433,11 +1617,14 @@ export function openPrintWindow(title: string, html: string) {
   const generation = ++printGeneration
   printDialogOpen = true
 
+  // Blob URL so Chrome print chrome does not show /admissions (or other) path.
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const blobUrl = URL.createObjectURL(blob)
+
   const iframe = document.createElement('iframe')
   iframe.id = 'lr-print-frame'
   iframe.title = title
   iframe.setAttribute('aria-hidden', 'true')
-  iframe.setAttribute('sandbox', 'allow-modals allow-same-origin')
   Object.assign(iframe.style, {
     position: 'fixed',
     right: '0',
@@ -1448,8 +1635,16 @@ export function openPrintWindow(title: string, html: string) {
     opacity: '0',
     pointerEvents: 'none',
   })
-  iframe.srcdoc = html
+  iframe.src = blobUrl
   document.body.appendChild(iframe)
+
+  const revokeBlob = () => {
+    try {
+      URL.revokeObjectURL(blobUrl)
+    } catch {
+      /* ignore */
+    }
+  }
 
   let printed = false
   let readyHandled = false
@@ -1475,7 +1670,10 @@ export function openPrintWindow(title: string, html: string) {
     clearTimers()
     printDialogOpen = false
     schedule(() => {
-      if (generation === printGeneration) clearPrintFrame()
+      if (generation === printGeneration) {
+        clearPrintFrame()
+        revokeBlob()
+      }
     }, 400)
   }
 

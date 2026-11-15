@@ -11,6 +11,7 @@ import {
   toast,
 } from 'frappe-ui'
 import PersonAvatar from '@/components/common/PersonAvatar.vue'
+import PersonPhotoUpload from '@/components/common/PersonPhotoUpload.vue'
 import { getStudent360 } from '@/data/students/student360'
 import {
   buildSubjectAggregates,
@@ -488,7 +489,7 @@ function confirmDelete() {
     confirmLabel: 'Yes, delete forever',
     cancelLabel: 'Keep student',
     onConfirm: async () => {
-      deleteRecords('students', [student.id])
+      await deleteRecords('students', [student.id])
       toast.warning(`Student “${student.name}” deleted`)
       await router.push(personListPath('students'))
     },
@@ -547,9 +548,12 @@ function statusTheme(status?: string) {
     <template v-else>
       <section class="school-detail-hero">
         <div class="school-detail-hero__main">
-          <PersonAvatar
+          <PersonPhotoUpload
             :person="bundle.student"
-            size="3xl"
+            module-key="students"
+            folder="Photos/students"
+            size="xl"
+            :can-edit="canWrite"
             class="school-person-avatar--hero"
           />
           <div class="school-detail-hero__text">

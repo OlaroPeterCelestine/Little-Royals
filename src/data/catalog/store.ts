@@ -26,10 +26,16 @@ import {
 import { sortSchoolClassRows } from '@/data/school/grades'
 import { asString, type RecordValues } from '@/types/records'
 import { sanitizeFieldValue, sanitizeText } from '@/lib/sanitize'
+import { isApiEnabled } from '@/lib/apiMode'
 import {
-  syncCreateToApi,
-  syncDeleteToApi,
-  syncUpdateToApi,
+  bodyFromRow,
+  createOnServer,
+  deleteOnServer,
+  isServerModule,
+  rowFromApi,
+  TYPED_API_MODULES,
+  updateOnServer,
+  UUID_RE,
 } from '@/data/catalog/catalogSync'
 
 function appendAuditLog(input: {
@@ -149,7 +155,42 @@ function assignRowFields(row: CatalogRow, mod: CatalogModule, values: RecordValu
   }
 }
 
-export function addRecord(key: string, values: RecordValues): CatalogRow {
+function applyAudit(
+  action: 'Created' | 'Updated' | 'Deleted',
+  key: string,
+  mod: CatalogModule,
+  row: CatalogRow,
+  changes: FieldChange[],
+) {
+  const severity =
+    action === 'Created' ? 'success' : action === 'Deleted' ? 'danger' : 'info'
+  logActivity({
+    action,
+    module: key,
+    moduleLabel: mod.singular,
+    recordId: row.id,
+    recordName: row.name,
+    summary: `${action} ${mod.singular.toLowerCase()} ${row.name}`,
+    severity,
+    changes,
+  })
+  appendAuditLog({
+    action: `${action} ${mod.singular}`,
+    module: key,
+    recordId: row.id,
+    recordName: row.name,
+    changes,
+  })
+}
+
+/**
+ * Create a record — server first when the API is on.
+ * Local demo/offline mode only writes in-memory.
+ */
+export async function addRecord(
+  key: string,
+  values: RecordValues,
+): Promise<CatalogRow> {
   const mod = schoolStore[key]
   if (!mod) throw new Error(`Unknown module: ${key}`)
   const name = sanitizeText(asString(values.name), 'name')
@@ -161,7 +202,7 @@ export function addRecord(key: string, values: RecordValues): CatalogRow {
   )
   if (duplicate) throw new Error(`“${name}” already exists in ${mod.title}`)
 
-  const id =
+  const provisionalId =
     asString(values.id).trim() ||
     (key === 'students'
       ? nextStudentNumber(
@@ -171,55 +212,59 @@ export function addRecord(key: string, values: RecordValues): CatalogRow {
       : nextId(key, mod.key.slice(0, 3).toUpperCase()))
 
   if (key === 'students') {
-    if (!asString(values.studentNumber).trim()) values.studentNumber = id
+    if (!asString(values.studentNumber).trim()) {
+      values.studentNumber = provisionalId
+    }
     if (!asString(values.learnerNumber).trim()) {
-      values.learnerNumber = learnerNumberFromStudentNumber(id)
+      values.learnerNumber = learnerNumberFromStudentNumber(
+        String(values.studentNumber || provisionalId),
+      )
     }
     if (!asString(values.schoolPayAccount).trim()) {
-      values.schoolPayAccount = schoolPayAccountFromStudentNumber(id)
+      values.schoolPayAccount = schoolPayAccountFromStudentNumber(
+        String(values.studentNumber || provisionalId),
+      )
     }
   }
 
   const status = values.status ? asString(values.status) : 'Active'
-  const row: CatalogRow = {
-    id,
+  const draft: CatalogRow = {
+    id: provisionalId,
     name,
     status,
     statusTheme: statusTheme(status),
     subtitle: values.subtitle ? asString(values.subtitle) : undefined,
   }
+  assignRowFields(draft, mod, values)
 
-  assignRowFields(row, mod, values)
+  let row = draft
+  if (isApiEnabled()) {
+    if (!isServerModule(key)) {
+      throw new Error(`“${key}” is not available on the server`)
+    }
+    const body = bodyFromRow({ ...draft, ...values, name })
+    body.name = name
+    if (TYPED_API_MODULES.has(key) && !UUID_RE.test(String(body.id || ''))) {
+      delete body.id
+    }
+    row = rowFromApi(await createOnServer(key, body as { name: string }))
+    if (row.status) row.statusTheme = statusTheme(String(row.status))
+  }
 
   mod.rows.unshift(row)
   keepModuleOrder(key)
-  const changes = changesFromCreate(snapshotRecord(row))
-  logActivity({
-    action: 'Created',
-    module: key,
-    moduleLabel: mod.singular,
-    recordId: row.id,
-    recordName: row.name,
-    summary: `Created ${mod.singular.toLowerCase()} ${row.name}`,
-    severity: 'success',
-    changes,
-  })
-  appendAuditLog({
-    action: `Created ${mod.singular}`,
-    module: key,
-    recordId: row.id,
-    recordName: row.name,
-    changes,
-  })
-  syncCreateToApi(key, row)
+  applyAudit('Created', key, mod, row, changesFromCreate(snapshotRecord(row)))
   return row
 }
 
-export function updateRecord(
+/**
+ * Update a record — server first when the API is on.
+ */
+export async function updateRecord(
   key: string,
   id: string,
   values: RecordValues,
-): CatalogRow {
+): Promise<CatalogRow> {
   const mod = schoolStore[key]
   if (!mod) throw new Error(`Unknown module: ${key}`)
   const row = mod.rows.find((r) => r.id === id)
@@ -236,70 +281,66 @@ export function updateRecord(
 
   const before = snapshotRecord(row)
 
-  row.name = name
-  if (values.status) {
-    const status = asString(values.status)
-    row.status = status
-    row.statusTheme = statusTheme(status)
+  if (isApiEnabled()) {
+    if (!isServerModule(key)) {
+      throw new Error(`“${key}” is not available on the server`)
+    }
+    const body = bodyFromRow({ ...row, ...values, name })
+    body.name = name
+    delete body.id
+    const updated = await updateOnServer(key, id, body)
+    Object.keys(row).forEach((k) => {
+      if (k !== 'id') delete (row as Record<string, unknown>)[k]
+    })
+    Object.assign(row, updated)
+    if (row.status) row.statusTheme = statusTheme(String(row.status))
+  } else {
+    row.name = name
+    if (values.status) {
+      const status = asString(values.status)
+      row.status = status
+      row.statusTheme = statusTheme(status)
+    }
+    if (values.subtitle !== undefined) {
+      row.subtitle = values.subtitle ? asString(values.subtitle) : undefined
+    }
+    assignRowFields(row, mod, values)
   }
-  if (values.subtitle !== undefined) {
-    row.subtitle = values.subtitle ? asString(values.subtitle) : undefined
-  }
-  assignRowFields(row, mod, values)
-  keepModuleOrder(key)
 
+  keepModuleOrder(key)
   const after = snapshotRecord(row)
-  const changes = diffRecords(before, after)
-  logActivity({
-    action: 'Updated',
-    module: key,
-    moduleLabel: mod.singular,
-    recordId: row.id,
-    recordName: row.name,
-    summary: `Updated ${mod.singular.toLowerCase()} ${row.name}`,
-    severity: 'info',
-    changes,
-  })
-  appendAuditLog({
-    action: `Updated ${mod.singular}`,
-    module: key,
-    recordId: row.id,
-    recordName: row.name,
-    changes,
-  })
-  syncUpdateToApi(key, id, values)
+  applyAudit('Updated', key, mod, row, diffRecords(before, after))
   return row
 }
 
-export function deleteRecords(key: string, ids: string[]) {
+/**
+ * Delete records — server first when the API is on.
+ */
+export async function deleteRecords(key: string, ids: string[]) {
   const mod = schoolStore[key]
   if (!mod) throw new Error(`Unknown module: ${key}`)
   if (!ids.length) throw new Error('Select at least one record to delete')
   const doomed = mod.rows.filter((r) => ids.includes(r.id))
+
+  if (isApiEnabled()) {
+    if (!isServerModule(key)) {
+      throw new Error(`“${key}” is not available on the server`)
+    }
+    await deleteOnServer(key, ids)
+  }
+
   const countBefore = mod.rows.length
   mod.rows = mod.rows.filter((r) => !ids.includes(r.id))
   const removed = countBefore - mod.rows.length
   for (const row of doomed) {
-    const changes = changesFromDelete(snapshotRecord(row))
-    logActivity({
-      action: 'Deleted',
-      module: key,
-      moduleLabel: mod.singular,
-      recordId: row.id,
-      recordName: row.name,
-      summary: `Deleted ${mod.singular.toLowerCase()} ${row.name}`,
-      severity: 'danger',
-      changes,
-    })
-    appendAuditLog({
-      action: `Deleted ${mod.singular}`,
-      module: key,
-      recordId: row.id,
-      recordName: row.name,
-      changes,
-    })
+    applyAudit(
+      'Deleted',
+      key,
+      mod,
+      row,
+      changesFromDelete(snapshotRecord(row)),
+    )
   }
-  syncDeleteToApi(key, ids)
   return removed
 }
 
@@ -322,11 +363,11 @@ export const leftSchoolOutstandingFees = computed(() =>
  * Write off remaining balances for children who left.
  * Marks fee invoices Offset and posts fee-offsets audit rows.
  */
-export function offsetFeeDues(
+export async function offsetFeeDues(
   feeIds: string[],
   reason: string,
   notes?: string,
-): number {
+): Promise<number> {
   if (!feeIds.length) throw new Error('Select at least one invoice to offset')
   const fees = schoolStore.fees
   if (!fees) throw new Error('Fees module missing')
@@ -340,16 +381,18 @@ export function offsetFeeDues(
     if (String(fee.status) === 'Offset' || String(fee.status) === 'Paid') continue
 
     const balance = String(fee.balance || fee.amount || 'UGX 0')
-    fee.status = 'Offset'
-    fee.statusTheme = statusTheme('Offset')
-    fee.paid = String(fee.amount || fee.paid || '')
-    fee.balance = 'UGX 0'
-    fee.leftSchool = 'Yes'
-    fee.subtitle = notes?.trim()
-      ? `Offset · ${notes.trim()}`
-      : `Offset · ${reason || 'Left school'}`
+    await updateRecord('fees', id, {
+      name: fee.name,
+      status: 'Offset',
+      paid: String(fee.amount || fee.paid || ''),
+      balance: 'UGX 0',
+      leftSchool: 'Yes',
+      subtitle: notes?.trim()
+        ? `Offset · ${notes.trim()}`
+        : `Offset · ${reason || 'Left school'}`,
+    })
 
-    addRecord('fee-offsets', {
+    await addRecord('fee-offsets', {
       name: `Offset · ${fee.name} · ${fee.invoice || fee.id}`,
       learner: fee.name,
       className: String(fee.className || ''),

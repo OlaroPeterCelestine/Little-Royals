@@ -187,7 +187,7 @@ async function runScan(source?: File | Blob | string) {
   }
 }
 
-function saveRecord() {
+async function saveRecord() {
   if (!canCreate.value) {
     toast.error('Your role cannot create records for this module')
     return
@@ -198,7 +198,7 @@ function saveRecord() {
   }
   try {
     const values = fieldsToRecordValues(target.value, fields.value)
-    const row = addRecord(targetDef.value.moduleKey, values)
+    const row = await addRecord(targetDef.value.moduleKey, values)
     toast.success(`Saved · ${row.name}`)
     router.push(`/${targetDef.value.moduleKey}/${row.id}`)
   } catch (err) {

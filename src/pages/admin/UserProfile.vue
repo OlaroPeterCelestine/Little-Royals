@@ -2,7 +2,6 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  Avatar,
   Badge,
   Button,
   FormControl,
@@ -11,6 +10,7 @@ import {
   dialog,
   toast,
 } from 'frappe-ui'
+import PersonPhotoUpload from '@/components/common/PersonPhotoUpload.vue'
 import {
   activityLog,
   currentUser,
@@ -222,6 +222,12 @@ function statusTheme(status: string) {
   return 'gray'
 }
 
+function onUserPhoto(value: string) {
+  const u = user.value
+  if (!u) return
+  u.photo = value
+}
+
 async function savePassword() {
   if (!isSelf.value) return
   if (!isApiEnabled()) {
@@ -335,7 +341,16 @@ const totalUsers = computed(() => systemUsers.length)
     <template v-else>
       <section class="school-detail-hero">
         <div class="school-detail-hero__main">
-          <Avatar :label="user.name" size="xl" class="shrink-0" />
+          <PersonPhotoUpload
+            :model-value="user.photo || ''"
+            :person-name="user.name"
+            :person-id="user.id"
+            folder="Photos/users"
+            size="xl"
+            :can-edit="true"
+            @update:model-value="onUserPhoto"
+            @saved="onUserPhoto"
+          />
           <div class="school-detail-hero__text">
             <p class="school-detail-hero__meta">
               User · {{ user.id }}

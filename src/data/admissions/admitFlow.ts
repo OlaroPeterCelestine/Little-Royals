@@ -43,7 +43,9 @@ export type AdmitResult = {
  * Application → Admission: mark applicant admitted and create/update the
  * admissions record with full particulars for the letter.
  */
-export function admitApplicant(applicant: CatalogRow): AdmitResult {
+export async function admitApplicant(
+  applicant: CatalogRow,
+): Promise<AdmitResult> {
   const program =
     field(applicant, 'program') || field(applicant, 'section') || 'Primary'
   const className =
@@ -79,14 +81,14 @@ export function admitApplicant(applicant: CatalogRow): AdmitResult {
   let created = false
   let admission = findAdmissionForApplicant(applicant)
   if (admission) {
-    admission = updateRecord('admissions', admission.id, {
+    admission = await updateRecord('admissions', admission.id, {
       ...payload,
       id: admission.id,
       name: applicant.name,
     })
   } else {
     created = true
-    admission = addRecord('admissions', {
+    admission = await addRecord('admissions', {
       ...payload,
       id: nextAdmissionId(),
       status: 'Admitted',
@@ -95,7 +97,7 @@ export function admitApplicant(applicant: CatalogRow): AdmitResult {
 
   const applicantStatus = String(applicant.status || '')
   if (!/admitted/i.test(applicantStatus)) {
-    updateRecord('applicants', applicant.id, {
+    await updateRecord('applicants', applicant.id, {
       name: applicant.name,
       status: 'Admitted',
       program: field(applicant, 'program') || program,
@@ -178,10 +180,10 @@ export function printAdmissionLetter(row: CatalogRow, moduleKey = 'admissions') 
 }
 
 /** Admit from application, then open the admission letter print preview. */
-export function admitAndPrintLetter(applicant: CatalogRow): AdmitResult & {
-  letterTitle: string
-} {
-  const result = admitApplicant(applicant)
+export async function admitAndPrintLetter(
+  applicant: CatalogRow,
+): Promise<AdmitResult & { letterTitle: string }> {
+  const result = await admitApplicant(applicant)
   const letterTitle = printAdmissionLetter(result.admission, 'admissions')
   return { ...result, letterTitle }
 }

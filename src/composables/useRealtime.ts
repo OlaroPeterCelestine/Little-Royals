@@ -96,6 +96,13 @@ export function disconnectRealtime() {
   connected.value = false
 }
 
+/** Send a realtime frame (WebRTC signaling, collab). No-op if socket is down. */
+export function sendRealtime(type: string, payload: unknown) {
+  if (!socket || socket.readyState !== WebSocket.OPEN) return false
+  socket.send(JSON.stringify({ type, payload }))
+  return true
+}
+
 /** Use in app shell to keep a single shared WebSocket alive. */
 export function useRealtime() {
   onMounted(() => connectRealtime())

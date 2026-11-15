@@ -3,11 +3,13 @@ dist
 *.local
 .DS_Store
 .vercel
+.vercelignore
 
 # Env files (keep examples)
 .env
 .env.*
 !.env.example
+!.env.docker.example
 !**/.env.example
 
 # Backend is a separate git repo (Little-Royals-API) — do not track here
@@ -26,3 +28,7 @@ go.work.sum
 # Editor
 .vscode/
 .idea/
+
+# Native Drive uploads (API)
+/backend/data/files/
+

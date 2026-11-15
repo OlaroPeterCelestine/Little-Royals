@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { Button, Dropdown, toast } from 'frappe-ui'
 import { currentUser } from '@/data/activity/activity'
 import { getCurrentSystemUser } from '@/data/auth/permissions'
+import PersonAvatar from '@/components/common/PersonAvatar.vue'
 import { openUserMenu } from '@/composables/useAppActions'
 import { canAccessPath } from '@/lib/accessControl'
 import {
@@ -17,20 +18,13 @@ import {
 
 const router = useRouter()
 
-/** Two initials with a gap, e.g. "C O" from Celestine Olaro. */
-const avatarInitials = computed(() => {
-  const name = String(currentUser.name || '').trim()
-  const parts = name.split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) {
-    const a = parts[0][0] || ''
-    const b = parts[parts.length - 1][0] || ''
-    return `${a} ${b}`.toUpperCase()
+const mePerson = computed(() => {
+  const u = getCurrentSystemUser()
+  return {
+    id: u?.id || currentUser.email,
+    name: u?.name || currentUser.name || 'User',
+    photo: u?.photo,
   }
-  const one = parts[0] || String(currentUser.email || 'PC').split('@')[0] || 'PC'
-  const letters = one.replace(/[^a-zA-Z0-9]/g, '')
-  if (letters.length >= 2) return `${letters[0]} ${letters[1]}`.toUpperCase()
-  if (letters.length === 1) return `${letters[0]} U`.toUpperCase()
-  return 'P C'
 })
 
 const notifOpen = ref(false)
@@ -172,12 +166,10 @@ const accountItems = computed(() => {
       <Dropdown :options="accountItems">
         <button
           type="button"
-          class="school-topbar-avatar ms-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-outline-gray-4"
+          class="school-topbar-avatar ms-1 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-outline-gray-4"
           :aria-label="`Account menu · ${currentUser.name || 'User'}`"
         >
-          <span class="school-topbar-avatar-text" aria-hidden="true">{{
-            avatarInitials
-          }}</span>
+          <PersonAvatar :person="mePerson" size="md" />
         </button>
       </Dropdown>
     </div>

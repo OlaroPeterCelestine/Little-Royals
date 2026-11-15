@@ -146,7 +146,9 @@ export function openPurchaseForStock(stockId: string): CatalogRow | null {
   )
 }
 
-export function createPurchaseRequestFromStock(stock: CatalogRow): CatalogRow {
+export async function createPurchaseRequestFromStock(
+  stock: CatalogRow,
+): Promise<CatalogRow> {
   const existing = openPurchaseForStock(stock.id)
   if (existing) return existing
 
@@ -159,7 +161,7 @@ export function createPurchaseRequestFromStock(stock: CatalogRow): CatalogRow {
         ? `Critical stock (${numField(stock, 'qty')} / critical ${numField(stock, 'critical')})`
         : `Below reorder for school term (${numField(stock, 'qty')} / reorder ${numField(stock, 'reorder')})`
 
-  return addRecord('purchase-requests', {
+  return await addRecord('purchase-requests', {
     name: String(stock.name),
     qty,
     store: String(stock.store || 'Main store'),
@@ -176,10 +178,10 @@ export function createPurchaseRequestFromStock(stock: CatalogRow): CatalogRow {
 }
 
 /** Ensure a catalogue item has a stock row in Main store (opening balance). */
-export function ensureStockForItem(
+export async function ensureStockForItem(
   item: CatalogRow,
   openingQty = 0,
-): CatalogRow {
+): Promise<CatalogRow> {
   const existing = (schoolStore['inventory-stock']?.rows || []).find(
     (r) =>
       r.name === item.name ||
@@ -187,7 +189,7 @@ export function ensureStockForItem(
       String(r.sku || '') === String(item.sku || ''),
   )
   if (existing) return existing
-  return addRecord('inventory-stock', {
+  return await addRecord('inventory-stock', {
     name: item.name,
     itemId: item.id,
     sku: String(item.sku || ''),
@@ -205,10 +207,10 @@ export function ensureStockForItem(
 /**
  * Receive goods for a purchase request: bump stock and mark request Received.
  */
-export function receivePurchaseRequest(
+export async function receivePurchaseRequest(
   requestId: string,
   qtyIn?: number,
-): { stock: CatalogRow; request: CatalogRow } {
+): Promise<{ stock: CatalogRow; request: CatalogRow }> {
   const request = schoolStore['purchase-requests']?.rows.find(
     (r) => r.id === requestId,
   )
@@ -227,7 +229,7 @@ export function receivePurchaseRequest(
     )
 
   if (!stock) {
-    stock = addRecord('inventory-stock', {
+    stock = await addRecord('inventory-stock', {
       name: String(request.name),
       store: String(request.store || 'Main store'),
       department: String(request.department || ''),
@@ -240,8 +242,8 @@ export function receivePurchaseRequest(
     })
   }
 
-  const updatedStock = receiveStock(stock.id, qty, `GRN · ${request.id}`)
-  const updatedRequest = updateRecord('purchase-requests', request.id, {
+  const updatedStock = await receiveStock(stock.id, qty, `GRN · ${request.id}`)
+  const updatedRequest = await updateRecord('purchase-requests', request.id, {
     name: request.name,
     qty: numField(request, 'qty'),
     store: String(request.store || ''),
@@ -259,20 +261,20 @@ export function receivePurchaseRequest(
 }
 
 /** Receive goods into a stock row (from supplier / donation). */
-export function receiveStock(
+export async function receiveStock(
   stockId: string,
   qtyIn: number,
   note = '',
-): CatalogRow {
+): Promise<CatalogRow> {
   const row = schoolStore['inventory-stock']?.rows.find((r) => r.id === stockId)
   if (!row) throw new Error('Stock row not found')
   if (!Number.isFinite(qtyIn) || qtyIn <= 0) {
     throw new Error('Receive quantity must be positive')
   }
   const nextQty = numField(row, 'qty') + qtyIn
-  const updated = saveStockLevels(stockId, { qty: nextQty })
+  const updated = await saveStockLevels(stockId, { qty: nextQty })
   if (note) {
-    updateRecord('inventory-stock', stockId, {
+    await updateRecord('inventory-stock', stockId, {
       name: updated.name,
       subtitle: note,
     })
@@ -284,14 +286,14 @@ export function receiveStock(
  * Issue items to a class / teacher and deduct from on-hand stock.
  * Creates an inventory-issues row for the audit trail.
  */
-export function issueStockToClass(input: {
+export async function issueStockToClass(input: {
   stockId: string
   qty: number
   issuedTo: string
   className?: string
   department?: string
   date?: string
-}): { stock: CatalogRow; issue: CatalogRow } {
+}): Promise<{ stock: CatalogRow; issue: CatalogRow }> {
   const row = schoolStore['inventory-stock']?.rows.find(
     (r) => r.id === input.stockId,
   )
@@ -305,8 +307,8 @@ export function issueStockToClass(input: {
     throw new Error(`Only ${onHand} on hand for ${row.name}`)
   }
 
-  const stock = saveStockLevels(input.stockId, { qty: onHand - qty })
-  const issue = addRecord('inventory-issues', {
+  const stock = await saveStockLevels(input.stockId, { qty: onHand - qty })
+  const issue = await addRecord('inventory-issues', {
     name: `Issue · ${row.name}`,
     item: String(row.name),
     qty,
@@ -322,7 +324,7 @@ export function issueStockToClass(input: {
 }
 
 /** Apply qty/threshold edits and refresh derived status. */
-export function saveStockLevels(
+export async function saveStockLevels(
   id: string,
   values: {
     qty?: number
@@ -330,7 +332,7 @@ export function saveStockLevels(
     reorder?: number
     maxStock?: number
   },
-) {
+): Promise<CatalogRow> {
   const row = schoolStore['inventory-stock']?.rows.find((r) => r.id === id)
   if (!row) throw new Error('Stock row not found')
   const qty = values.qty ?? numField(row, 'qty')
@@ -346,7 +348,7 @@ export function saveStockLevels(
     maxStock,
   } as CatalogRow
   const status = stockStatusFromLevels(probe)
-  updateRecord('inventory-stock', id, {
+  await updateRecord('inventory-stock', id, {
     name: row.name,
     store: String(row.store || ''),
     department: String(row.department || ''),

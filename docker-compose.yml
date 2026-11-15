@@ -1,0 +1,124 @@
+# Little Royals — fully containerized VPS stack
+#
+#   cp .env.docker.example .env.docker
+#   cp backend/.env.example backend/.env
+#   ./scripts/deploy-vps.sh
+#
+# Services: postgres · redis · api (Go) · web (Vue/nginx)
+# Desk :8080 · API :18080 (web also proxies /api and /health)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: school
+      POSTGRES_PASSWORD: ${SCHOOL_DB_PASSWORD:?Set SCHOOL_DB_PASSWORD}
+      POSTGRES_DB: little_royals
+    # Not published by default — only on the Docker network.
+    # Set SCHOOL_DB_PORT=5432 in .env.docker to expose for debugging.
+    ports:
+      - "${SCHOOL_DB_PORT:-127.0.0.1:5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U school -d little_royals"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${API_HTTP_PORT:-18080}:8080"
+    env_file:
+      - ./backend/.env
+    environment:
+      PORT: "8080"
+      APP_ENV: ${APP_ENV:-production}
+      DB_DRIVER: postgres
+      DB_DSN: host=postgres user=school password=${SCHOOL_DB_PASSWORD} dbname=little_royals port=5432 sslmode=disable
+      REDIS_ADDR: redis:6379
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080}
+      SCHOOL_NAME: ${SCHOOL_NAME:-Little Royals Kindergarten and Primary School}
+      SCHOOL_CODE: ${SCHOOL_CODE:-LRKPS}
+      SCHOOL_COUNTRY: ${SCHOOL_COUNTRY:-Uganda}
+      FILES_DIR: /data/files
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Little Royals School}
+      SMTP_TLS: ${SMTP_TLS:-true}
+    volumes:
+      - api_files:/data/files
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_USE_API: "true"
+        # same-origin → browser calls /api via nginx → api container
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-same-origin}
+        VITE_WS_URL: ${VITE_WS_URL:-same-origin}
+        VITE_APP_NAME: ${VITE_APP_NAME:-Little Royals Desk}
+        VITE_APP_ENV: production
+        VITE_TURN_URL: ${VITE_TURN_URL:-}
+        VITE_TURN_USER: ${VITE_TURN_USER:-}
+        VITE_TURN_CRED: ${VITE_TURN_CRED:-}
+    restart: unless-stopped
+    ports:
+      - "${WEB_HTTP_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # Optional TURN for video across NATs:
+  #   docker compose --profile turn up -d
+  coturn:
+    profiles: ["turn"]
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - "-n"
+      - "--log-file=stdout"
+      - "--listening-port=3478"
+      - "--fingerprint"
+      - "--lt-cred-mech"
+      - "--user=${VITE_TURN_USER:-school}:${VITE_TURN_CRED:-changeme}"
+      - "--realm=school.local"
+
+volumes:
+  pgdata:
+  api_files:

@@ -373,10 +373,10 @@ function createRecord() {
   if (tab.value === 'overview') tab.value = 'items'
   if (!requirePerm('create', 'create records')) return
   const key = moduleKey.value
-  openCreateDialog(key, (row) => {
+  openCreateDialog(key, async (row) => {
     if (key !== 'inventory-items') return
     try {
-      ensureStockForItem(row, 0)
+      await ensureStockForItem(row, 0)
       toast.success(
         `“${row.name}” registered — stock row ready in Main store (qty 0). Receive goods when they arrive.`,
       )
@@ -446,14 +446,14 @@ function clearAllFilters() {
   thresholdFilter.value = 'all'
 }
 
-function requestPurchaseFor(row: CatalogRow) {
+async function requestPurchaseFor(row: CatalogRow) {
   if (!canRequestPurchase.value) {
     toast.error('Your role cannot create purchase requests')
     return
   }
   try {
     const existing = openPurchaseForStock(row.id)
-    const created = createPurchaseRequestFromStock(row)
+    const created = await createPurchaseRequestFromStock(row)
     toast.success(
       existing
         ? `Already open · ${created.name} (${created.qty}) — review Purchases`
@@ -465,7 +465,7 @@ function requestPurchaseFor(row: CatalogRow) {
   }
 }
 
-function requestAllBelowThreshold() {
+async function requestAllBelowThreshold() {
   if (!canRequestPurchase.value) {
     toast.error('Your role cannot create purchase requests')
     return
@@ -482,7 +482,7 @@ function requestAllBelowThreshold() {
       skipped += 1
       continue
     }
-    createPurchaseRequestFromStock(row)
+    await createPurchaseRequestFromStock(row)
     created += 1
   }
   if (!created && skipped) {
@@ -541,7 +541,7 @@ function promptReceivePurchase(row: CatalogRow) {
     onConfirm: async ({ values }) => {
       try {
         const qty = Number(values.qty)
-        const result = receivePurchaseRequest(row.id, qty)
+        const result = await receivePurchaseRequest(row.id, qty)
         syncStockStatuses()
         toast.success(
           `Received ${qty} · ${result.stock.name} now ${result.stock.qty} on hand`,
@@ -584,7 +584,7 @@ function promptReceive(row: CatalogRow) {
     onConfirm: async ({ values }) => {
       try {
         const qty = Number(values.qty)
-        const updated = receiveStock(row.id, qty, String(values.note || ''))
+        const updated = await receiveStock(row.id, qty, String(values.note || ''))
         syncStockStatuses()
         toast.success(`Received ${qty} · ${updated.name} now ${updated.qty} on hand`)
       } catch (err) {
@@ -639,7 +639,7 @@ function promptIssue(row: CatalogRow) {
     ],
     onConfirm: async ({ values }) => {
       try {
-        const result = issueStockToClass({
+        const result = await issueStockToClass({
           stockId: row.id,
           qty: Number(values.qty),
           issuedTo: String(values.issuedTo || ''),

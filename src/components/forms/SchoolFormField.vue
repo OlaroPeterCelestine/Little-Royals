@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { FormControl } from 'frappe-ui'
 import type { FormFieldSpec } from '@/lib/forms/types'
 import { getLiveModule } from '@/data/catalog/store'
@@ -11,7 +11,8 @@ import {
 } from '@/lib/sanitize'
 import {
   isPhotoValue,
-  readImageFileAsDataUrl,
+  resolvePersonPhotoSrc,
+  uploadPersonPhoto,
 } from '@/lib/personPhoto'
 
 const props = defineProps<{
@@ -142,8 +143,10 @@ async function onPhotoSelected(event: Event) {
     return
   }
   try {
-    const dataUrl = await readImageFileAsDataUrl(file)
-    emit('update:modelValue', dataUrl)
+    const folder =
+      props.field.name === 'photo' ? 'Photos' : 'Drive'
+    const value = await uploadPersonPhoto(file, folder)
+    emit('update:modelValue', value)
   } catch {
     emit('update:modelValue', '')
   }
@@ -153,8 +156,17 @@ function clearPhoto() {
   emit('update:modelValue', '')
 }
 
-const photoPreview = computed(() =>
-  isPhotoValue(props.modelValue) ? String(props.modelValue) : '',
+const photoPreview = ref('')
+watch(
+  () => props.modelValue,
+  async (v) => {
+    if (!isPhotoValue(v)) {
+      photoPreview.value = ''
+      return
+    }
+    photoPreview.value = await resolvePersonPhotoSrc(v)
+  },
+  { immediate: true },
 )
 </script>
 

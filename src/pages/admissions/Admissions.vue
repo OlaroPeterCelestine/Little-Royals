@@ -87,17 +87,17 @@ function deleteRow(moduleKey: string, row: CatalogRow, event?: Event) {
   openDeleteDialog(moduleKey, [row.id])
 }
 
-function onAdmit(row: CatalogRow, withLetter: boolean) {
+async function onAdmit(row: CatalogRow, withLetter: boolean) {
   try {
     if (withLetter) {
-      const result = admitAndPrintLetter(row)
+      const result = await admitAndPrintLetter(row)
       toast.success(
         result.created
           ? `Admitted ${row.name} · letter opened`
           : `Updated admission for ${row.name} · letter opened`,
       )
     } else {
-      const result = admitApplicant(row)
+      const result = await admitApplicant(row)
       toast.success(
         result.created
           ? `${row.name} moved to Admissions (${result.admission.id})`

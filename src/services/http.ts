@@ -45,28 +45,53 @@ type RequestOptions = {
   signal?: AbortSignal
 }
 
-const GET_CACHE_TTL_MS = 8_000
-const getCache = new Map<string, { at: number; value: { data: unknown; meta?: ApiMeta } }>()
+/** Fresh window — return without network (WhatsApp-snappy lists). */
+const GET_FRESH_MS = 12_000
+/** Stale-while-revalidate window — return instantly, refresh in background. */
+const GET_STALE_MS = 10 * 60_000
+
+type CacheEntry = {
+  at: number
+  etag?: string
+  value: { data: unknown; meta?: ApiMeta }
+}
+
+const getCache = new Map<string, CacheEntry>()
+const inflight = new Map<string, Promise<{ data: unknown; meta?: ApiMeta }>>()
 
 function cacheKey(path: string, token: string | null) {
   return `${token || ''}:${path}`
 }
 
-/** Drop client GET cache (call after writes). */
+/** Drop all client GET cache (call after writes). */
 export function clearApiGetCache() {
   getCache.clear()
 }
 
-export async function apiRequest<T>(
-  path: string,
-  options: RequestOptions = {},
-): Promise<{ data: T; meta?: ApiMeta }> {
-  const base = getApiBase()
-  if (!isApiEnabled() || !base) {
-    throw new ApiError(503, 'School API is disabled — desk is running offline')
+/** Drop GET cache entries whose path contains the given fragment. */
+export function clearApiGetCacheFor(pathFragment: string) {
+  const needle = pathFragment.toLowerCase()
+  for (const key of [...getCache.keys()]) {
+    if (key.toLowerCase().includes(needle)) getCache.delete(key)
   }
+}
 
-  const { method = 'GET', body, auth = true, bustCache = false, signal } = options
+function storeGet(key: string, value: { data: unknown; meta?: ApiMeta }, etag?: string) {
+  getCache.set(key, { at: Date.now(), etag, value })
+  if (getCache.size > 120) {
+    const first = getCache.keys().next().value
+    if (first) getCache.delete(first)
+  }
+}
+
+async function fetchOnce<T>(
+  path: string,
+  options: RequestOptions,
+  token: string | null,
+  etag?: string,
+): Promise<{ data: T; meta?: ApiMeta; etag?: string; notModified?: boolean }> {
+  const base = getApiBase()
+  const { method = 'GET', body, signal } = options
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Accept-Encoding': 'gzip',
@@ -74,20 +99,11 @@ export async function apiRequest<T>(
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json'
   }
-  const token: string | null = auth
-    ? (options.token ?? authToken() ?? null)
-    : null
-  if (auth && token) {
+  if (options.auth !== false && token) {
     headers.Authorization = `Bearer ${token}`
   }
-
-  const isGet = method.toUpperCase() === 'GET'
-  if (isGet && !bustCache) {
-    const key = cacheKey(path, token)
-    const hit = getCache.get(key)
-    if (hit && Date.now() - hit.at < GET_CACHE_TTL_MS) {
-      return hit.value as { data: T; meta?: ApiMeta }
-    }
+  if (etag) {
+    headers['If-None-Match'] = etag
   }
 
   const res = await fetch(`${base}${path}`, {
@@ -95,7 +111,13 @@ export async function apiRequest<T>(
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
     signal,
+    // Prefer reused connections; small CRUD feels closer to local.
+    keepalive: method.toUpperCase() !== 'GET',
   })
+
+  if (res.status === 304) {
+    return { data: null as T, meta: undefined, etag, notModified: true }
+  }
 
   let payload: ApiEnvelope<T> | null = null
   try {
@@ -108,21 +130,83 @@ export async function apiRequest<T>(
     throw new ApiError(res.status, payload?.error || res.statusText || 'request failed')
   }
 
-  const result = {
+  return {
     data: (payload?.data as T) ?? (null as T),
     meta: payload?.meta,
+    etag: res.headers.get('ETag') || undefined,
+  }
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<{ data: T; meta?: ApiMeta }> {
+  const base = getApiBase()
+  if (!isApiEnabled() || !base) {
+    throw new ApiError(503, 'School API is disabled — desk is running offline')
   }
 
-  if (isGet) {
-    getCache.set(cacheKey(path, token), { at: Date.now(), value: result })
-    // Bound memory — drop oldest when large.
-    if (getCache.size > 80) {
-      const first = getCache.keys().next().value
-      if (first) getCache.delete(first)
+  const { method = 'GET', auth = true, bustCache = false } = options
+  const token: string | null = auth
+    ? (options.token ?? authToken() ?? null)
+    : null
+
+  const isGet = method.toUpperCase() === 'GET'
+  const key = cacheKey(path, token)
+
+  if (isGet && !bustCache) {
+    const hit = getCache.get(key)
+    const age = hit ? Date.now() - hit.at : Number.POSITIVE_INFINITY
+    if (hit && age < GET_FRESH_MS) {
+      return hit.value as { data: T; meta?: ApiMeta }
     }
-  } else {
-    clearApiGetCache()
+    if (hit && age < GET_STALE_MS) {
+      // Stale-while-revalidate: paint instantly, refresh quietly.
+      if (!inflight.has(key)) {
+        const p = fetchOnce<T>(path, options, token, hit.etag)
+          .then((fresh) => {
+            if (fresh.notModified) {
+              storeGet(key, hit.value, hit.etag)
+              return hit.value
+            }
+            const next = { data: fresh.data, meta: fresh.meta }
+            storeGet(key, next, fresh.etag)
+            return next
+          })
+          .catch(() => hit.value)
+          .finally(() => {
+            inflight.delete(key)
+          })
+        inflight.set(key, p)
+      }
+      return hit.value as { data: T; meta?: ApiMeta }
+    }
   }
 
-  return result
+  if (isGet && inflight.has(key) && !bustCache) {
+    return (await inflight.get(key)!) as { data: T; meta?: ApiMeta }
+  }
+
+  const hit = isGet ? getCache.get(key) : undefined
+  const run = fetchOnce<T>(path, options, token, bustCache ? undefined : hit?.etag)
+    .then((fresh) => {
+      if (fresh.notModified && hit) {
+        storeGet(key, hit.value, hit.etag)
+        return hit.value as { data: T; meta?: ApiMeta }
+      }
+      const next = { data: fresh.data as T, meta: fresh.meta }
+      if (isGet) storeGet(key, next, fresh.etag)
+      else {
+        // Only drop related GETs — wiping the whole cache made every CRUD feel slow.
+        const basePath = path.split('?')[0].replace(/\/[0-9a-f-]{36}$/i, '')
+        clearApiGetCacheFor(basePath)
+      }
+      return next
+    })
+    .finally(() => {
+      if (isGet) inflight.delete(key)
+    })
+
+  if (isGet) inflight.set(key, run as Promise<{ data: unknown; meta?: ApiMeta }>)
+  return run
 }

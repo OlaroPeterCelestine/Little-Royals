@@ -570,6 +570,11 @@ export const router = createRouter({
       component: () => import('@/pages/admin/SchoolSetup.vue'),
     },
     {
+      path: '/school-cloud',
+      name: 'school-cloud',
+      component: () => import('@/pages/admin/SchoolCloud.vue'),
+    },
+    {
       path: '/activity-log',
       name: 'activity-log',
       component: () => import('@/pages/admin/ActivityLog.vue'),

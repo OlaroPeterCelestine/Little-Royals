@@ -143,7 +143,7 @@ function promptNewYear() {
     ],
     onConfirm: async ({ values }) => {
       try {
-        const { year, terms: created } = createAcademicYear({
+        const { year, terms: created } = await createAcademicYear({
           name: String(values.name || ''),
           startDate: String(values.startDate || ''),
           endDate: String(values.endDate || ''),
@@ -230,7 +230,7 @@ function promptAddTerm() {
     ],
     onConfirm: async ({ values }) => {
       try {
-        const term = addTermToYear(year, {
+        const term = await addTermToYear(year, {
           name: String(values.name || ''),
           start: String(values.start || ''),
           end: String(values.end || ''),
@@ -265,16 +265,26 @@ function deleteTerm(term: CatalogRow) {
   openDeleteDialog('academic-terms', [term.id])
 }
 
-function makeCurrent(term?: CatalogRow) {
+async function makeCurrent(term?: CatalogRow) {
   if (!selectedYear.value) return
   if (!canWriteYear.value && !canWriteTerm.value) {
     toast.error('Your role cannot set the current year / term')
     return
   }
-  setCurrentYearAndTerm(selectedYear.value, term || terms.value.find((t) => t.status === 'Open') || terms.value[0] || null)
-  toast.success(
-    `Current desk set to ${schoolSetup.currentTerm} · ${schoolSetup.academicYear}`,
-  )
+  try {
+    await setCurrentYearAndTerm(
+      selectedYear.value,
+      term ||
+        terms.value.find((t) => t.status === 'Open') ||
+        terms.value[0] ||
+        null,
+    )
+    toast.success(
+      `Current desk set to ${schoolSetup.currentTerm} · ${schoolSetup.academicYear}`,
+    )
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Could not update year/term')
+  }
 }
 
 function goOverview() {

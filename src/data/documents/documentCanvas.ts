@@ -111,10 +111,30 @@ export function defaultDesign(): DocumentDesign {
   }
 }
 
-export function defaultCanvasConfig(): DocumentCanvasConfig {
+/** Long multi-page letters use inline stamp/signature so print does not float mid-page. */
+const LONG_DOC_KINDS = new Set([
+  'admission-letter',
+  'report-card',
+  'exam-paper',
+])
+
+export function defaultCanvasConfig(
+  kind?: CanvasDocumentKind,
+): DocumentCanvasConfig {
+  const long = kind ? LONG_DOC_KINDS.has(kind) : false
   return {
-    stamp: defaultOverlay({ x: 41, y: 78, width: 16 }),
-    signature: defaultOverlay({ x: 68, y: 74, width: 22 }),
+    stamp: defaultOverlay({
+      x: 41,
+      y: 78,
+      width: 16,
+      visible: !long,
+    }),
+    signature: defaultOverlay({
+      x: 68,
+      y: 74,
+      width: 22,
+      visible: !long,
+    }),
     leftSigner: 'Class teacher',
     rightSigner: 'Head teacher',
     note: '',
@@ -195,7 +215,7 @@ export function canvasConfigFor(kind: CanvasDocumentKind): DocumentCanvasConfig 
     else existing.design = { ...defaultDesign(), ...existing.design }
     return existing
   }
-  const created = defaultCanvasConfig()
+  const created = defaultCanvasConfig(kind)
   documentCanvasStore.byKind[kind] = created
   return created
 }
@@ -214,7 +234,7 @@ export function clearTextOverrides(kind: CanvasDocumentKind) {
 }
 
 export function resetCanvasConfig(kind: CanvasDocumentKind) {
-  documentCanvasStore.byKind[kind] = defaultCanvasConfig()
+  documentCanvasStore.byKind[kind] = defaultCanvasConfig(kind)
 }
 
 export function resetDesignOnly(kind: CanvasDocumentKind) {

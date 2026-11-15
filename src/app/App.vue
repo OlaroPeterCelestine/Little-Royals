@@ -8,9 +8,16 @@ import PageShimmer from '@/components/layout/PageShimmer.vue'
 import RecordFormModal from '@/components/common/RecordFormModal.vue'
 import { isAuthenticated } from '@/data/auth/auth'
 import {
+  catalogSyncLabel,
+  catalogSyncing,
+  ensureModule,
+  moduleFromPath,
+} from '@/data/catalog/catalogSync'
+import {
   startRealtimeNotifications,
   stopRealtimeNotifications,
 } from '@/data/activity/liveNotifications'
+import { navBusy, navProgress } from '@/lib/navProgress'
 
 const route = useRoute()
 
@@ -40,6 +47,17 @@ watch(
   },
   { immediate: true },
 )
+
+/** Quietly revalidate the active module on navigation (seed stays on screen). */
+watch(
+  () => route.path,
+  (path) => {
+    if (!showDesk.value) return
+    const mod = moduleFromPath(path)
+    if (mod) void ensureModule(mod)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -49,6 +67,23 @@ watch(
       v-else
       class="school-brand-shell flex h-dvh max-h-dvh min-w-0 w-full max-w-full flex-row overflow-hidden bg-surface-base text-ink-gray-8"
     >
+      <div
+        class="school-nav-progress"
+        :class="{ 'is-active': navBusy || catalogSyncing }"
+        :style="{
+          transform: `scaleX(${navBusy ? navProgress : catalogSyncing ? 0.55 : 0})`,
+        }"
+        role="progressbar"
+        :aria-hidden="!(navBusy || catalogSyncing)"
+        :aria-valuenow="Math.round((navBusy ? navProgress : 0.55) * 100)"
+      />
+      <p
+        v-if="catalogSyncing && catalogSyncLabel"
+        class="school-sync-chip"
+        aria-live="polite"
+      >
+        {{ catalogSyncLabel }}
+      </p>
       <ModuleSidebar />
       <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <AppTopBar />
@@ -58,7 +93,7 @@ watch(
         >
           <RouterView v-slot="{ Component, route: r }">
             <Suspense timeout="0">
-              <KeepAlive :max="12">
+              <KeepAlive :max="16">
                 <component
                   :is="Component"
                   :key="viewKey(r)"

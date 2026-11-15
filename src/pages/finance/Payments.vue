@@ -171,7 +171,7 @@ function recordPayment() {
     onConfirm: async ({ values }) => {
       const studentName = String(values.student)
       const stu = schoolStore.students?.rows.find((s) => s.name === studentName)
-      const row = addRecord('payments', {
+      const row = await addRecord('payments', {
         name: String(values.name).trim(),
         student: studentName,
         studentId: stu?.id || '',
@@ -207,7 +207,7 @@ function reconcile(row: CatalogRow) {
     theme: 'green',
     confirmLabel: 'Reconcile',
     onConfirm: async () => {
-      updateRecord('payments', row.id, {
+      await updateRecord('payments', row.id, {
         name: row.name,
         status: 'Reconciled',
       })

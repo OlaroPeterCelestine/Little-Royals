@@ -755,7 +755,7 @@ function collectExamQuestions() {
     .filter((q) => plainFromMaybeHtml(q.text).length > 0 || Boolean(q.imageSrc))
 }
 
-function saveExamPaper(asDraft: boolean) {
+async function saveExamPaper(asDraft: boolean) {
   const canSaveExisting =
     Boolean(editingExamId.value) && (canWrite.value || canCreate.value)
   const canSaveNew = !editingExamId.value && canCreate.value
@@ -823,7 +823,7 @@ function saveExamPaper(asDraft: boolean) {
 
   let record: CatalogRow
   if (editingExamId.value) {
-    updateRecord('exams', editingExamId.value, payload)
+    await updateRecord('exams', editingExamId.value, payload)
     record =
       exams.value.find((e) => e.id === editingExamId.value) ||
       ({ id: editingExamId.value, ...payload } as CatalogRow)
@@ -845,7 +845,7 @@ function saveExamPaper(asDraft: boolean) {
         : `Exam paper saved · ${questions.length} question${questions.length === 1 ? '' : 's'}`,
     )
   } else {
-    record = addRecord('exams', payload)
+    record = await addRecord('exams', payload)
     editingExamId.value = record.id
     logActivity({
       action: 'Created',
@@ -959,7 +959,7 @@ watch(
   { deep: true },
 )
 
-function saveMarks(submit: boolean) {
+async function saveMarks(submit: boolean) {
   const exam = selectedExam.value
   if (!exam) {
     toast.error('Select or create an exam first')
@@ -970,7 +970,7 @@ function saveMarks(submit: boolean) {
     return
   }
 
-  const run = () => {
+  const run = async () => {
     const examName = String(exam.name)
     const className = String(exam.className || '')
     const subject = String(exam.course || '')
@@ -1000,8 +1000,8 @@ function saveMarks(submit: boolean) {
               ? 'Posted'
               : 'Remedial',
       }
-      if (existing) updateRecord('exam-results', existing.id, payload)
-      else addRecord('exam-results', payload)
+      if (existing) await updateRecord('exam-results', existing.id, payload)
+      else await addRecord('exam-results', payload)
     }
 
     const sheetName = `${className} · ${subject} · ${examName}`
@@ -1020,11 +1020,11 @@ function saveMarks(submit: boolean) {
       maxScore: max,
       status: submit ? 'Submitted' : 'Draft',
     }
-    if (sheet) updateRecord('gradebook', sheet.id, sheetPayload)
-    else addRecord('gradebook', sheetPayload)
+    if (sheet) await updateRecord('gradebook', sheet.id, sheetPayload)
+    else await addRecord('gradebook', sheetPayload)
 
     if (submit && exam.status !== 'Closed') {
-      updateRecord('exams', exam.id, { status: 'Open' })
+      await updateRecord('exams', exam.id, { status: 'Open' })
     }
 
     dirty.value = false
@@ -1048,7 +1048,7 @@ function saveMarks(submit: boolean) {
   }
 
   if (!submit) {
-    run()
+    await run()
     return
   }
 
@@ -1058,7 +1058,9 @@ function saveMarks(submit: boolean) {
     icon: 'lucide-send',
     theme: 'blue',
     confirmLabel: 'Submit marks',
-    onConfirm: async () => run(),
+    onConfirm: async () => {
+      await run()
+    },
   })
 }
 
@@ -1076,7 +1078,7 @@ function closeExam() {
     theme: 'amber',
     confirmLabel: 'Close exam',
     onConfirm: async () => {
-      updateRecord('exams', exam.id, { status: 'Closed' })
+      await updateRecord('exams', exam.id, { status: 'Closed' })
       toast.success('Examination closed')
     },
   })

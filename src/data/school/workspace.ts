@@ -143,6 +143,21 @@ export const educationNav: NavGroup[] = [
         route: '/communications?tab=announcements',
       },
       { label: 'Calendar', icon: 'lucide-calendar-days', route: '/calendar' },
+      {
+        label: 'School mail',
+        icon: 'lucide-mail',
+        route: '/school-cloud?app=mail',
+      },
+      {
+        label: 'Drive',
+        icon: 'lucide-hard-drive',
+        route: '/school-cloud?app=files',
+      },
+      {
+        label: 'Video call',
+        icon: 'lucide-video',
+        route: '/school-cloud?app=talk',
+      },
     ],
   },
   {
@@ -203,6 +218,11 @@ export const educationNav: NavGroup[] = [
     title: 'Settings',
     items: [
       { label: 'School setup', icon: 'lucide-building-2', route: '/school-setup' },
+      {
+        label: 'School cloud',
+        icon: 'lucide-cloud',
+        route: '/school-cloud',
+      },
       { label: 'Activity & audit', icon: 'lucide-history', route: '/activity-log' },
       { label: 'Documents', icon: 'lucide-printer', route: '/documents' },
       { label: 'Reports', icon: 'lucide-bar-chart-3', route: '/reports' },
@@ -345,6 +365,10 @@ export const commandItems = [
   { label: 'Users & Roles', route: '/users', group: 'Settings' },
   { label: 'Term overview', route: '/term-overview', group: 'Events' },
   { label: 'School setup', route: '/school-setup', group: 'Settings' },
+  { label: 'School cloud', route: '/school-cloud', group: 'Settings' },
+  { label: 'School mail', route: '/school-cloud?app=mail', group: 'Communication' },
+  { label: 'Video call', route: '/school-cloud?app=talk', group: 'Communication' },
+  { label: 'Drive', route: '/school-cloud?app=files', group: 'Settings' },
   { label: 'Activity & audit', route: '/activity-log', group: 'Settings' },
   { label: 'Documents', route: '/documents', group: 'Settings' },
   { label: 'Reports', route: '/reports', group: 'Settings' },

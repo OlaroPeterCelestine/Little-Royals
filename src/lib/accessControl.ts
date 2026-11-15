@@ -79,6 +79,7 @@ export function modulesForPath(pathWithQuery: string): string[] {
     permissions: ['users'],
     roles: ['users'],
     'school-setup': ['users'],
+    'school-cloud': ['users'],
     'activity-log': ['audit-logs'],
     'audit-logs': ['audit-logs'],
     documents: ['__any_print__'],

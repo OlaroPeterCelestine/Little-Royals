@@ -1,4 +1,8 @@
-/** Learner / staff photo URL — uploaded data URL, path, or generated portrait. */
+/** Learner / staff / user photo — file id, data URL, path, or generated portrait. */
+
+import { getApiBase } from '@/services/http'
+import { authToken } from '@/data/auth/auth'
+import { isApiEnabled } from '@/lib/apiMode'
 
 const PALETTE = [
   ['#1d4f91', '#7eb6e8'],
@@ -10,6 +14,8 @@ const PALETTE = [
   ['#4a6741', '#b5c99a'],
   ['#5c4a1f', '#d4c48a'],
 ] as const
+
+const blobCache = new Map<string, string>()
 
 function hashSeed(seed: string): number {
   let h = 0
@@ -52,11 +58,18 @@ export function isPhotoValue(value: unknown): boolean {
     v.startsWith('data:image/') ||
     v.startsWith('http://') ||
     v.startsWith('https://') ||
-    v.startsWith('/')
+    v.startsWith('/') ||
+    v.startsWith('file:')
   )
 }
 
-/** Resolve a displayable photo for a person row. */
+/** Extract stored file id from `file:{uuid}` markers. */
+export function photoFileId(value: unknown): string | null {
+  const v = String(value || '').trim()
+  const m = v.match(/^file:([0-9a-f-]{36})$/i)
+  return m ? m[1] : null
+}
+
 export function personPhotoUrl(
   row?: {
     id?: unknown
@@ -67,10 +80,47 @@ export function personPhotoUrl(
 ): string {
   if (!row) return generatedPortrait('?', 'unknown')
   const custom = String(row.photo || '').trim()
+  if (custom.startsWith('file:')) {
+    const id = photoFileId(custom)
+    if (id && blobCache.has(id)) return blobCache.get(id)!
+    // Placeholder until blob resolves; callers should use resolvePersonPhotoSrc.
+    return generatedPortrait(String(row.name || '?'), String(row.id || id || ''))
+  }
   if (isPhotoValue(custom)) return custom
   const name = String(row.name || 'Learner')
   const seed = String(row.id || name)
   return generatedPortrait(name, seed)
+}
+
+/** Load displayable src for a photo field (handles authenticated file ids). */
+export async function resolvePersonPhotoSrc(
+  photo: unknown,
+  fallbackName = '?',
+  fallbackId = '',
+): Promise<string> {
+  const custom = String(photo || '').trim()
+  const id = photoFileId(custom)
+  if (id) {
+    if (blobCache.has(id)) return blobCache.get(id)!
+    const token = authToken()
+    if (!token || !isApiEnabled()) {
+      return generatedPortrait(fallbackName, fallbackId || id)
+    }
+    try {
+      const res = await fetch(`${getApiBase()}/api/v1/files/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('photo fetch failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      blobCache.set(id, url)
+      return url
+    } catch {
+      return generatedPortrait(fallbackName, fallbackId || id)
+    }
+  }
+  if (isPhotoValue(custom)) return custom
+  return generatedPortrait(fallbackName, fallbackId || fallbackName)
 }
 
 export function readImageFileAsDataUrl(file: File): Promise<string> {
@@ -79,8 +129,8 @@ export function readImageFileAsDataUrl(file: File): Promise<string> {
       reject(new Error('Choose an image file (JPG, PNG, WebP)'))
       return
     }
-    if (file.size > 2.5 * 1024 * 1024) {
-      reject(new Error('Photo must be under 2.5 MB'))
+    if (file.size > 5 * 1024 * 1024) {
+      reject(new Error('Photo must be under 5 MB'))
       return
     }
     const reader = new FileReader()
@@ -88,4 +138,44 @@ export function readImageFileAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(new Error('Could not read photo'))
     reader.readAsDataURL(file)
   })
+}
+
+/**
+ * Upload an identification photo to the server Drive (Photos folder).
+ * Returns `file:{uuid}` for storage on the person/user record.
+ * Falls back to a data URL when the API is offline.
+ */
+export async function uploadPersonPhoto(
+  file: File,
+  folder = 'Photos',
+): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Choose an image file (JPG, PNG, WebP)')
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error('Photo must be under 5 MB')
+  }
+
+  if (!isApiEnabled() || !authToken()) {
+    return readImageFileAsDataUrl(file)
+  }
+
+  const body = new FormData()
+  body.append('file', file)
+  body.append('folder', folder)
+  const res = await fetch(`${getApiBase()}/api/v1/files`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${authToken()}` },
+    body,
+  })
+  const payload = await res.json().catch(() => ({}))
+  if (!res.ok || payload?.ok === false) {
+    throw new Error(payload?.error || 'Photo upload failed')
+  }
+  const id = String(payload?.data?.id || payload?.id || '').trim()
+  if (!id) throw new Error('Photo upload returned no id')
+  // Warm cache with a local preview.
+  const preview = URL.createObjectURL(file)
+  blobCache.set(id, preview)
+  return `file:${id}`
 }

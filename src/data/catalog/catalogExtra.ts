@@ -890,4 +890,53 @@ export const catalogExtra: Record<string, CatalogModule> = {
       ),
     ],
   ),
+
+  'task-cards': mod(
+    'task-cards',
+    'Task boards',
+    'Task card',
+    'lucide-kanban',
+    'Admin task cards (Todo / Doing / Done)',
+    'Administration',
+    [
+      { key: 'id', label: 'ID' },
+      { key: 'name', label: 'Task', primary: true },
+      { key: 'column', label: 'Column' },
+      { key: 'status', label: 'Status', badge: true },
+    ],
+    [],
+  ),
+
+  'school-forms': mod(
+    'school-forms',
+    'School forms',
+    'Form',
+    'lucide-clipboard-list',
+    'Native school forms and surveys',
+    'Administration',
+    [
+      { key: 'id', label: 'ID' },
+      { key: 'name', label: 'Title', primary: true },
+      { key: 'questions', label: 'Questions' },
+      { key: 'status', label: 'Status', badge: true },
+    ],
+    [],
+  ),
+
+  'school-docs': mod(
+    'school-docs',
+    'School docs',
+    'Document',
+    'lucide-file-pen',
+    'Native Docs / Sheets / Slides',
+    'Administration',
+    [
+      { key: 'id', label: 'ID' },
+      { key: 'name', label: 'Title', primary: true },
+      { key: 'kind', label: 'Kind' },
+      { key: 'body', label: 'Body' },
+      { key: 'status', label: 'Status', badge: true },
+    ],
+    [],
+  ),
 }

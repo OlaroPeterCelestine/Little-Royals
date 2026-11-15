@@ -46,21 +46,21 @@ export function academicYearsSorted(): CatalogRow[] {
     .sort((a, b) => String(b.name).localeCompare(String(a.name)))
 }
 
-export function createAcademicYear(values: {
+export async function createAcademicYear(values: {
   name: string
   startDate: string
   endDate: string
   status?: string
   subtitle?: string
   withTerms?: boolean
-}): { year: CatalogRow; terms: CatalogRow[] } {
+}): Promise<{ year: CatalogRow; terms: CatalogRow[] }> {
   const name = values.name.trim()
   if (!name) throw new Error('Year name is required')
   if (!values.startDate || !values.endDate) {
     throw new Error('Start and end dates are required')
   }
 
-  const year = addRecord('academic-years', {
+  const year = await addRecord('academic-years', {
     name,
     startDate: values.startDate,
     endDate: values.endDate,
@@ -72,13 +72,16 @@ export function createAcademicYear(values: {
   if (values.withTerms !== false) {
     for (const slot of suggestedTermDates(name)) {
       terms.push(
-        addRecord('academic-terms', {
+        await addRecord('academic-terms', {
           name: slot.name,
           year: name,
           yearId: year.id,
           start: slot.start,
           end: slot.end,
-          status: values.status === 'Active' && slot.name === 'Term I' ? 'Open' : 'Planned',
+          status:
+            values.status === 'Active' && slot.name === 'Term I'
+              ? 'Open'
+              : 'Planned',
           subtitle: `${slot.name} · ${name}`,
         } as RecordValues),
       )
@@ -88,7 +91,7 @@ export function createAcademicYear(values: {
   return { year, terms }
 }
 
-export function addTermToYear(
+export async function addTermToYear(
   year: CatalogRow,
   values: {
     name: string
@@ -96,7 +99,7 @@ export function addTermToYear(
     end: string
     status?: string
   },
-): CatalogRow {
+): Promise<CatalogRow> {
   const label = yearLabel(year)
   const existing = termsForYear(year)
   if (existing.some((t) => t.name === values.name)) {
@@ -113,12 +116,15 @@ export function addTermToYear(
   } as RecordValues)
 }
 
-export function setCurrentYearAndTerm(year: CatalogRow, term?: CatalogRow | null) {
+export async function setCurrentYearAndTerm(
+  year: CatalogRow,
+  term?: CatalogRow | null,
+) {
   schoolSetup.academicYear = yearLabel(year)
   if (term) schoolSetup.currentTerm = String(term.name)
 
   if (String(year.status) !== 'Active') {
-    updateRecord('academic-years', year.id, {
+    await updateRecord('academic-years', year.id, {
       name: year.name,
       status: 'Active',
       startDate: year.startDate,
@@ -133,7 +139,7 @@ export function setCurrentYearAndTerm(year: CatalogRow, term?: CatalogRow | null
   for (const row of terms) {
     const nextStatus = row.id === term.id ? 'Open' : 'Closed'
     if (String(row.status) === nextStatus) continue
-    updateRecord('academic-terms', row.id, {
+    await updateRecord('academic-terms', row.id, {
       name: row.name,
       year: yearLabel(year),
       yearId: year.id,

@@ -86,7 +86,12 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           },
           { name: 'homeLanguage', label: 'Home language', type: 'text' },
           { name: 'address', label: 'Residential address', type: 'textarea' },
-          { name: 'photo', label: 'Learner photograph', type: 'file' },
+          {
+            name: 'photo',
+            label: 'Photograph (ID)',
+            type: 'file',
+            help: 'Face photo for identification — uploaded to school Drive',
+          },
         ],
       },
       {
@@ -166,6 +171,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
         title: 'Profile',
         fields: [
           { name: 'name', label: 'Full name', type: 'text', required: true },
+          { name: 'photo', label: 'Photograph (ID)', type: 'file', help: 'Face photo for identification' },
           { name: 'relationship', label: 'Relationship', type: 'select', required: true, options: relationOpts },
           { name: 'phone', label: 'Phone number', type: 'phone', required: true },
           { name: 'altPhone', label: 'Alternative phone', type: 'phone' },
@@ -174,6 +180,52 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'address', label: 'Address', type: 'textarea' },
           { name: 'authorizedPickup', label: 'Authorized pickup', type: 'checkbox' },
           { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }] },
+        ],
+      },
+    ],
+  },
+
+  parents: {
+    module: 'parents',
+    title: 'Register Parent',
+    singular: 'Parent',
+    sections: [
+      {
+        title: 'Profile',
+        fields: [
+          { name: 'name', label: 'Full name', type: 'text', required: true },
+          { name: 'photo', label: 'Photograph (ID)', type: 'file', help: 'Face photo for identification' },
+          { name: 'relationship', label: 'Relationship', type: 'select', options: relationOpts },
+          { name: 'phone', label: 'Phone number', type: 'phone', required: true },
+          { name: 'altPhone', label: 'Alternative phone', type: 'phone' },
+          { name: 'email', label: 'Email', type: 'email' },
+          { name: 'occupation', label: 'Occupation', type: 'text' },
+          { name: 'address', label: 'Address', type: 'textarea' },
+          { name: 'status', label: 'Status', type: 'select', options: [{ label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }] },
+        ],
+      },
+    ],
+  },
+
+  users: {
+    module: 'users',
+    title: 'Add desk user',
+    singular: 'User',
+    sections: [
+      {
+        title: 'Profile',
+        fields: [
+          { name: 'name', label: 'Full name', type: 'text', required: true },
+          { name: 'photo', label: 'Photograph (ID)', type: 'file', help: 'Face photo for identification' },
+          { name: 'email', label: 'Email', type: 'email', required: true },
+          { name: 'phone', label: 'Phone', type: 'phone' },
+          { name: 'title', label: 'Job title', type: 'text' },
+          { name: 'department', label: 'Department', type: 'text' },
+          { name: 'status', label: 'Status', type: 'select', options: [
+            { label: 'Active', value: 'Active' },
+            { label: 'Invited', value: 'Invited' },
+            { label: 'Disabled', value: 'Disabled' },
+          ] },
         ],
       },
     ],
@@ -208,7 +260,12 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           },
           { name: 'languages', label: 'Languages spoken', type: 'text' },
           { name: 'address', label: 'Residential address', type: 'textarea' },
-          { name: 'photo', label: 'Photograph', type: 'file' },
+          {
+            name: 'photo',
+            label: 'Photograph (ID)',
+            type: 'file',
+            help: 'Face photo for identification',
+          },
         ],
       },
       {
@@ -289,7 +346,12 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           ] },
           { name: 'languages', label: 'Languages spoken', type: 'text' },
           { name: 'address', label: 'Residential address', type: 'textarea' },
-          { name: 'photo', label: 'Photograph', type: 'file' },
+          {
+            name: 'photo',
+            label: 'Photograph (ID)',
+            type: 'file',
+            help: 'Face photo for identification',
+          },
         ],
       },
       {
@@ -354,6 +416,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
           { name: 'firstName', label: 'Applicant first name', type: 'text', required: true },
           { name: 'lastName', label: 'Applicant last name', type: 'text', required: true },
           { name: 'name', label: 'Full name', type: 'readonly', auto: true },
+          { name: 'photo', label: 'Photograph (ID)', type: 'file', help: 'Face photo for identification' },
           { name: 'dateOfBirth', label: 'Date of birth', type: 'date', required: true },
           { name: 'gender', label: 'Gender', type: 'select', required: true, options: genderOpts },
           { name: 'program', label: 'Applying section', type: 'select', required: true, options: sectionOpts },
@@ -384,6 +447,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
         title: 'Learner',
         fields: [
           { name: 'name', label: 'Learner full name', type: 'text', required: true },
+          { name: 'photo', label: 'Photograph (ID)', type: 'file', help: 'Face photo for identification' },
           { name: 'dateOfBirth', label: 'Date of birth', type: 'date', required: true },
           { name: 'gender', label: 'Gender', type: 'select', required: true, options: genderOpts },
           { name: 'program', label: 'Section', type: 'select', required: true, options: sectionOpts },

@@ -7,7 +7,7 @@ import {
   PageHeader,
   toast,
 } from 'frappe-ui'
-import PersonAvatar from '@/components/common/PersonAvatar.vue'
+import PersonPhotoUpload from '@/components/common/PersonPhotoUpload.vue'
 import { getLiveModule } from '@/data/catalog/store'
 import {
   openDeleteDialog,
@@ -205,9 +205,12 @@ const showReceiptPrint = computed(
 
       <section class="school-detail-hero">
         <div class="school-detail-hero__main">
-          <PersonAvatar
+          <PersonPhotoUpload
             :person="row"
-            size="3xl"
+            :module-key="moduleKey"
+            :folder="`Photos/${moduleKey}`"
+            size="xl"
+            :can-edit="canWrite"
             class="school-person-avatar--hero"
           />
           <div class="school-detail-hero__text">

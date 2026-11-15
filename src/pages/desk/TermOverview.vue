@@ -44,21 +44,27 @@ function openLinked(path: string) {
   pushWithReturn(router, path)
 }
 
-type ViewTab = 'calendar' | 'gantt' | 'schedule'
+type ViewTab = 'calendar' | 'gantt' | 'schedule' | 'events' | 'exams'
+
+const viewTabs = [
+  { label: 'Calendar', value: 'calendar' },
+  { label: 'Gantt', value: 'gantt' },
+  { label: 'Schedule', value: 'schedule' },
+  { label: 'Events', value: 'events' },
+  { label: 'Exams & marks', value: 'exams' },
+]
 
 function parseView(raw: unknown): ViewTab {
   const v = String(raw || '').toLowerCase()
   if (v === 'gantt' || v === 'chart') return 'gantt'
   if (v === 'schedule' || v === 'list') return 'schedule'
+  if (v === 'events' || v === 'event') return 'events'
+  if (v === 'exams' || v === 'exam' || v === 'marks' || v === 'gradebook')
+    return 'exams'
   return 'calendar'
 }
 
 const view = ref<ViewTab>(parseView(route.query.view))
-const viewTabs = [
-  { label: 'Calendar', value: 'calendar' },
-  { label: 'Gantt', value: 'gantt' },
-  { label: 'Schedule', value: 'schedule' },
-]
 
 watch(view, (value) => {
   router.replace({
@@ -73,6 +79,13 @@ watch(
     const next = parseView(value)
     if (view.value !== next) view.value = next
   },
+)
+
+const isTimelineView = computed(
+  () =>
+    view.value === 'calendar' ||
+    view.value === 'gantt' ||
+    view.value === 'schedule',
 )
 
 const scale = ref<TimelineScale>('month')
@@ -122,12 +135,19 @@ const kindOptions = computed(() => [
 
 const allBars = computed(() => buildTimelineBars())
 
-const range = computed(() =>
-  resolveScaleRange(scale.value, anchor.value, selectedTerm.value),
-)
+const range = computed(() => {
+  const scaleForView = isTimelineView.value
+    ? scale.value
+    : ('term' as TimelineScale)
+  return resolveScaleRange(scaleForView, anchor.value, selectedTerm.value)
+})
 
 const periodLabel = computed(() =>
-  scaleTitle(scale.value, anchor.value, selectedTerm.value?.name),
+  scaleTitle(
+    isTimelineView.value ? scale.value : 'term',
+    anchor.value,
+    selectedTerm.value?.name,
+  ),
 )
 
 const visibleBars = computed(() => {
@@ -135,19 +155,18 @@ const visibleBars = computed(() => {
   if (!r) return []
   return allBars.value.filter((bar) => {
     if (kindFilter.value !== 'All' && bar.kind !== kindFilter.value) return false
-    if (bar.kind === 'term' && (scale.value === 'day' || scale.value === 'week'))
+    if (
+      bar.kind === 'term' &&
+      isTimelineView.value &&
+      (scale.value === 'day' || scale.value === 'week')
+    ) {
       return false
+    }
     const s = Date.parse(`${bar.start}T12:00:00`)
     const e = Date.parse(`${bar.end}T12:00:00`)
     if (!Number.isFinite(s)) return false
     return e >= r.start && s <= r.end
   })
-})
-
-const ticks = computed(() => {
-  const r = range.value
-  if (!r) return []
-  return axisTicks(scale.value, r.start, r.end)
 })
 
 const days = computed(() => {
@@ -162,6 +181,12 @@ const days = computed(() => {
   )
 })
 
+const ticks = computed(() => {
+  const r = range.value
+  if (!r) return []
+  return axisTicks(scale.value, r.start, r.end)
+})
+
 const marker = computed(() => {
   const r = range.value
   if (!r) return null
@@ -170,90 +195,101 @@ const marker = computed(() => {
 
 const ganttLanes = computed(() => packGanttLanes(visibleBars.value))
 
-const schedulePage = ref(1)
-const scheduleTotalPages = computed(() =>
-  Math.max(1, Math.ceil(visibleBars.value.length / PAGE_SIZE)),
+const eventBars = computed(() =>
+  visibleBars.value.filter(
+    (b) =>
+      b.kind === 'activity' ||
+      b.kind === 'parents' ||
+      b.kind === 'holiday' ||
+      b.kind === 'school' ||
+      b.source === 'events',
+  ),
 )
-const schedulePageRows = computed(() => {
-  const start = (schedulePage.value - 1) * PAGE_SIZE
-  return visibleBars.value.slice(start, start + PAGE_SIZE)
+
+const examBars = computed(() =>
+  visibleBars.value.filter((b) => b.kind === 'exam' || b.source === 'exams'),
+)
+
+const listPage = ref(1)
+const listRows = computed(() => {
+  if (view.value === 'exams') return examBars.value
+  if (view.value === 'events') return eventBars.value
+  return visibleBars.value
 })
-const scheduleRangeLabel = computed(() => {
-  const total = visibleBars.value.length
+const listTotalPages = computed(() =>
+  Math.max(1, Math.ceil(listRows.value.length / PAGE_SIZE)),
+)
+const listPageRows = computed(() => {
+  const start = (listPage.value - 1) * PAGE_SIZE
+  return listRows.value.slice(start, start + PAGE_SIZE)
+})
+const listRangeLabel = computed(() => {
+  const total = listRows.value.length
   if (!total) return '0 of 0'
-  const start = (schedulePage.value - 1) * PAGE_SIZE + 1
-  const end = Math.min(schedulePage.value * PAGE_SIZE, total)
+  const start = (listPage.value - 1) * PAGE_SIZE + 1
+  const end = Math.min(listPage.value * PAGE_SIZE, total)
   return `${start}–${end} of ${total}`
 })
 
 watch(
-  () => [periodLabel.value, visibleBars.value.length, view.value] as const,
+  () => [periodLabel.value, listRows.value.length, view.value] as const,
   () => {
-    schedulePage.value = 1
+    listPage.value = 1
   },
 )
 
-watch(scheduleTotalPages, (pages) => {
-  if (schedulePage.value > pages) schedulePage.value = pages
+watch(listTotalPages, (pages) => {
+  if (listPage.value > pages) listPage.value = pages
 })
 
-function goSchedulePage(next: number) {
-  schedulePage.value = Math.min(
-    Math.max(1, next),
-    scheduleTotalPages.value,
-  )
+function goListPage(next: number) {
+  listPage.value = Math.min(Math.max(1, next), listTotalPages.value)
 }
 
-const stats = computed(() => {
-  const bars = visibleBars.value
-  return [
-    {
-      title: 'On chart',
-      value: bars.length,
-      caption: periodLabel.value,
-    },
-    {
-      title: 'Exams',
-      value: bars.filter((b) => b.kind === 'exam').length,
-    },
-    {
-      title: 'Activities',
-      value: bars.filter((b) => b.kind === 'activity' || b.kind === 'parents')
-        .length,
-    },
-    {
-      title: 'Holidays',
-      value: bars.filter((b) => b.kind === 'holiday').length,
-    },
-  ]
-})
+const stats = computed(() => [
+  {
+    title: 'This period',
+    value: visibleBars.value.length,
+    caption: periodLabel.value,
+  },
+  {
+    title: 'Events',
+    value: eventBars.value.length,
+  },
+  {
+    title: 'Exams',
+    value: examBars.value.length,
+  },
+  {
+    title: 'Holidays',
+    value: visibleBars.value.filter((b) => b.kind === 'holiday').length,
+  },
+])
 
 const weekdayHeaders = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-function barStyle(bar: TimelineBar) {
-  const r = range.value
-  if (!r) return {}
-  const theme = kindThemes[bar.kind as TimelineKind]
-  const left = barLeftPct(bar, r.start, r.end)
-  const width = barWidthPct(bar, r.start, r.end)
-  return {
-    left: `${left}%`,
-    width: `${width}%`,
-    background: theme.soft,
-    borderColor: theme.color,
-    color: theme.color,
-    ['--gantt-ink' as string]: theme.color,
-  }
-}
 
 function formatRange(start: string, end: string) {
   return formatBarRange(start, end)
 }
 
 function openSource(bar: TimelineBar) {
-  if (bar.source === 'exams') openLinked('/gradebook')
-  else if (bar.source === 'events') openLinked('/calendar')
+  if (bar.source === 'exams' || bar.kind === 'exam') openLinked('/gradebook')
+  else if (bar.source === 'events') openLinked('/school-events')
   else openLinked('/years-and-terms')
+}
+
+function barStyle(bar: TimelineBar) {
+  const r = range.value
+  if (!r) return {}
+  const theme = kindThemes[bar.kind as TimelineKind]
+  return {
+    left: `${barLeftPct(bar, r.start, r.end)}%`,
+    width: `${barWidthPct(bar, r.start, r.end)}%`,
+    background: theme.soft,
+    borderColor: theme.color,
+    color: theme.color,
+    ['--gantt-ink' as string]: theme.color,
+  }
 }
 
 function barCompact(bar: TimelineBar) {
@@ -290,10 +326,6 @@ function selectDay(iso: string) {
   }
 }
 
-function showCalendarTab() {
-  view.value = 'calendar'
-}
-
 function chipColor(kind: TimelineKind) {
   return kindThemes[kind]?.color || '#64748b'
 }
@@ -302,77 +334,73 @@ function chipColor(kind: TimelineKind) {
 <template>
   <PageHeader>
     <PageHeaderTitle title="Term overview" />
-    <div class="flex flex-wrap gap-2">
-      <Button
-        icon-left="lucide-calendar-days"
-        label="Calendar"
-        @click="showCalendarTab"
-      />
-      <CanAccess path="/school-events">
-        <Button
-          icon-left="lucide-party-popper"
-          label="Events"
-          @click="openLinked('/school-events')"
-        />
-      </CanAccess>
-      <CanAccess path="/gradebook">
-        <Button
-          variant="solid"
-          icon-left="lucide-table-2"
-          label="Exams & marks"
-          @click="openLinked('/gradebook')"
-        />
-      </CanAccess>
-    </div>
   </PageHeader>
 
   <div class="school-page">
     <p class="text-p-base text-ink-gray-6">
-      Term calendar, Gantt, and schedule for {{ schoolSetup.shortName }} ·
-      {{ schoolSetup.currentTerm }} {{ schoolSetup.academicYear }}.
+      {{ schoolSetup.currentTerm }} {{ schoolSetup.academicYear }} ·
+      {{ schoolSetup.shortName }}
     </p>
 
     <ListStatCards :stats="stats" />
 
     <TabButtons v-model="view" :options="viewTabs" class="school-tabs" />
 
-    <TabButtons
-      v-model="scale"
-      :options="scaleOptions"
-      class="school-tabs"
-    />
+    <!-- Shared period controls for Calendar / Gantt / Schedule -->
+    <div v-if="isTimelineView" class="school-term-toolbar">
+      <TabButtons
+        v-model="scale"
+        :options="scaleOptions"
+        class="school-tabs"
+      />
 
-    <div class="school-scale-nav">
-      <Button
-        icon="lucide-chevron-left"
-        variant="subtle"
-        aria-label="Previous"
-        @click="go(-1)"
-      />
-      <button type="button" class="school-scale-period" @click="jumpToday">
-        {{ periodLabel }}
-      </button>
-      <Button
-        icon="lucide-chevron-right"
-        variant="subtle"
-        aria-label="Next"
-        @click="go(1)"
-      />
-      <Button label="Today" variant="subtle" @click="jumpToday" />
+      <div class="school-scale-nav">
+        <Button
+          icon="lucide-chevron-left"
+          variant="subtle"
+          aria-label="Previous"
+          @click="go(-1)"
+        />
+        <button type="button" class="school-scale-period" @click="jumpToday">
+          {{ periodLabel }}
+        </button>
+        <Button
+          icon="lucide-chevron-right"
+          variant="subtle"
+          aria-label="Next"
+          @click="go(1)"
+        />
+        <Button label="Today" variant="subtle" @click="jumpToday" />
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-2">
+        <FormControl
+          v-model="termId"
+          type="select"
+          label="Term"
+          :options="termOptions"
+          :disabled="scale === 'year'"
+        />
+        <FormControl
+          v-model="kindFilter"
+          type="select"
+          label="Show"
+          :options="kindOptions"
+        />
+      </div>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2">
+    <div v-else class="grid gap-3 sm:grid-cols-2">
       <FormControl
         v-model="termId"
         type="select"
         label="Term"
         :options="termOptions"
-        :disabled="scale === 'year'"
       />
       <FormControl
         v-model="kindFilter"
         type="select"
-        label="Activity type"
+        label="Type"
         :options="kindOptions"
       />
     </div>
@@ -380,11 +408,6 @@ function chipColor(kind: TimelineKind) {
     <!-- Calendar -->
     <section v-if="view === 'calendar'" class="school-section">
       <h2 class="school-section-title">Calendar · {{ periodLabel }}</h2>
-      <p class="mb-2 text-sm text-ink-gray-6">
-        Coloured labels show what is on each day. Red items are
-        <strong>public holidays</strong> (Uganda + world calendar) — usually no
-        classes.
-      </p>
       <div class="school-gantt-legend mb-3">
         <span
           v-for="(meta, key) in kindThemes"
@@ -509,14 +532,10 @@ function chipColor(kind: TimelineKind) {
 
     <!-- Gantt -->
     <section v-else-if="view === 'gantt'" class="school-section">
-      <div class="flex flex-wrap items-end justify-between gap-2">
-        <h2 class="school-section-title mb-0">
-          Gantt · {{ scale }} · {{ periodLabel }}
-        </h2>
+      <div class="mb-2 flex flex-wrap items-end justify-between gap-2">
+        <h2 class="school-section-title mb-0">Gantt · {{ periodLabel }}</h2>
         <p class="text-xs text-ink-gray-5">
-          Grouped by type · {{ ganttLanes.length }} lane{{
-            ganttLanes.length === 1 ? '' : 's'
-          }}
+          {{ ganttLanes.length }} lane{{ ganttLanes.length === 1 ? '' : 's' }}
         </p>
       </div>
 
@@ -622,21 +641,20 @@ function chipColor(kind: TimelineKind) {
           v-if="!ganttLanes.length"
           class="px-4 py-12 text-center text-sm text-ink-gray-5"
         >
-          No activities in this range. Add school events or exams to fill the
-          chart.
+          No activities in this range.
         </p>
       </div>
     </section>
 
     <!-- Schedule -->
-    <section v-else class="school-section">
+    <section v-else-if="view === 'schedule'" class="school-section">
       <h2 class="school-section-title">Schedule · {{ periodLabel }}</h2>
       <div
         class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"
       >
         <button
-          v-for="bar in schedulePageRows"
-          :key="`list-${bar.id}`"
+          v-for="bar in listPageRows"
+          :key="`sched-${bar.id}`"
           type="button"
           class="flex w-full flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 px-4 py-3 text-left last:border-b-0 hover:bg-surface-gray-1"
           @click="openSource(bar)"
@@ -667,13 +685,135 @@ function chipColor(kind: TimelineKind) {
         </p>
         <ListPagination
           v-if="visibleBars.length"
-          :page="schedulePage"
-          :total-pages="scheduleTotalPages"
-          :range-label="scheduleRangeLabel"
+          :page="listPage"
+          :total-pages="listTotalPages"
+          :range-label="listRangeLabel"
           :total="visibleBars.length"
-          @prev="goSchedulePage(schedulePage - 1)"
-          @next="goSchedulePage(schedulePage + 1)"
-          @go="goSchedulePage"
+          @prev="goListPage(listPage - 1)"
+          @next="goListPage(listPage + 1)"
+          @go="goListPage"
+        />
+      </div>
+    </section>
+
+    <!-- Events -->
+    <section v-else-if="view === 'events'" class="school-section">
+      <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <h2 class="school-section-title mb-0">Events · {{ periodLabel }}</h2>
+        <CanAccess path="/school-events">
+          <Button
+            variant="subtle"
+            icon-left="lucide-plus"
+            label="Manage events"
+            @click="openLinked('/school-events')"
+          />
+        </CanAccess>
+      </div>
+      <div
+        class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"
+      >
+        <button
+          v-for="bar in listPageRows"
+          :key="`event-${bar.id}`"
+          type="button"
+          class="flex w-full flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 px-4 py-3 text-left last:border-b-0 hover:bg-surface-gray-1"
+          @click="openSource(bar)"
+        >
+          <div class="min-w-0">
+            <p class="school-cell-text text-sm-medium text-ink-gray-9">
+              {{ bar.name }}
+            </p>
+            <p class="school-cell-text text-xs text-ink-gray-5">
+              {{ formatRange(bar.start, bar.end) }}
+              <span v-if="bar.detail"> · {{ bar.detail }}</span>
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <Badge
+              :label="kindThemes[bar.kind].label"
+              theme="blue"
+              variant="subtle"
+            />
+            <Badge :label="bar.status" theme="gray" variant="subtle" />
+          </div>
+        </button>
+        <p
+          v-if="!eventBars.length"
+          class="px-4 py-12 text-center text-sm text-ink-gray-5"
+        >
+          No events in this term range yet.
+        </p>
+        <ListPagination
+          v-if="eventBars.length"
+          :page="listPage"
+          :total-pages="listTotalPages"
+          :range-label="listRangeLabel"
+          :total="eventBars.length"
+          @prev="goListPage(listPage - 1)"
+          @next="goListPage(listPage + 1)"
+          @go="goListPage"
+        />
+      </div>
+    </section>
+
+    <!-- Exams & marks -->
+    <section v-else class="school-section">
+      <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <h2 class="school-section-title mb-0">
+          Exams & marks · {{ periodLabel }}
+        </h2>
+        <CanAccess path="/gradebook">
+          <Button
+            variant="solid"
+            icon-left="lucide-table-2"
+            label="Open gradebook"
+            @click="openLinked('/gradebook')"
+          />
+        </CanAccess>
+      </div>
+      <div
+        class="overflow-hidden rounded-6 border border-outline-gray-1 bg-surface-white"
+      >
+        <button
+          v-for="bar in listPageRows"
+          :key="`exam-${bar.id}`"
+          type="button"
+          class="flex w-full flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 px-4 py-3 text-left last:border-b-0 hover:bg-surface-gray-1"
+          @click="openSource(bar)"
+        >
+          <div class="min-w-0">
+            <p class="school-cell-text text-sm-medium text-ink-gray-9">
+              {{ bar.name }}
+            </p>
+            <p class="school-cell-text text-xs text-ink-gray-5">
+              {{ formatRange(bar.start, bar.end) }}
+              <span v-if="bar.detail"> · {{ bar.detail }}</span>
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <Badge
+              :label="kindThemes[bar.kind].label"
+              theme="blue"
+              variant="subtle"
+            />
+            <Badge :label="bar.status" theme="gray" variant="subtle" />
+          </div>
+        </button>
+        <p
+          v-if="!examBars.length"
+          class="px-4 py-12 text-center text-sm text-ink-gray-5"
+        >
+          No exams scheduled in this term range yet.
+        </p>
+        <ListPagination
+          v-if="examBars.length"
+          :page="listPage"
+          :total-pages="listTotalPages"
+          :range-label="listRangeLabel"
+          :total="examBars.length"
+          @prev="goListPage(listPage - 1)"
+          @next="goListPage(listPage + 1)"
+          @go="goListPage"
         />
       </div>
     </section>
@@ -681,6 +821,12 @@ function chipColor(kind: TimelineKind) {
 </template>
 
 <style scoped>
+.school-term-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
 .school-scale-nav {
   display: flex;
   flex-wrap: wrap;
@@ -791,53 +937,45 @@ function chipColor(kind: TimelineKind) {
   align-items: center;
 }
 
+.school-cal__dot-label {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.62rem;
+  font-weight: 650;
+}
+
 .school-cal__event-list {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
   min-width: 0;
-  width: 100%;
 }
 
 .school-cal__event-chip {
   display: block;
-  width: 100%;
   max-width: 100%;
-  border-radius: 0.3rem;
-  padding: 0.12rem 0.28rem;
-  font-size: 0.62rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.6rem;
   font-weight: 650;
-  line-height: 1.25;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.school-cal__chip {
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 999px;
-}
-
-.school-cal__dot-label {
-  display: block;
-  width: 100%;
-  font-size: 0.65rem;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
 .school-cal__day-card {
-  padding: 1rem;
+  padding: 0.85rem 1rem;
 }
 
 .school-cal__day-head {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.65rem;
 }
 
 .school-cal__day-list {
@@ -852,34 +990,30 @@ function chipColor(kind: TimelineKind) {
   padding: 0.45rem 0.65rem;
   text-align: left;
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 650;
   cursor: pointer;
 }
 
 .school-gantt {
   width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: auto;
-  border: 1px solid var(--outline-gray-2);
-  border-radius: 0.85rem;
+  border: 1px solid var(--outline-gray-1);
+  border-radius: 0.75rem;
   background: var(--surface-white);
-  box-shadow: 0 1px 0 rgb(15 23 42 / 0.03);
+  overflow: auto;
 }
 
 .school-gantt__axis,
 .school-gantt__row {
   display: grid;
-  grid-template-columns: minmax(0, 8.5rem) minmax(0, 1fr);
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
+  grid-template-columns: 9.5rem minmax(28rem, 1fr);
+  min-width: 38rem;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 900px) {
   .school-gantt__axis,
   .school-gantt__row {
-    grid-template-columns: minmax(0, 10.5rem) minmax(0, 1fr);
+    grid-template-columns: 11rem minmax(0, 1fr);
+    min-width: 0;
   }
 }
 
@@ -887,12 +1021,11 @@ function chipColor(kind: TimelineKind) {
   position: sticky;
   top: 0;
   z-index: 4;
-  border-bottom: 1px solid var(--outline-gray-2);
+  border-bottom: 1px solid var(--outline-gray-1);
 }
 
 .school-gantt__row {
-  border-top: 1px solid var(--outline-gray-1);
-  min-height: 3.1rem;
+  border-bottom: 1px solid var(--outline-gray-1);
 }
 
 .school-gantt__row:nth-child(even) .school-gantt__track-col {
@@ -900,10 +1033,9 @@ function chipColor(kind: TimelineKind) {
 }
 
 .school-gantt__label-col {
-  min-width: 0;
-  padding: 0.55rem 0.7rem;
   border-inline-end: 1px solid var(--outline-gray-1);
-  background: var(--surface-gray-1);
+  padding: 0.55rem 0.65rem;
+  background: var(--surface-white);
 }
 
 .school-gantt__axis-label {

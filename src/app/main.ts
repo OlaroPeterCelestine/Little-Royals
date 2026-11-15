@@ -3,8 +3,13 @@ import { useColorScheme } from 'frappe-ui'
 import App from '@/app/App.vue'
 import { router } from '@/app/router'
 import { isAuthenticated, refreshAuthSession } from '@/data/auth/auth'
-import { hydrateCatalogFromApi } from '@/data/catalog/catalogSync'
+import {
+  ensureModule,
+  hydrateCatalogFromApi,
+  moduleFromPath,
+} from '@/data/catalog/catalogSync'
 import { isApiEnabled } from '@/lib/apiMode'
+import { installNavProgress } from '@/lib/navProgress'
 import { schedulePrefetch } from '@/lib/prefetch'
 import '@/app/styles/main.css'
 
@@ -17,6 +22,7 @@ document.documentElement.style.colorScheme = 'light'
 
 const app = createApp(App)
 app.use(router)
+installNavProgress(router)
 
 async function boot() {
   refreshAuthSession()
@@ -28,11 +34,19 @@ async function boot() {
   }
 
   app.mount('#app')
-  window.addEventListener('focus', () => refreshAuthSession())
+  window.addEventListener('focus', () => {
+    refreshAuthSession()
+    // Quiet revalidate of the open desk module only (Gmail-style).
+    if (isApiEnabled() && isAuthenticated.value) {
+      const mod = moduleFromPath(router.currentRoute.value.path)
+      if (mod) void ensureModule(mod)
+    }
+  })
   schedulePrefetch()
 
   if (isApiEnabled()) {
-    void hydrateCatalogFromApi()
+    const first = moduleFromPath(router.currentRoute.value.path)
+    void hydrateCatalogFromApi(first ? [first] : [])
   }
 }
 

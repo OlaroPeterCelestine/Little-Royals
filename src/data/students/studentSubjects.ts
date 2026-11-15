@@ -527,13 +527,13 @@ export function gradeForScore(
 }
 
 /** Teacher / exams officer posts or updates one subject assessment for a learner. */
-export function saveStudentSubjectMark(input: {
+export async function saveStudentSubjectMark(input: {
   student: CatalogRow
   subject: string
   exam: string
   score: number
   maxScore?: number
-}): CatalogRow {
+}): Promise<CatalogRow> {
   if (!teacherCanMarkSubject(input.subject)) {
     throw new Error('You cannot enter marks for this subject')
   }
@@ -567,6 +567,6 @@ export function saveStudentSubjectMark(input: {
           ? 'Posted'
           : 'Remedial',
   }
-  if (existing) return updateRecord('exam-results', existing.id, payload)
-  return addRecord('exam-results', payload)
+  if (existing) return await updateRecord('exam-results', existing.id, payload)
+  return await addRecord('exam-results', payload)
 }

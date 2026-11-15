@@ -147,7 +147,7 @@ const sessionOptions = ['Morning', 'Afternoon', 'Period'].map((v) => ({
   value: v,
 }))
 
-function saveRegister() {
+async function saveRegister() {
   if (!classLearners.value.length) {
     toast.error('No learners registered for this class')
     return
@@ -155,7 +155,7 @@ function saveRegister() {
   saving.value = true
   try {
     for (const learner of classLearners.value) {
-      addRecord('attendance', {
+      await addRecord('attendance', {
         name: learner.name,
         status: statuses[learner.id] || 'Present',
         className: form.className,

@@ -77,7 +77,7 @@ function clearSelection() {
   selection.value = []
 }
 
-function applyOffset() {
+async function applyOffset() {
   if (!requirePerm('write', 'offset fee dues')) return
   if (!selection.value.length) {
     toast.error('Select at least one invoice')
@@ -85,7 +85,7 @@ function applyOffset() {
   }
   saving.value = true
   try {
-    const n = offsetFeeDues(selection.value, reason.value, notes.value)
+    const n = await offsetFeeDues(selection.value, reason.value, notes.value)
     toast.success(
       n === 1 ? '1 invoice offset' : `${n} invoices offset`,
     )

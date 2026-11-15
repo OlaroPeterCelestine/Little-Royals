@@ -9,7 +9,7 @@ import {
   dialog,
   toast,
 } from 'frappe-ui'
-import PersonAvatar from '@/components/common/PersonAvatar.vue'
+import PersonPhotoUpload from '@/components/common/PersonPhotoUpload.vue'
 import { getTeacher360, teacherAge } from '@/data/people/teacher360'
 import { deleteRecords } from '@/data/catalog/store'
 import { openCreateDialog } from '@/composables/useModuleForms'
@@ -68,7 +68,7 @@ function confirmDelete() {
     confirmLabel: 'Yes, delete forever',
     cancelLabel: 'Keep teacher',
     onConfirm: async () => {
-      deleteRecords('teachers', [row.id])
+      await deleteRecords('teachers', [row.id])
       toast.warning(`Teacher “${row.name}” deleted`)
       await router.push(personListPath('teachers'))
     },
@@ -176,9 +176,12 @@ const healthFields = computed(() => [
         class="flex flex-wrap items-start justify-between gap-4 rounded-6 border border-outline-gray-1 bg-surface-white p-5"
       >
         <div class="flex min-w-0 items-start gap-4">
-          <PersonAvatar
+          <PersonPhotoUpload
             :person="teacher"
-            size="3xl"
+            module-key="teachers"
+            folder="Photos/teachers"
+            size="xl"
+            :can-edit="canWrite"
             class="school-person-avatar--hero"
           />
           <div class="min-w-0 space-y-1.5">

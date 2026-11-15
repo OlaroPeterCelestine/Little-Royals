@@ -9,7 +9,7 @@ import {
   dialog,
   toast,
 } from 'frappe-ui'
-import PersonAvatar from '@/components/common/PersonAvatar.vue'
+import PersonPhotoUpload from '@/components/common/PersonPhotoUpload.vue'
 import { getStaff360 } from '@/data/people/staff360'
 import {
   employeeContactFields,
@@ -74,7 +74,7 @@ function confirmDelete() {
     confirmLabel: 'Yes, delete forever',
     cancelLabel: 'Keep staff',
     onConfirm: async () => {
-      deleteRecords('staff', [row.id])
+      await deleteRecords('staff', [row.id])
       toast.warning(`Staff “${row.name}” deleted`)
       await router.push(personListPath('staff'))
     },
@@ -137,9 +137,12 @@ function statusTheme(status?: string) {
         class="flex flex-wrap items-start justify-between gap-4 rounded-6 border border-outline-gray-1 bg-surface-white p-5"
       >
         <div class="flex min-w-0 items-start gap-4">
-          <PersonAvatar
+          <PersonPhotoUpload
             :person="staff"
-            size="3xl"
+            module-key="staff"
+            folder="Photos/staff"
+            size="xl"
+            :can-edit="canWrite"
             class="school-person-avatar--hero"
           />
           <div class="min-w-0 space-y-1.5">

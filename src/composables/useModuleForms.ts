@@ -111,11 +111,15 @@ export function openDeleteDialog(
     confirmLabel: isOne ? 'Yes, delete forever' : `Yes, delete ${ids.length}`,
     cancelLabel: 'Keep records',
     onConfirm: async () => {
-      const removed = deleteRecords(moduleKey, ids)
-      toast.warning(
-        `${removed} ${removed === 1 ? 'record' : 'records'} deleted`,
-      )
-      onDeleted?.(removed)
+      try {
+        const removed = await deleteRecords(moduleKey, ids)
+        toast.warning(
+          `${removed} ${removed === 1 ? 'record' : 'records'} deleted`,
+        )
+        onDeleted?.(removed)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Delete failed')
+      }
     },
   })
 }

@@ -270,7 +270,7 @@ function compose(presetChannel?: string, template?: CatalogRow) {
           ? 'lucide-message-circle'
           : 'lucide-smartphone',
     theme: 'blue',
-    confirmLabel: 'Save & send',
+    confirmLabel: 'Send',
     size: 'lg',
     fields: [
       {
@@ -350,7 +350,7 @@ function compose(presetChannel?: string, template?: CatalogRow) {
             : String(values.audience).includes('Nursery')
               ? 48
               : 120
-      const row = addRecord('sms-messages', {
+      const row = await addRecord('sms-messages', {
         name: String(values.name).trim(),
         channel: String(values.channel),
         audience: String(values.audience),
@@ -380,25 +380,21 @@ function compose(presetChannel?: string, template?: CatalogRow) {
   })
 }
 
-function sendNow(row: CatalogRow) {
+async function sendNow(row: CatalogRow) {
   if (!canWrite.value) {
     toast.error('Your role cannot send messages')
     return
   }
-  dialog.confirm({
-    title: `Send ${row.channel}?`,
-    message: `Send “${row.name}” to ${row.audience} (${row.recipients || '—'} recipients) via ${row.channel}?`,
-    icon: 'lucide-send',
-    theme: 'blue',
-    confirmLabel: 'Send now',
-    onConfirm: async () => {
-      updateRecord('sms-messages', row.id, {
-        status: 'Sent',
-        sentAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      })
-      toast.success(`${row.channel} sent`)
-    },
-  })
+  try {
+    await updateRecord('sms-messages', row.id, {
+      name: row.name,
+      status: 'Sent',
+      sentAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    })
+    toast.success(`${row.channel} sent`)
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Send failed')
+  }
 }
 
 function useTemplate(tpl: CatalogRow) {

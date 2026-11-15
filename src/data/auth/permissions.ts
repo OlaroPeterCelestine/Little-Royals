@@ -44,6 +44,8 @@ export interface SystemUser {
   bio?: string
   location?: string
   joinedAt?: string
+  /** Identification photo — `file:{uuid}` or data URL. */
+  photo?: string
 }
 
 export type DocPerms = Record<PermFlag, boolean>

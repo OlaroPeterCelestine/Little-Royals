@@ -1,6 +1,7 @@
+import { ref } from 'vue'
 import { schoolStore } from '@/data/catalog/store'
 import { isApiEnabled } from '@/lib/apiMode'
-import { clearApiGetCache } from '@/services/http'
+import { clearApiGetCacheFor } from '@/services/http'
 import {
   FRONTEND_MODULES,
   catalogServices,
@@ -10,6 +11,14 @@ import type { CatalogRow as StoreRow } from '@/data/catalog/catalog'
 import type { CatalogRow as ApiRow } from '@/services/catalog'
 import type { RecordValues } from '@/types/records'
 import { asString } from '@/types/records'
+
+/** True while background API hydrate is running (Gmail-style quiet sync). */
+export const catalogSyncing = ref(false)
+export const catalogSyncLabel = ref('')
+
+const moduleFreshAt = new Map<string, number>()
+const moduleInflight = new Map<string, Promise<boolean>>()
+const MODULE_FRESH_MS = 20_000
 
 function isFrontendModule(key: string): key is FrontendModule {
   return (FRONTEND_MODULES as readonly string[]).includes(key)
@@ -31,7 +40,7 @@ function displayNameFromApi(raw: ApiRow): string {
   return String(raw.id)
 }
 
-function rowFromApi(raw: ApiRow): StoreRow {
+export function rowFromApi(raw: ApiRow): StoreRow {
   const out: StoreRow = {
     id: String(raw.id),
     name: displayNameFromApi(raw),
@@ -46,7 +55,7 @@ function rowFromApi(raw: ApiRow): StoreRow {
   return out
 }
 
-function bodyFromRow(row: StoreRow | RecordValues): Record<string, unknown> {
+export function bodyFromRow(row: StoreRow | RecordValues): Record<string, unknown> {
   const body: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(row)) {
     if (v === undefined || v === null) continue
@@ -62,11 +71,69 @@ function bodyFromRow(row: StoreRow | RecordValues): Record<string, unknown> {
   return body
 }
 
+export function isServerModule(key: string): key is FrontendModule {
+  return isFrontendModule(key)
+}
+
+/** Map a desk path to a catalog module when possible. */
+export function moduleFromPath(path?: string): FrontendModule | null {
+  if (!path) return null
+  const seg = String(path).split('?')[0].replace(/^\//, '').split('/')[0]
+  if (!seg) return null
+  const aliases: Record<string, FrontendModule> = {
+    people: 'parents',
+    payment: 'payments',
+    meals: 'meals-menus',
+    library: 'library-books',
+    transport: 'transport-routes',
+    health: 'health-records',
+    discipline: 'disciplinary-cases',
+    inventory: 'inventory-items',
+    applicants: 'admissions',
+  }
+  const key = aliases[seg] || seg
+  return isFrontendModule(key) ? key : null
+}
+
+async function pullModule(module: FrontendModule, bust = false): Promise<boolean> {
+  try {
+    if (bust) clearApiGetCacheFor(`/api/v1/${module}`)
+    const { items } = await catalogServices[module].list({ limit: 500 })
+    const mod = schoolStore[module]
+    if (!mod) return false
+    if (items.length) {
+      mod.rows = items.map(rowFromApi)
+    }
+    moduleFreshAt.set(module, Date.now())
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Ensure a single module is warm — shows seed instantly, revalidates in background.
+ * Safe to call on route enter / sidebar hover.
+ */
+export function ensureModule(module: string, opts?: { force?: boolean }): Promise<boolean> {
+  if (!isApiEnabled() || !isFrontendModule(module)) return Promise.resolve(false)
+  const force = opts?.force === true
+  const at = moduleFreshAt.get(module) || 0
+  if (!force && Date.now() - at < MODULE_FRESH_MS) return Promise.resolve(true)
+  const existing = moduleInflight.get(module)
+  if (existing) return existing
+  const p = pullModule(module, force).finally(() => {
+    moduleInflight.delete(module)
+  })
+  moduleInflight.set(module, p)
+  return p
+}
+
 /**
  * Pull live rows from the Go API into the desk store (when API is enabled).
- * Seed data remains as fallback if a module fails.
+ * Seed data remains as fallback if a module fails. Prioritizes `priority` modules first.
  */
-export async function hydrateCatalogFromApi(): Promise<{
+export async function hydrateCatalogFromApi(priority: string[] = []): Promise<{
   ok: boolean
   loaded: number
   failed: string[]
@@ -75,37 +142,53 @@ export async function hydrateCatalogFromApi(): Promise<{
     return { ok: false, loaded: 0, failed: [] }
   }
 
+  catalogSyncing.value = true
+  catalogSyncLabel.value = 'Updating…'
   const failed: string[] = []
   let loaded = 0
 
-  const batchSize = 8
-  for (let i = 0; i < FRONTEND_MODULES.length; i += batchSize) {
-    const slice = FRONTEND_MODULES.slice(i, i + batchSize)
-    await Promise.all(
-      slice.map(async (module) => {
-        try {
-          const { items } = await catalogServices[module].list({ limit: 500 })
-          const mod = schoolStore[module]
-          if (!mod) return
-          if (items.length) {
-            mod.rows = items.map(rowFromApi)
-            loaded += 1
-          }
-        } catch {
-          failed.push(module)
-        }
-      }),
-    )
+  const seen = new Set<string>()
+  const order: FrontendModule[] = []
+  for (const key of priority) {
+    if (isFrontendModule(key) && !seen.has(key)) {
+      seen.add(key)
+      order.push(key)
+    }
+  }
+  for (const key of FRONTEND_MODULES) {
+    if (!seen.has(key)) {
+      seen.add(key)
+      order.push(key)
+    }
+  }
+
+  const batchSize = 10
+  try {
+    for (let i = 0; i < order.length; i += batchSize) {
+      const slice = order.slice(i, i + batchSize)
+      catalogSyncLabel.value =
+        i === 0 ? 'Updating…' : `Updating… ${Math.min(i + batchSize, order.length)}/${order.length}`
+      await Promise.all(
+        slice.map(async (module) => {
+          const ok = await ensureModule(module)
+          if (ok) loaded += 1
+          else failed.push(module)
+        }),
+      )
+    }
+  } finally {
+    catalogSyncing.value = false
+    catalogSyncLabel.value = ''
   }
 
   return { ok: failed.length < FRONTEND_MODULES.length, loaded, failed }
 }
 
-const UUID_RE =
+export const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 /** Typed GORM resources expect server-minted UUIDs — don't send desk codes as id. */
-const TYPED_API_MODULES = new Set([
+export const TYPED_API_MODULES = new Set([
   'students',
   'staff',
   'parents',
@@ -117,58 +200,46 @@ const TYPED_API_MODULES = new Set([
   'payments',
 ])
 
-/** Best-effort create on API after local create. Keeps local id when API accepts it. */
-export function syncCreateToApi(key: string, row: StoreRow) {
-  if (!isApiEnabled() || !isFrontendModule(key)) return
-  const body = bodyFromRow(row)
-  body.name = row.name
-  if (TYPED_API_MODULES.has(key) && !UUID_RE.test(String(row.id))) {
-    delete body.id
+function bumpModule(key: string) {
+  clearApiGetCacheFor(`/api/v1/${key}`)
+  moduleFreshAt.delete(key)
+}
+
+/** Server-authoritative create — throws if the API rejects. */
+export async function createOnServer(
+  key: FrontendModule,
+  body: Record<string, unknown> & { name: string },
+): Promise<StoreRow> {
+  const created = await catalogServices[key].create(
+    body as Partial<ApiRow> & { name: string },
+  )
+  bumpModule(key)
+  return rowFromApi(created)
+}
+
+/** Server-authoritative update — throws if the API rejects. */
+export async function updateOnServer(
+  key: FrontendModule,
+  id: string,
+  body: Record<string, unknown>,
+): Promise<StoreRow> {
+  const updated = await catalogServices[key].update(id, body as Partial<ApiRow>)
+  bumpModule(key)
+  return rowFromApi(updated)
+}
+
+/** Server-authoritative delete — throws if any id fails. */
+export async function deleteOnServer(key: FrontendModule, ids: string[]) {
+  const results = await Promise.allSettled(
+    ids.map((id) => catalogServices[key].remove(id)),
+  )
+  const failed = results.filter((r) => r.status === 'rejected').length
+  bumpModule(key)
+  if (failed) {
+    throw new Error(
+      failed === ids.length
+        ? 'Server rejected the delete'
+        : `${failed} of ${ids.length} deletes failed on the server`,
+    )
   }
-  void catalogServices[key]
-    .create(body as Partial<ApiRow> & { name: string })
-    .then((created) => {
-      clearApiGetCache()
-      const mod = schoolStore[key]
-      if (!mod || !created?.id) return
-      const local = mod.rows.find((r) => r.id === row.id)
-      if (!local) return
-      // Prefer API public id when server minted a new one.
-      if (String(created.id) !== row.id) {
-        local.id = String(created.id)
-      }
-      for (const [k, v] of Object.entries(created)) {
-        if (k === 'id' || v == null) continue
-        local[k] = typeof v === 'boolean' ? String(v) : (v as string | number)
-      }
-    })
-    .catch(() => {
-      /* keep local row; API may be down or typed-module id mismatch */
-    })
-}
-
-/** Best-effort update on API after local update. */
-export function syncUpdateToApi(key: string, id: string, values: RecordValues) {
-  if (!isApiEnabled() || !isFrontendModule(key)) return
-  const body = bodyFromRow(values)
-  body.name = asString(values.name) || id
-  delete body.id
-  void catalogServices[key]
-    .update(id, body as Partial<ApiRow>)
-    .then(() => clearApiGetCache())
-    .catch(() => {
-      /* local already updated */
-    })
-}
-
-/** Best-effort delete on API after local delete. */
-export function syncDeleteToApi(key: string, ids: string[]) {
-  if (!isApiEnabled() || !isFrontendModule(key) || !ids.length) return
-  void Promise.all(
-    ids.map((id) =>
-      catalogServices[key].remove(id).catch(() => {
-        /* local already deleted */
-      }),
-    ),
-  ).then(() => clearApiGetCache())
 }

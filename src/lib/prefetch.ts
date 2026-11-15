@@ -1,3 +1,5 @@
+import { ensureModule, moduleFromPath } from '@/data/catalog/catalogSync'
+
 /** Path → lazy page loader. Warm these after paint / on sidebar hover. */
 const ROUTE_LOADERS: Record<string, () => Promise<unknown>> = {
   '/dashboard': () => import('@/pages/desk/Dashboard.vue'),
@@ -22,6 +24,10 @@ const ROUTE_LOADERS: Record<string, () => Promise<unknown>> = {
   '/academics': () => import('@/pages/academics/Academics.vue'),
   '/timetable': () => import('@/pages/academics/Timetable.vue'),
   '/communications': () => import('@/pages/communications/Communications.vue'),
+  '/reports': () => import('@/pages/reports/Reports.vue'),
+  '/users': () => import('@/pages/admin/Users.vue'),
+  '/school-setup': () => import('@/pages/admin/SchoolSetup.vue'),
+  '/school-cloud': () => import('@/pages/admin/SchoolCloud.vue'),
 }
 
 const warmed = new Set<string>()
@@ -31,13 +37,25 @@ function normalizePath(path: string) {
   return base
 }
 
-/** Prefetch a desk route chunk (safe to call often). */
+/** Prefetch a desk route chunk + its module data (safe to call often). */
 export function prefetchRoute(path?: string) {
   if (!path) return
   const base = normalizePath(path)
+  const mod = moduleFromPath(base)
+  if (mod) void ensureModule(mod)
+
   if (warmed.has(base)) return
   const load = ROUTE_LOADERS[base]
-  if (!load) return
+  if (!load) {
+    // Still warm shared list shells for catalog routes.
+    if (base !== '/' && base !== '/login') {
+      warmed.add(base)
+      void import('@/pages/shared/MasterList.vue').catch(() => {
+        warmed.delete(base)
+      })
+    }
+    return
+  }
   warmed.add(base)
   void load().catch(() => {
     warmed.delete(base)
@@ -53,6 +71,8 @@ export function prefetchCorePages() {
     '/payment',
     '/attendance',
     '/gradebook',
+    '/reports',
+    '/users',
     () => import('@/pages/shared/MasterList.vue'),
     () => import('@/pages/shared/RecordDetail.vue'),
   ] as const

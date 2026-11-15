@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import {
   Alert,
   Badge,
+  Button,
   PageHeader,
   PageHeaderTitle,
 } from 'frappe-ui'
@@ -20,8 +21,10 @@ import { schoolSetup } from '@/data/school/schoolSetup'
 import { currentUser } from '@/data/activity/activity'
 import {
   canAccessModule,
+  canAccessPath,
   filterRoutesByPermissions,
 } from '@/lib/accessControl'
+import { schoolCloudApps } from '@/lib/schoolCloud'
 import SchoolLogo from '@/components/layout/SchoolLogo.vue'
 import ListStatCards from '@/components/list/ListStatCards.vue'
 
@@ -143,6 +146,15 @@ const quickLinks = computed(() => {
     },
   ])
 })
+
+const showSchoolCloud = computed(() => {
+  void currentUser.role
+  return canAccessPath('/school-cloud', 'read')
+})
+
+const cloudHighlights = schoolCloudApps.filter((a) =>
+  ['mail', 'files', 'talk', 'calendar'].includes(a.id),
+)
 </script>
 
 <template>
@@ -237,6 +249,42 @@ const quickLinks = computed(() => {
             class="min-h-[280px]"
           />
         </div>
+      </div>
+    </section>
+
+    <section v-if="showSchoolCloud" class="school-section">
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 class="school-section-title mb-0">School cloud</h2>
+        <Button
+          label="Open school cloud"
+          variant="subtle"
+          icon-left="lucide-cloud"
+          :route="{ name: 'school-cloud' }"
+        />
+      </div>
+      <p class="mb-4 max-w-2xl text-sm text-ink-gray-6">
+        Native Mail, Drive, Calendar, and Video — built into the desk (no
+        Nextcloud).
+      </p>
+      <div class="school-tile-grid">
+        <button
+          v-for="app in cloudHighlights"
+          :key="app.id"
+          type="button"
+          class="flex flex-col gap-3 rounded-6 border border-outline-gray-1 bg-surface-white p-5 text-left transition hover:border-outline-gray-3 hover:bg-surface-gray-1"
+          @click="$router.push(`/school-cloud?app=${app.id}`)"
+        >
+          <span
+            class="flex size-10 items-center justify-center rounded-5 bg-surface-gray-2 text-ink-gray-7"
+            aria-hidden="true"
+          >
+            <span :class="[app.icon, 'size-5']" />
+          </span>
+          <div class="space-y-1">
+            <p class="text-sm-semibold text-ink-gray-9">{{ app.label }}</p>
+            <p class="text-sm text-ink-gray-6">{{ app.description }}</p>
+          </div>
+        </button>
       </div>
     </section>
 

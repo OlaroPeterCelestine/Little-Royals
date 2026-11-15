@@ -123,11 +123,15 @@ async function onSave(values: Record<string, unknown>, asDraft: boolean) {
   saving.value = true
   try {
     if (isCreate.value) {
-      const created = addRecord(key, payload)
+      const created = await addRecord(key, payload)
       toast.success(`${mod.value.singular} “${created.name}” created`)
       recordFormModal.onSaved?.(created)
     } else if (recordFormModal.recordId) {
-      const updated = updateRecord(key, recordFormModal.recordId, payload)
+      const updated = await updateRecord(
+        key,
+        recordFormModal.recordId,
+        payload,
+      )
       toast.success(`${mod.value.singular} “${updated.name}” updated`)
       recordFormModal.onSaved?.(updated)
     }

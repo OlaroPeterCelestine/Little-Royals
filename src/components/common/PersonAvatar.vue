@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Avatar } from 'frappe-ui'
-import { personPhotoUrl } from '@/lib/personPhoto'
+import {
+  personPhotoUrl,
+  resolvePersonPhotoSrc,
+} from '@/lib/personPhoto'
 
 const props = withDefaults(
   defineProps<{
@@ -22,7 +25,21 @@ const props = withDefaults(
 const name = computed(
   () => props.label || String(props.person?.name || 'Learner'),
 )
-const image = computed(() => personPhotoUrl(props.person || { name: name.value }))
+const image = ref(
+  personPhotoUrl(props.person || { name: name.value }),
+)
+
+watch(
+  () => [props.person?.photo, props.person?.id, props.person?.name, name.value],
+  async () => {
+    image.value = await resolvePersonPhotoSrc(
+      props.person?.photo,
+      name.value,
+      String(props.person?.id || ''),
+    )
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

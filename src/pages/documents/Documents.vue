@@ -196,8 +196,11 @@ watch(
   { immediate: true },
 )
 
+const previewError = ref('')
+
 /** Structural deps only — textOverrides are applied inside the iframe so typing does not remount. */
 const previewHtml = computed(() => {
+  previewError.value = ''
   if (!selectedKind.value || !selectedRow.value) return ''
   const c = canvas.value
   if (c) {
@@ -220,7 +223,9 @@ const previewHtml = computed(() => {
         applyTextOverrides: false,
       },
     ).html
-  } catch {
+  } catch (err) {
+    previewError.value =
+      err instanceof Error ? err.message : 'Could not build this document'
     return ''
   }
 })
@@ -244,9 +249,27 @@ const previewFrameKey = computed(
     `${selectedKind.value}|${selectedModule.value}|${selectedRecordId.value}|${editMode.value}|${canvas.value?.note || ''}|${canvas.value?.leftSigner || ''}|${canvas.value?.rightSigner || ''}|${designFingerprint.value}`,
 )
 
+function syncPreviewFrameHeight() {
+  const frame = frameRef.value
+  const paper = paperRef.value
+  const doc = frame?.contentDocument
+  if (!frame || !paper || !doc?.body) return
+  const height = Math.max(
+    doc.documentElement?.scrollHeight || 0,
+    doc.body.scrollHeight || 0,
+    Math.round(paper.getBoundingClientRect().width * (297 / 210)),
+  )
+  frame.style.height = `${height}px`
+  paper.style.minHeight = `${height}px`
+}
+
 function onPreviewFrameLoad() {
   const doc = frameRef.value?.contentDocument
   const kind = selectedKind.value
+  syncPreviewFrameHeight()
+  // Re-measure after fonts/images settle so multi-page letters are not clipped.
+  requestAnimationFrame(() => syncPreviewFrameHeight())
+  window.setTimeout(() => syncPreviewFrameHeight(), 120)
   if (!doc || !kind || !editMode.value) return
   const cfg = canvasConfigFor(kind)
   doc.querySelectorAll<HTMLElement>('[data-edit-key]').forEach((el) => {
@@ -258,9 +281,11 @@ function onPreviewFrameLoad() {
     }
     el.addEventListener('input', () => {
       setTextOverride(kind, key, el.textContent || '')
+      syncPreviewFrameHeight()
     })
     el.addEventListener('blur', () => {
       setTextOverride(kind, key, (el.textContent || '').trim())
+      syncPreviewFrameHeight()
     })
   })
 }
@@ -971,7 +996,10 @@ const marginLabel = computed(() => {
               @load="onPreviewFrameLoad"
             />
             <div v-else class="doc-studio-empty">
-              No record available for this document yet.
+              {{
+                previewError ||
+                'No record available for this document yet. Pick a record in the sidebar.'
+              }}
             </div>
 
             <button
