@@ -3,6 +3,8 @@ import { useColorScheme } from 'frappe-ui'
 import App from '@/app/App.vue'
 import { router } from '@/app/router'
 import { isAuthenticated, refreshAuthSession } from '@/data/auth/auth'
+import { hydrateCatalogFromApi } from '@/data/catalog/catalogSync'
+import { isApiEnabled } from '@/lib/apiMode'
 import { schedulePrefetch } from '@/lib/prefetch'
 import '@/app/styles/main.css'
 
@@ -28,6 +30,10 @@ async function boot() {
   app.mount('#app')
   window.addEventListener('focus', () => refreshAuthSession())
   schedulePrefetch()
+
+  if (isApiEnabled()) {
+    void hydrateCatalogFromApi()
+  }
 }
 
 void boot()

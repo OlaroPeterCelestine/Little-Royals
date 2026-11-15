@@ -26,6 +26,11 @@ import {
 import { sortSchoolClassRows } from '@/data/school/grades'
 import { asString, type RecordValues } from '@/types/records'
 import { sanitizeFieldValue, sanitizeText } from '@/lib/sanitize'
+import {
+  syncCreateToApi,
+  syncDeleteToApi,
+  syncUpdateToApi,
+} from '@/data/catalog/catalogSync'
 
 function appendAuditLog(input: {
   action: string
@@ -206,6 +211,7 @@ export function addRecord(key: string, values: RecordValues): CatalogRow {
     recordName: row.name,
     changes,
   })
+  syncCreateToApi(key, row)
   return row
 }
 
@@ -261,6 +267,7 @@ export function updateRecord(
     recordName: row.name,
     changes,
   })
+  syncUpdateToApi(key, id, values)
   return row
 }
 
@@ -292,6 +299,7 @@ export function deleteRecords(key: string, ids: string[]) {
       changes,
     })
   }
+  syncDeleteToApi(key, ids)
   return removed
 }
 

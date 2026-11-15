@@ -266,7 +266,19 @@ export async function loginWithCredentials(input: {
   if (!isApiEnabled()) {
     return loginLocal({ email, password, remember: input.remember })
   }
-  return loginViaApi({ email, password, remember: input.remember })
+  try {
+    return await loginViaApi({ email, password, remember: input.remember })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : ''
+    // API down / unreachable — keep the desk usable offline.
+    if (
+      msg.includes('Cannot reach the school API') ||
+      msg.includes('Failed to fetch')
+    ) {
+      return loginLocal({ email, password, remember: input.remember })
+    }
+    throw err
+  }
 }
 
 export function logout() {

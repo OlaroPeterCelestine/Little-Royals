@@ -113,7 +113,7 @@ export const notifications = computed<SchoolNotification[]>(() => {
       id: 'report-cards-draft',
       title: `${draftCards} report card${draftCards === 1 ? '' : 's'} still draft`,
       body: 'Publish so parents can view on the portal.',
-      route: '/students',
+      route: '/documents?kind=report-card',
       tone: 'blue',
       createdAt: todayLabel(),
       read: dismissed.has('report-cards-draft'),

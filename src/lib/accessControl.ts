@@ -64,7 +64,7 @@ export function modulesForPath(pathWithQuery: string): string[] {
     'inventory-issues': ['inventory-issues'],
     'purchase-requests': ['purchase-requests'],
     assets: ['assets'],
-    communications: ['sms-messages', 'announcements'],
+    communications: ['sms-messages'],
     calendar: ['school-events'],
     'school-events': ['school-events'],
     scan: ['applicants'],
@@ -83,8 +83,8 @@ export function modulesForPath(pathWithQuery: string): string[] {
     'audit-logs': ['audit-logs'],
     documents: ['__any_print__'],
     reports: ['students', 'fees', 'exam-results', 'attendance'],
-    'parent-portal': ['fees', 'exam-results', 'attendance', 'announcements'],
-    'report-cards': ['report-cards', 'students'],
+    'parent-portal': ['fees', 'exam-results', 'attendance', 'sms-messages'],
+    'report-cards': ['students', 'exam-results'],
     'staff-directory': ['staff'],
   }
 

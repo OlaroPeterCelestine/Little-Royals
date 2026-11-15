@@ -27,7 +27,15 @@ const MODULE_TO_HUB: Record<string, { path: string; tab?: string }> = {
   'assessment-criteria': { path: '/gradebook', tab: 'settings' },
   'grading-scales': { path: '/gradebook', tab: 'settings' },
   'exam-settings': { path: '/gradebook', tab: 'settings' },
-  'report-cards': { path: '/students' },
+  'report-cards': { path: '/documents', tab: 'report-card' },
+  students: { path: '/students' },
+  classes: { path: '/classes' },
+  programs: { path: '/classes' },
+  batches: { path: '/academics' },
+  subjects: { path: '/courses' },
+  courses: { path: '/courses' },
+  curriculum: { path: '/curriculum' },
+  alumni: { path: '/alumni' },
 
   'library-books': { path: '/library', tab: 'books' },
   'library-issues': { path: '/library', tab: 'issues' },
@@ -64,7 +72,7 @@ const MODULE_TO_HUB: Record<string, { path: string; tab?: string }> = {
   'academic-years': { path: '/years-and-terms' },
   'academic-terms': { path: '/years-and-terms' },
 
-  periods: { path: '/timetable', tab: undefined },
+  periods: { path: '/timetable', tab: 'periods' },
   timetable: { path: '/timetable' },
 
   'lesson-plans': { path: '/academics' },
@@ -87,11 +95,15 @@ const MODULE_TO_HUB: Record<string, { path: string; tab?: string }> = {
 
 function withTab(path: string, tab?: string): string {
   if (!tab) return path
-  const join = path.includes('?') ? '&' : '?'
-  // timetable uses view= for periods
+  // Documents studio uses ?kind=
+  if (path === '/documents') {
+    return `${path}?kind=${encodeURIComponent(tab)}`
+  }
+  // Timetable periods use ?view=
   if (path === '/timetable' && tab === 'periods') {
     return `${path}?view=periods`
   }
+  const join = path.includes('?') ? '&' : '?'
   return `${path}${join}tab=${encodeURIComponent(tab)}`
 }
 

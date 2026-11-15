@@ -71,6 +71,11 @@ export const educationNav: NavGroup[] = [
     items: [
       { label: 'Students', icon: 'lucide-graduation-cap', route: '/students' },
       { label: 'Alumni', icon: 'lucide-graduation-cap', route: '/alumni' },
+      {
+        label: 'People',
+        icon: 'lucide-users-round',
+        route: '/people',
+      },
     ],
   },
   {
@@ -124,7 +129,6 @@ export const educationNav: NavGroup[] = [
   {
     title: 'HR',
     items: [
-      { label: 'People', icon: 'lucide-users-round', route: '/people' },
       { label: 'Departments', icon: 'lucide-building', route: '/departments' },
       { label: 'Payroll', icon: 'lucide-wallet-cards', route: '/payroll' },
       { label: 'Leave', icon: 'lucide-calendar-off', route: '/staff-leave' },

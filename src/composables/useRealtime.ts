@@ -1,6 +1,6 @@
 import { onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { authToken } from '@/data/auth/auth'
-import { apiBaseUrl, isApiEnabled } from '@/lib/apiMode'
+import { isApiEnabled, wsBaseUrl } from '@/lib/apiMode'
 
 export type RealtimeEvent = {
   type: string
@@ -8,11 +8,7 @@ export type RealtimeEvent = {
   at: string
 }
 
-const API_BASE = apiBaseUrl()
-const WS_BASE = (
-  import.meta.env.VITE_WS_URL ||
-  (API_BASE ? API_BASE.replace(/^http/, 'ws') : '')
-).replace(/\/$/, '')
+const WS_BASE = wsBaseUrl()
 
 function wsURL(token: string) {
   return `${WS_BASE}/api/v1/ws?token=${encodeURIComponent(token)}`

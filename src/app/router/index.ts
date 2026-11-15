@@ -425,11 +425,11 @@ export const router = createRouter({
     },
     {
       path: '/report-cards',
-      redirect: '/students',
+      redirect: { path: '/documents', query: { kind: 'report-card' } },
     },
     {
       path: '/report-cards/:id',
-      redirect: (to) => `/students/${to.params.id}`,
+      redirect: { path: '/documents', query: { kind: 'report-card' } },
     },
     {
       path: '/timetable',
