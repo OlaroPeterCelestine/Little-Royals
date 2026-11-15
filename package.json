@@ -10,6 +10,9 @@
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@noble/ciphers": "^2.4.0",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
     "@vue/compiler-dom": "3.5.45",
     "frappe-ui": "1.2.0",
     "tesseract.js": "^5.1.1",

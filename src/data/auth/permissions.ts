@@ -10,6 +10,7 @@ import {
   roleLabel,
   type ApiRole,
 } from '@/data/auth/roles'
+import { FRONTEND_MODULES } from '@/services/catalog'
 
 export type PermFlag =
   | 'read'
@@ -64,10 +65,188 @@ const FLAGS: PermFlag[] = [
   'share',
 ]
 
-const DOC_TYPES = Object.values({ ...catalog, ...catalogExtra }).map((m) => ({
-  key: m.key,
-  label: m.singular,
-}))
+export type DocTypeMeta = {
+  key: string
+  label: string
+  group: string
+}
+
+function titleCaseModule(key: string): string {
+  return key
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function inferModuleGroup(key: string): string {
+  if (
+    [
+      'students',
+      'guardians',
+      'parents',
+      'student-categories',
+      'student-log',
+      'alumni',
+      'waiting-list',
+    ].includes(key)
+  )
+    return 'Student'
+  if (
+    [
+      'admissions',
+      'applicants',
+      'batches',
+      'program-enrollments',
+      'programs',
+    ].includes(key)
+  )
+    return 'Admissions'
+  if (
+    [
+      'classes',
+      'subjects',
+      'teachers',
+      'staff',
+      'courses',
+      'course-enrollments',
+      'curriculum',
+      'academic-terms',
+      'academic-years',
+      'periods',
+      'timetable',
+      'lesson-plans',
+      'schemes-of-work',
+      'homework',
+      'study-coverage',
+      'departments',
+      'campuses',
+    ].includes(key)
+  )
+    return 'Academics'
+  if (
+    [
+      'exams',
+      'exam-results',
+      'exam-settings',
+      'gradebook',
+      'grading-scales',
+      'assessment-criteria',
+      'assessment-groups',
+      'report-cards',
+    ].includes(key)
+  )
+    return 'Assessment'
+  if (
+    [
+      'attendance',
+      'staff-attendance',
+      'staff-leave',
+      'early-departures',
+      'visitor-log',
+    ].includes(key)
+  )
+    return 'Attendance'
+  if (
+    [
+      'fees',
+      'fee-structures',
+      'fee-categories',
+      'fee-schedules',
+      'fee-offsets',
+      'invoices',
+      'payments',
+      'refunds',
+      'bursaries',
+      'scholarships',
+      'discounts',
+      'expenses',
+      'payroll',
+    ].includes(key)
+  )
+    return 'Fees'
+  if (
+    [
+      'inventory-items',
+      'inventory-stock',
+      'inventory-issues',
+      'purchase-requests',
+      'assets',
+    ].includes(key)
+  )
+    return 'Inventory'
+  if (['library-books', 'library-issues'].includes(key)) return 'Library'
+  if (['transport-routes', 'transport-vehicles'].includes(key)) return 'Transport'
+  if (
+    [
+      'sms-messages',
+      'message-templates',
+      'notifications',
+      'school-events',
+      'announcements',
+    ].includes(key)
+  )
+    return 'Communications'
+  if (
+    [
+      'nursery-activities',
+      'nursery-development',
+      'nursery-observations',
+      'meals-menus',
+      'meal-attendance',
+      'dietary-requirements',
+      'clinic-visits',
+      'health-records',
+      'hostel',
+      'clubs',
+      'positive-recognition',
+      'safeguarding-incidents',
+      'disciplinary-cases',
+    ].includes(key)
+  )
+    return 'Care'
+  return 'System'
+}
+
+const PLATFORM_DOC_TYPES: DocTypeMeta[] = [
+  { key: 'users', label: 'User', group: 'System' },
+  { key: 'subjects', label: 'Subject', group: 'Academics' },
+  { key: 'parents', label: 'Parent', group: 'Student' },
+  { key: 'staff', label: 'Staff member', group: 'Academics' },
+  { key: 'school', label: 'School profile', group: 'System' },
+  { key: 'notifications', label: 'Notification', group: 'Communications' },
+]
+
+function buildDocTypes(): DocTypeMeta[] {
+  const byKey = new Map<string, DocTypeMeta>()
+
+  for (const mod of Object.values({ ...catalog, ...catalogExtra })) {
+    byKey.set(mod.key, {
+      key: mod.key,
+      label: mod.singular,
+      group: mod.group || 'Other',
+    })
+  }
+
+  for (const key of FRONTEND_MODULES) {
+    if (byKey.has(key)) continue
+    byKey.set(key, {
+      key,
+      label: titleCaseModule(key),
+      group: inferModuleGroup(key),
+    })
+  }
+
+  for (const mod of PLATFORM_DOC_TYPES) {
+    if (!byKey.has(mod.key)) byKey.set(mod.key, mod)
+  }
+
+  return Array.from(byKey.values()).sort(
+    (a, b) => a.label.localeCompare(b.label) || a.key.localeCompare(b.key),
+  )
+}
+
+const DOC_TYPES = buildDocTypes()
 
 /** Map desk catalog keys → backend Casbin resources (when applicable). */
 export const DOCTYPE_API_RESOURCE: Record<string, string> = {
@@ -87,6 +266,8 @@ export const DOCTYPE_API_RESOURCE: Record<string, string> = {
   payments: 'payments',
   invoices: 'invoices',
   users: 'users',
+  school: 'school',
+  notifications: 'notifications',
   announcements: 'notifications',
   'sms-messages': 'notifications',
 }

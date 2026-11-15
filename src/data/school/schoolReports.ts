@@ -218,10 +218,23 @@ export function schoolReportStats() {
 
 function buildOverview() {
   const s = schoolReportStats()
+  const classes = schoolStore.classes?.rows || []
+  const subjects = schoolStore.subjects?.rows || []
+  const fees = schoolStore.fees?.rows || []
+  const paid = countBy(fees, ['Paid'])
   const title = 'School Overview Report'
+  const classRows = classes
+    .slice(0, 24)
+    .map(
+      (r) =>
+        `<tr><td>${esc(r.name)}</td><td>${esc(r.level || r.stream || '—')}</td><td>${esc(r.teacher || '—')}</td><td>${esc(r.status || '—')}</td></tr>`,
+    )
+    .join('')
   const html = wrap(
     title,
-    `<div class="kpi">
+    `<p class="muted">${esc(schoolSetup.name || schoolSetup.shortName)} · ${esc(schoolSetup.currentTerm)} ${esc(schoolSetup.academicYear)} · ${esc(schoolSetup.country || 'Uganda')}</p>
+    <h2>Head-office snapshot</h2>
+    <div class="kpi">
       <div><strong>${s.students}</strong><span>Learners enrolled</span></div>
       <div><strong>${s.activeStudents}</strong><span>Active learners</span></div>
       <div><strong>${s.teachers}</strong><span>Teachers</span></div>
@@ -229,11 +242,31 @@ function buildOverview() {
     </div>
     <div class="kpi">
       <div><strong>${s.unpaidFees}</strong><span>Fee invoices open</span></div>
+      <div><strong>${paid}</strong><span>Invoices paid</span></div>
       <div><strong>${s.pendingAdmissions}</strong><span>Admissions pending</span></div>
       <div><strong>${s.examPass}/${s.examTotal || 0}</strong><span>Results posted</span></div>
+    </div>
+    <div class="kpi">
+      <div><strong>${classes.length}</strong><span>Classes</span></div>
+      <div><strong>${subjects.length}</strong><span>Subjects</span></div>
+      <div><strong>${fees.length}</strong><span>Fee invoices</span></div>
       <div><strong>${esc(schoolSetup.currency)}</strong><span>Billing currency</span></div>
     </div>
-    <p class="muted">Summary for ${esc(schoolSetup.currentTerm)} ${esc(schoolSetup.academicYear)}.</p>`,
+    <h2>Campus profile</h2>
+    <table>
+      <tbody>
+        <tr><th>School</th><td>${esc(schoolSetup.name || schoolSetup.shortName)}</td></tr>
+        <tr><th>Location</th><td>${esc([schoolSetup.city, schoolSetup.district, schoolSetup.country].filter(Boolean).join(', ') || '—')}</td></tr>
+        <tr><th>Term</th><td>${esc(schoolSetup.currentTerm)} ${esc(schoolSetup.academicYear)}</td></tr>
+        <tr><th>Currency</th><td>${esc(schoolSetup.currency)}</td></tr>
+      </tbody>
+    </table>
+    <h2>Classes (${classes.length})</h2>
+    <table>
+      <thead><tr><th>Class</th><th>Level / stream</th><th>Teacher</th><th>Status</th></tr></thead>
+      <tbody>${classRows || '<tr><td colspan="4">No classes on file</td></tr>'}</tbody>
+    </table>
+    <p class="muted">Generated for desk preview · print or download for the official copy.</p>`,
   )
   return { title, html }
 }

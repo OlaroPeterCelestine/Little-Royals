@@ -991,25 +991,38 @@ header.border-b:has([data-slot='page-header-title']),
 }
 
 .school-perm-matrix--dialog {
+  flex: 0 0 auto;
+  min-height: 0;
   max-height: none;
   overflow: visible;
+  background: #ffffff;
+  isolation: isolate;
+  position: relative;
+  z-index: 1;
 }
 
 .school-side-overlay {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 200;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(0.75rem, 3vh, 1.5rem) 1rem;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .school-side-overlay__scrim {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  z-index: 0;
   border: 0;
   padding: 0;
   cursor: default;
-  background: rgb(15 23 42 / 0.42);
+  background: rgb(15 23 42 / 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .school-side-panel {
@@ -1017,17 +1030,21 @@ header.border-b:has([data-slot='page-header-title']),
   z-index: 1;
   display: flex;
   flex-direction: column;
-  width: min(32rem, 100vw);
-  height: 100%;
-  max-height: 100dvh;
-  background: var(--surface-white);
-  border-inline-start: 1px solid var(--outline-gray-2);
-  box-shadow: -12px 0 40px rgb(15 23 42 / 0.18);
+  width: min(44rem, 100%);
+  height: min(90dvh, 56rem);
+  max-height: min(90dvh, 56rem);
+  margin-inline: auto;
+  background: #ffffff;
+  border: 1px solid var(--outline-gray-2, #e5e5e5);
+  border-radius: 0.85rem;
+  box-shadow: 0 18px 50px rgb(15 23 42 / 0.28);
+  isolation: isolate;
+  overflow: hidden;
 }
 
 @media (min-width: 900px) {
   .school-side-panel {
-    width: min(40rem, 48vw);
+    width: min(48rem, 92vw);
   }
 }
 
@@ -1037,16 +1054,35 @@ header.border-b:has([data-slot='page-header-title']),
   justify-content: space-between;
   gap: 0.75rem;
   flex-shrink: 0;
-  padding: 1rem 1.1rem;
-  border-bottom: 1px solid var(--outline-gray-1);
-  background: var(--surface-gray-1);
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--outline-gray-1, #ededed);
+  background: #f8f8f8;
 }
 
 .school-side-panel__body {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  overflow-x: hidden;
   overflow-y: auto;
-  padding: 1rem 1.1rem 1.25rem;
+  overscroll-behavior: contain;
+  padding: 0.85rem 1.15rem 1rem;
+  background: #ffffff;
+  position: relative;
+  z-index: 1;
+}
+
+.school-role-form {
+  flex: 0 0 auto;
+}
+
+.school-side-panel .school-role-form textarea {
+  height: 2.75rem !important;
+  min-height: 2.75rem !important;
+  max-height: 4rem !important;
+  resize: vertical;
 }
 
 .school-side-panel__foot {
@@ -1055,9 +1091,11 @@ header.border-b:has([data-slot='page-header-title']),
   justify-content: flex-end;
   gap: 0.5rem;
   flex-shrink: 0;
-  padding: 0.85rem 1.1rem;
-  border-top: 1px solid var(--outline-gray-1);
-  background: var(--surface-gray-1);
+  padding: 0.85rem 1.15rem;
+  border-top: 1px solid var(--outline-gray-1, #ededed);
+  background: #f8f8f8;
+  position: relative;
+  z-index: 2;
 }
 
 .school-table [data-slot='list'] {
@@ -2140,26 +2178,31 @@ header:has([data-slot='page-header-title']) {
 .school-form-modal-root {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 200;
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: clamp(1rem, 4vh, 2.5rem) 1rem;
   overflow-y: auto;
-  background: color-mix(in srgb, #0f1228 48%, transparent);
-  backdrop-filter: blur(2px);
+  isolation: isolate;
+  background: rgb(15 23 42 / 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .school-form-modal {
+  position: relative;
+  z-index: 1;
   width: min(44rem, 100%);
   max-height: min(92dvh, 56rem);
   display: flex;
   flex-direction: column;
   border-radius: 0.85rem;
   border: 1px solid var(--outline-gray-2, #e5e5e5);
-  background: var(--surface-white, #fff);
-  box-shadow: 0 18px 50px color-mix(in srgb, #171717 22%, transparent);
+  background: #ffffff;
+  box-shadow: 0 18px 50px color-mix(in srgb, #171717 28%, transparent);
   overflow: hidden;
+  isolation: isolate;
 }
 
 .school-form-modal__head {
@@ -2177,6 +2220,80 @@ header:has([data-slot='page-header-title']) {
   flex: 1;
   overflow-y: auto;
   padding: 1rem 1.15rem 1.25rem;
+  background: #ffffff;
+  position: relative;
+  z-index: 1;
+}
+
+/* Prevent page scroll / bleed-through while any desk modal is open */
+body.school-modal-open {
+  overflow: hidden !important;
+}
+
+body.school-modal-open .school-main-scroll,
+body.school-modal-open .school-sidebar-scroll {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+/* Harden frappe confirm/danger dialogs so page content never paints through */
+.modal-bg {
+  z-index: 220 !important;
+  background: rgb(15 23 42 / 0.55) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.modal-bg .modal-dialog,
+.modal-bg .modal-content,
+.modal-bg [class*='bg-surface'] {
+  background: #ffffff !important;
+  isolation: isolate;
+}
+
+.school-role-crud {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--outline-gray-1, #ededed);
+  border-radius: 0.75rem;
+  background: #ffffff;
+  isolation: isolate;
+}
+
+.school-role-crud__toolbar {
+  flex: 0 0 auto;
+}
+
+.school-perm-matrix__row {
+  background: #ffffff;
+}
+
+.school-perm-matrix__row--head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-gray-1, #f8f8f8);
+}
+
+.school-side-panel .school-perm-matrix__row {
+  grid-template-columns: minmax(7.5rem, 1.6fr) repeat(4, 2.25rem);
+  justify-items: center;
+}
+
+.school-side-panel .school-perm-matrix__row > :first-child {
+  justify-self: stretch;
+  min-width: 0;
+}
+
+.school-side-panel .school-perm-matrix--extra .school-perm-matrix__row {
+  grid-template-columns: minmax(7.5rem, 1.4fr) repeat(7, 2.1rem);
 }
 
 /* —— Exam paper studio (Word-like) —— */
@@ -2523,4 +2640,245 @@ header:has([data-slot='page-header-title']) {
 
 .exam-marks-sticky {
   margin-top: 1rem;
+}
+
+.exam-studio__ribbon-sep {
+  width: 1px;
+  height: 1.5rem;
+  background: var(--outline-gray-2, #e5e5e5);
+  margin: 0 0.15rem;
+}
+
+.exam-studio__fmt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.1rem;
+  border: 1px solid var(--outline-gray-2, #e5e5e5);
+  border-radius: 0.4rem;
+  background: #fafafa;
+}
+
+.exam-studio__fmt-btn {
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+}
+
+.exam-studio__fmt-btn:hover {
+  background: #e2e8f0;
+}
+
+.exam-studio__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.1rem;
+  padding: 0.55rem 0.85rem;
+  border-left: 1px solid var(--outline-gray-2, #e5e5e5);
+  border-right: 1px solid var(--outline-gray-2, #e5e5e5);
+  background: #fff;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.exam-studio__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.exam-studio__link-btn {
+  border: 0;
+  background: none;
+  color: #2563eb;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.exam-studio__school-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  text-align: left;
+}
+
+.exam-studio__logo-btn {
+  position: relative;
+  flex-shrink: 0;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.35rem;
+  cursor: pointer;
+  width: 5.5rem;
+  height: 5.5rem;
+  display: grid;
+  place-items: center;
+}
+
+.exam-studio__logo-btn:hover {
+  border-color: #2563eb;
+}
+
+.exam-studio__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.exam-studio__logo-hint {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 0.15rem;
+  background: rgb(15 23 42 / 72%);
+  color: #fff;
+  font-size: 0.55rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.exam-studio__logo-btn:hover .exam-studio__logo-hint {
+  opacity: 1;
+}
+
+.exam-studio__school-text {
+  min-width: 0;
+  flex: 1;
+  text-align: center;
+}
+
+.exam-studio__school-motto {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  font-style: italic;
+  color: #64748b;
+}
+
+.exam-studio__school-addr {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.exam-studio__candidate {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid #d4d4d4;
+  border-radius: 0.35rem;
+  background: #fafafa;
+}
+
+.exam-studio__candidate-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.55rem;
+  font-size: 0.8rem;
+  color: #404040;
+}
+
+.exam-studio__fill {
+  flex: 1;
+  min-width: 6rem;
+  border-bottom: 1px solid #737373;
+  min-height: 1.1rem;
+  padding: 0 0.25rem;
+  font-weight: 600;
+}
+
+.exam-studio__fill--short {
+  flex: 0 1 8rem;
+  min-width: 4.5rem;
+}
+
+.exam-studio__editable {
+  outline: none;
+}
+
+.exam-studio__editable:empty::before {
+  content: attr(data-placeholder);
+  color: #a3a3a3;
+  pointer-events: none;
+}
+
+.exam-studio__editable:focus {
+  box-shadow: 0 0 0 2px rgb(37 99 235 / 18%);
+  border-radius: 0.25rem;
+}
+
+.exam-studio__q-img-btn {
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+  padding: 0.15rem 0.25rem;
+}
+
+.exam-studio__q-img-btn:hover {
+  text-decoration: underline;
+}
+
+.exam-studio__figure {
+  margin: 0.65rem 0 0.35rem;
+  padding: 0.55rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 0.4rem;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.exam-studio__figure img {
+  max-width: min(100%, 22rem);
+  max-height: 14rem;
+  object-fit: contain;
+  border-radius: 0.25rem;
+}
+
+.exam-studio__figure-caption {
+  display: block;
+  width: 100%;
+  margin-top: 0.45rem;
+  border: 0;
+  border-bottom: 1px dashed #cbd5e1;
+  background: transparent;
+  text-align: center;
+  font-size: 0.78rem;
+  color: #475569;
+  outline: none;
+}
+
+.exam-studio__figure-remove {
+  margin-top: 0.35rem;
+  border: 0;
+  background: none;
+  color: #a3a3a3;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.exam-studio__figure-remove:hover {
+  color: #b91c1c;
+}
+
+.exam-studio__school {
+  text-align: left;
 }

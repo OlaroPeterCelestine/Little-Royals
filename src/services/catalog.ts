@@ -93,6 +93,11 @@ export const FRONTEND_MODULES = [
   'transport-vehicles',
   'visitor-log',
   'waiting-list',
+  'subjects',
+  'users',
+  'parents',
+  'school',
+  'notifications',
 ] as const
 
 export type FrontendModule = (typeof FRONTEND_MODULES)[number]

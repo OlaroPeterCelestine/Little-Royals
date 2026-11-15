@@ -2,7 +2,11 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'frappe-ui'
-import { loginWithCredentials } from '@/data/auth/auth'
+import {
+  loginWithCredentials,
+  requestPasswordReset,
+  resetPasswordWithCode,
+} from '@/data/auth/auth'
 import { brand } from '@/data/school/brand'
 import { isParentRole } from '@/data/auth/permissions'
 import { safeInternalPath } from '@/lib/security'
@@ -19,16 +23,24 @@ const showPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
 
+/** login | forgot | reset */
+const mode = ref<'login' | 'forgot' | 'reset'>('login')
+const resetCode = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const issuedCodeHint = ref('')
+
 async function submit() {
   error.value = ''
   loading.value = true
   try {
     const user = await loginWithCredentials({
       email: sanitizeText(email.value, 'email'),
-      password: sanitizeText(password.value, 'text', 128),
+      // Do not collapse/strip password characters — teachers type freely.
+      password: String(password.value ?? '').slice(0, 128),
       remember: remember.value,
     })
-    toast.success('Welcome back')
+    toast.success(`Welcome, ${user.name}`)
     const fallback = isParentRole(user.role) ? '/parent-portal' : '/dashboard'
     const redirect = safeInternalPath(route.query.redirect, fallback)
     await router.replace(redirect)
@@ -40,8 +52,85 @@ async function submit() {
   }
 }
 
-function forgotPassword() {
-  toast.info('Ask your school admin to reset your password')
+function fillDemo(kind: 'admin' | 'teacher' | 'parent') {
+  // Seeded API users share the bootstrap password from backend/.admin-credentials
+  const demos = {
+    admin: { email: 'admin@littleroyals.school', password: 'BootstrapPass12' },
+    teacher: {
+      email: 'teacher@littleroyals.school',
+      password: 'BootstrapPass12',
+    },
+    parent: { email: 'parent@littleroyals.school', password: 'BootstrapPass12' },
+  }
+  email.value = demos[kind].email
+  password.value = demos[kind].password
+  mode.value = 'login'
+  error.value = ''
+}
+
+function openForgot() {
+  mode.value = 'forgot'
+  error.value = ''
+  issuedCodeHint.value = ''
+  resetCode.value = ''
+  newPassword.value = ''
+  confirmPassword.value = ''
+}
+
+function backToLogin() {
+  mode.value = 'login'
+  error.value = ''
+  issuedCodeHint.value = ''
+}
+
+async function sendResetCode() {
+  error.value = ''
+  loading.value = true
+  try {
+    const result = await requestPasswordReset(
+      sanitizeText(email.value, 'email'),
+    )
+    toast.success(result.message)
+    if (result.resetCode) {
+      issuedCodeHint.value = result.resetCode
+      resetCode.value = result.resetCode
+    }
+    mode.value = 'reset'
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Could not send reset code'
+    toast.error(error.value)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function submitReset() {
+  error.value = ''
+  if (newPassword.value !== confirmPassword.value) {
+    error.value = 'New passwords do not match'
+    toast.error(error.value)
+    return
+  }
+  loading.value = true
+  try {
+    const message = await resetPasswordWithCode({
+      email: sanitizeText(email.value, 'email'),
+      code: resetCode.value.trim(),
+      newPassword: newPassword.value,
+    })
+    toast.success(message)
+    password.value = newPassword.value
+    mode.value = 'login'
+    issuedCodeHint.value = ''
+    resetCode.value = ''
+    newPassword.value = ''
+    confirmPassword.value = ''
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Password reset failed'
+    toast.error(error.value)
+  } finally {
+    loading.value = false
+  }
 }
 
 function askAdmin() {
@@ -62,13 +151,47 @@ function askAdmin() {
 
       <div class="login-form-wrap">
         <div class="login-form-head">
-          <h1>Welcome Back</h1>
+          <h1>
+            {{
+              mode === 'login'
+                ? 'Welcome Back'
+                : mode === 'forgot'
+                  ? 'Reset password'
+                  : 'Set new password'
+            }}
+          </h1>
           <p>
-            Enter any email and password to access the local desk.
+            <template v-if="mode === 'login'">
+              Use any email and password to open the desk. API users get a live
+              session when the backend is up; otherwise you still get in locally.
+            </template>
+            <template v-else-if="mode === 'forgot'">
+              Enter your school email. We will issue a reset code (shown here in
+              development).
+            </template>
+            <template v-else>
+              Enter the reset code and choose a new password (min 8 characters).
+            </template>
           </p>
         </div>
 
-        <form class="login-form" @submit.prevent="submit">
+        <div v-if="mode === 'login'" class="login-demos" aria-label="Quick sign-in">
+          <button type="button" class="login-demo" @click="fillDemo('admin')">
+            Admin
+          </button>
+          <button type="button" class="login-demo" @click="fillDemo('teacher')">
+            Teacher
+          </button>
+          <button type="button" class="login-demo" @click="fillDemo('parent')">
+            Parent
+          </button>
+        </div>
+
+        <form
+          v-if="mode === 'login'"
+          class="login-form"
+          @submit.prevent="submit"
+        >
           <label class="login-field">
             <span>Email</span>
             <input
@@ -87,7 +210,8 @@ function askAdmin() {
                 v-model="password"
                 :type="showPassword ? 'text' : 'password'"
                 autocomplete="current-password"
-                placeholder="••••••••"
+                placeholder="Any password works on the desk"
+                minlength="1"
                 required
               />
               <button
@@ -109,7 +233,7 @@ function askAdmin() {
               <input v-model="remember" type="checkbox" />
               <span>Remember Me</span>
             </label>
-            <button type="button" class="login-link" @click="forgotPassword">
+            <button type="button" class="login-link" @click="openForgot">
               Forgot Your Password?
             </button>
           </div>
@@ -121,7 +245,83 @@ function askAdmin() {
           </button>
         </form>
 
-        <p class="login-help">
+        <form
+          v-else-if="mode === 'forgot'"
+          class="login-form"
+          @submit.prevent="sendResetCode"
+        >
+          <label class="login-field">
+            <span>Email</span>
+            <input
+              v-model="email"
+              type="email"
+              autocomplete="username"
+              placeholder="admin@littleroyals.school"
+              required
+            />
+          </label>
+          <p v-if="error" class="login-error">{{ error }}</p>
+          <button type="submit" class="login-submit" :disabled="loading">
+            {{ loading ? 'Sending…' : 'Send reset code' }}
+          </button>
+          <button type="button" class="login-link" @click="backToLogin">
+            ← Back to sign in
+          </button>
+        </form>
+
+        <form
+          v-else
+          class="login-form"
+          @submit.prevent="submitReset"
+        >
+          <label class="login-field">
+            <span>Email</span>
+            <input v-model="email" type="email" required />
+          </label>
+          <label class="login-field">
+            <span>Reset code</span>
+            <input
+              v-model="resetCode"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              placeholder="6-digit code"
+              required
+            />
+          </label>
+          <p v-if="issuedCodeHint" class="login-code-hint">
+            Dev code: <strong>{{ issuedCodeHint }}</strong>
+          </p>
+          <label class="login-field">
+            <span>New password</span>
+            <input
+              v-model="newPassword"
+              type="password"
+              autocomplete="new-password"
+              minlength="8"
+              required
+            />
+          </label>
+          <label class="login-field">
+            <span>Confirm password</span>
+            <input
+              v-model="confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              minlength="8"
+              required
+            />
+          </label>
+          <p v-if="error" class="login-error">{{ error }}</p>
+          <button type="submit" class="login-submit" :disabled="loading">
+            {{ loading ? 'Updating…' : 'Update password' }}
+          </button>
+          <button type="button" class="login-link" @click="backToLogin">
+            ← Back to sign in
+          </button>
+        </form>
+
+        <p v-if="mode === 'login'" class="login-help">
           Need an account?
           <button type="button" class="login-link-strong" @click="askAdmin">
             Ask your school admin.
@@ -281,6 +481,31 @@ function askAdmin() {
   color: #6b7280;
 }
 
+.login-demos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin: -0.5rem 0 1.25rem;
+}
+
+.login-demo {
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 650;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.login-demo:hover {
+  border-color: var(--login-blue);
+  color: var(--login-blue);
+  background: #eef2ff;
+}
+
 .login-form {
   display: flex;
   flex-direction: column;
@@ -405,6 +630,15 @@ function askAdmin() {
   border-radius: 0.6rem;
   background: #fde8e9;
   color: #c41218;
+  font-size: 0.85rem;
+}
+
+.login-code-hint {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.55rem;
+  background: #eef2ff;
+  color: #312e81;
   font-size: 0.85rem;
 }
 

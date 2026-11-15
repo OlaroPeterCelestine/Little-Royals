@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { Button, toast } from 'frappe-ui'
 import SchoolForm from '@/components/forms/SchoolForm.vue'
 import {
@@ -56,8 +56,13 @@ watch(
   () => recordFormModal.open,
   (open) => {
     if (open) saving.value = false
+    document.body.classList.toggle('school-modal-open', open)
   },
 )
+
+onUnmounted(() => {
+  document.body.classList.remove('school-modal-open')
+})
 
 function onCancel() {
   closeRecordFormModal()

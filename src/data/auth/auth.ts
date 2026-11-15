@@ -16,12 +16,12 @@ import { apiBaseUrl, isApiEnabled } from '@/lib/apiMode'
 const STORAGE_KEY = 'little-royals-auth'
 const BOOT_KEY = 'little-royals-auth-boot'
 
-/** One-time: clear API JWT sessions when switching to offline desk. */
+/** One-time: clear stale sessions after login/auth policy changes. */
 try {
-  if (localStorage.getItem(BOOT_KEY) !== '4') {
+  if (localStorage.getItem(BOOT_KEY) !== '5') {
     localStorage.removeItem(STORAGE_KEY)
     sessionStorage.removeItem(STORAGE_KEY)
-    localStorage.setItem(BOOT_KEY, '4')
+    localStorage.setItem(BOOT_KEY, '5')
   }
 } catch {
   /* ignore */
@@ -257,27 +257,154 @@ export async function loginWithCredentials(input: {
   remember?: boolean
 }) {
   const email = input.email.trim().toLowerCase()
-  const password = input.password
+  // Keep password as typed (API min length differs; local desk accepts any).
+  const password = String(input.password ?? '')
   if (!email) throw new Error('Email is required')
   if (!password) throw new Error('Password is required')
+  if (!email.includes('@')) {
+    throw new Error('Enter a valid email address')
+  }
 
   assertLoginAllowed(email)
 
+  // Desk always accepts any email + password locally. When the API is on,
+  // try it first for a real JWT; if that fails (validation, wrong password,
+  // downtime), open a local desk session so teachers are never locked out.
   if (!isApiEnabled()) {
     return loginLocal({ email, password, remember: input.remember })
   }
   try {
     return await loginViaApi({ email, password, remember: input.remember })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : ''
-    // API down / unreachable — keep the desk usable offline.
-    if (
-      msg.includes('Cannot reach the school API') ||
-      msg.includes('Failed to fetch')
-    ) {
-      return loginLocal({ email, password, remember: input.remember })
+  } catch {
+    return loginLocal({ email, password, remember: input.remember })
+  }
+}
+
+type ForgotAPIResponse = {
+  ok: boolean
+  data?: {
+    message?: string
+    resetCode?: string
+    expiresInMinutes?: number
+  }
+  error?: string
+}
+
+/** Request a password reset code (API). Falls back with a clear message offline. */
+export async function requestPasswordReset(emailRaw: string): Promise<{
+  message: string
+  resetCode?: string
+}> {
+  const email = emailRaw.trim().toLowerCase()
+  if (!email || !email.includes('@')) {
+    throw new Error('Enter a valid email address')
+  }
+  if (!isApiEnabled()) {
+    throw new Error(
+      'Password reset needs the school API. Ask your admin, or sign in with any password on the local desk.',
+    )
+  }
+  try {
+    const res = await fetch(`${apiBaseUrl()}/api/v1/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    const payload = (await res.json()) as ForgotAPIResponse
+    if (!res.ok || !payload.ok) {
+      throw new Error(payload.error || 'Could not start password reset')
     }
-    throw err
+    return {
+      message: payload.data?.message || 'If that account exists, a reset code was issued.',
+      resetCode: payload.data?.resetCode,
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message !== 'Failed to fetch') throw err
+    throw new Error('Cannot reach the school API for password reset')
+  }
+}
+
+/** Complete password reset with email + code + new password. */
+export async function resetPasswordWithCode(input: {
+  email: string
+  code: string
+  newPassword: string
+}): Promise<string> {
+  const email = input.email.trim().toLowerCase()
+  const code = input.code.trim()
+  const newPassword = input.newPassword
+  if (!email || !code || !newPassword) {
+    throw new Error('Email, reset code, and new password are required')
+  }
+  if (newPassword.length < 8) {
+    throw new Error('New password must be at least 8 characters')
+  }
+  if (!isApiEnabled()) {
+    throw new Error('Password reset needs the school API')
+  }
+  try {
+    const res = await fetch(`${apiBaseUrl()}/api/v1/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ email, code, newPassword }),
+    })
+    const payload = (await res.json()) as {
+      ok: boolean
+      data?: { message?: string }
+      error?: string
+    }
+    if (!res.ok || !payload.ok) {
+      throw new Error(payload.error || 'Password reset failed')
+    }
+    return payload.data?.message || 'Password updated. You can sign in now.'
+  } catch (err) {
+    if (err instanceof Error && err.message !== 'Failed to fetch') throw err
+    throw new Error('Cannot reach the school API for password reset')
+  }
+}
+
+/** Change password for the signed-in API user. */
+export async function changePassword(input: {
+  currentPassword: string
+  newPassword: string
+}): Promise<string> {
+  const currentPassword = input.currentPassword
+  const newPassword = input.newPassword
+  if (!currentPassword || !newPassword) {
+    throw new Error('Current and new password are required')
+  }
+  if (newPassword.length < 8) {
+    throw new Error('New password must be at least 8 characters')
+  }
+  if (!isApiEnabled()) {
+    throw new Error('Change password needs the school API')
+  }
+  const token = authToken()
+  if (!token) {
+    throw new Error('Sign in with the API first, then change your password')
+  }
+  try {
+    const res = await fetch(`${apiBaseUrl()}/api/v1/auth/change-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    })
+    const payload = (await res.json()) as {
+      ok: boolean
+      data?: { message?: string }
+      error?: string
+    }
+    if (!res.ok || !payload.ok) {
+      throw new Error(payload.error || 'Password change failed')
+    }
+    return payload.data?.message || 'Password changed successfully'
+  } catch (err) {
+    if (err instanceof Error && err.message !== 'Failed to fetch') throw err
+    throw new Error('Cannot reach the school API')
   }
 }
 

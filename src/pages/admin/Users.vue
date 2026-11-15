@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Avatar,
@@ -38,8 +38,6 @@ import {
   type PermFlag,
   type SystemUser,
 } from '@/data/auth/permissions'
-import { catalog } from '@/data/catalog/catalog'
-import { catalogExtra } from '@/data/catalog/catalogExtra'
 import { currentUser, formatActivityTime, logActivity } from '@/data/activity/activity'
 import ListPagination from '@/components/list/ListPagination.vue'
 import ListToolbar from '@/components/list/ListToolbar.vue'
@@ -406,14 +404,13 @@ const roleStatusOptions = computed(() => {
   ]
 })
 
-const allModules = computed(() => {
-  const mods = { ...catalog, ...catalogExtra }
-  return documentTypes.map((d) => ({
+const allModules = computed(() =>
+  documentTypes.map((d) => ({
     key: d.key,
     label: d.label,
-    group: mods[d.key]?.group || 'Other',
-  }))
-})
+    group: d.group || 'Other',
+  })),
+)
 
 const moduleGroups = computed(() => {
   const groups = Array.from(new Set(allModules.value.map((m) => m.group))).sort()
@@ -532,6 +529,14 @@ function forceCloseRoleDialog() {
   roleDialogOpen.value = false
   editingKey.value = null
 }
+
+watch(roleDialogOpen, (open) => {
+  document.body.classList.toggle('school-modal-open', open)
+})
+
+onUnmounted(() => {
+  document.body.classList.remove('school-modal-open')
+})
 
 function closeRoleEditor() {
   if (dirty.value) {
@@ -962,8 +967,8 @@ function roleSummaryLabel(roleKey: string) {
             />
           </header>
 
-          <div class="school-side-panel__body space-y-4">
-            <div class="grid gap-3 sm:grid-cols-2">
+          <div class="school-side-panel__body">
+            <div class="school-role-form grid gap-3 sm:grid-cols-2">
               <FormControl
                 v-model="roleForm.name"
                 label="Role name"
@@ -1000,6 +1005,7 @@ function roleSummaryLabel(roleKey: string) {
                 class="sm:col-span-2"
                 label="Description"
                 type="textarea"
+                :rows="2"
                 placeholder="What this role can do at Little Royals"
               />
               <div class="flex flex-wrap gap-2 sm:col-span-2">
@@ -1024,6 +1030,11 @@ function roleSummaryLabel(roleKey: string) {
                   variant="subtle"
                 />
                 <Badge
+                  :label="matrixSummary.total + ' modules'"
+                  theme="gray"
+                  variant="subtle"
+                />
+                <Badge
                   v-if="dirty"
                   label="Unsaved"
                   theme="amber"
@@ -1032,51 +1043,54 @@ function roleSummaryLabel(roleKey: string) {
               </div>
             </div>
 
-            <div class="flex flex-wrap items-end justify-between gap-3">
-              <h3 class="text-sm-medium text-ink-gray-9">CRUD permissions</h3>
-              <div class="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  label="Clear"
-                  @click="setVisibleCrud('none')"
-                />
-                <Button
-                  size="sm"
-                  label="Read-only"
-                  @click="setVisibleCrud('read')"
-                />
-                <Button
-                  size="sm"
-                  label="Full CRUD"
-                  @click="setVisibleCrud('full')"
-                />
-                <Button
-                  size="sm"
-                  :label="showExtraFlags ? 'Less' : 'More'"
-                  @click="showExtraFlags = !showExtraFlags"
-                />
+            <section class="school-role-crud">
+              <div class="school-role-crud__toolbar space-y-3">
+                <div class="flex flex-wrap items-end justify-between gap-3">
+                  <h3 class="text-sm-medium text-ink-gray-9">CRUD permissions</h3>
+                  <div class="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      label="Clear"
+                      @click="setVisibleCrud('none')"
+                    />
+                    <Button
+                      size="sm"
+                      label="Read-only"
+                      @click="setVisibleCrud('read')"
+                    />
+                    <Button
+                      size="sm"
+                      label="Full CRUD"
+                      @click="setVisibleCrud('full')"
+                    />
+                    <Button
+                      size="sm"
+                      :label="showExtraFlags ? 'Less' : 'More'"
+                      @click="showExtraFlags = !showExtraFlags"
+                    />
+                  </div>
+                </div>
+
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <FormControl
+                    v-model="moduleGroup"
+                    type="select"
+                    label="Module group"
+                    :options="moduleGroups"
+                  />
+                  <FormControl
+                    v-model="moduleQuery"
+                    type="text"
+                    label="Search modules"
+                    placeholder="students, fees, exams…"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div class="grid gap-3 sm:grid-cols-2">
-              <FormControl
-                v-model="moduleGroup"
-                type="select"
-                label="Module group"
-                :options="moduleGroups"
-              />
-              <FormControl
-                v-model="moduleQuery"
-                type="text"
-                label="Search modules"
-                placeholder="students, fees, exams…"
-              />
-            </div>
-
-            <div
-              class="school-perm-matrix school-perm-matrix--dialog"
-              :class="showExtraFlags ? 'school-perm-matrix--extra' : ''"
-            >
+              <div
+                class="school-perm-matrix school-perm-matrix--dialog"
+                :class="showExtraFlags ? 'school-perm-matrix--extra' : ''"
+              >
               <div class="school-perm-matrix__row school-perm-matrix__row--head">
                 <span class="min-w-0">Module</span>
                 <span
@@ -1165,13 +1179,14 @@ function roleSummaryLabel(roleKey: string) {
                 </div>
               </div>
 
-              <p
-                v-if="!filteredModules.length"
-                class="px-4 py-10 text-center text-sm text-ink-gray-5"
-              >
-                No modules match this filter.
-              </p>
-            </div>
+                <p
+                  v-if="!filteredModules.length"
+                  class="px-4 py-10 text-center text-sm text-ink-gray-5"
+                >
+                  No modules match this filter.
+                </p>
+              </div>
+            </section>
           </div>
 
           <footer class="school-side-panel__foot">

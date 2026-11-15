@@ -28,12 +28,20 @@ import {
   systemUsers,
   type SystemUser,
 } from '@/data/auth/permissions'
+import { changePassword } from '@/data/auth/auth'
+import { isApiEnabled } from '@/lib/apiMode'
 
 const route = useRoute()
 const router = useRouter()
 
 const editing = ref(false)
 const saving = ref(false)
+const changingPassword = ref(false)
+const passwordForm = reactive({
+  current: '',
+  next: '',
+  confirm: '',
+})
 const form = reactive({
   name: '',
   email: '',
@@ -214,6 +222,37 @@ function statusTheme(status: string) {
   return 'gray'
 }
 
+async function savePassword() {
+  if (!isSelf.value) return
+  if (!isApiEnabled()) {
+    toast.error('Start the school API to change passwords')
+    return
+  }
+  if (passwordForm.next.length < 8) {
+    toast.error('New password must be at least 8 characters')
+    return
+  }
+  if (passwordForm.next !== passwordForm.confirm) {
+    toast.error('New passwords do not match')
+    return
+  }
+  changingPassword.value = true
+  try {
+    const message = await changePassword({
+      currentPassword: passwordForm.current,
+      newPassword: passwordForm.next,
+    })
+    passwordForm.current = ''
+    passwordForm.next = ''
+    passwordForm.confirm = ''
+    toast.success(message)
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Password change failed')
+  } finally {
+    changingPassword.value = false
+  }
+}
+
 const detailFields = computed(() => {
   const u = user.value
   if (!u) return []
@@ -322,6 +361,40 @@ const totalUsers = computed(() => systemUsers.length)
                 variant="subtle"
               />
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="isSelf" class="school-section">
+        <h2 class="school-section-title">Change password</h2>
+        <p class="mb-3 text-sm text-ink-gray-6">
+          Updates your API login password. Requires the school API and a live
+          signed-in session.
+        </p>
+        <div class="grid max-w-xl gap-3 sm:grid-cols-1">
+          <FormControl
+            v-model="passwordForm.current"
+            type="password"
+            label="Current password"
+          />
+          <FormControl
+            v-model="passwordForm.next"
+            type="password"
+            label="New password"
+          />
+          <FormControl
+            v-model="passwordForm.confirm"
+            type="password"
+            label="Confirm new password"
+          />
+          <div>
+            <Button
+              variant="solid"
+              icon-left="lucide-key-round"
+              label="Update password"
+              :loading="changingPassword"
+              @click="savePassword"
+            />
           </div>
         </div>
       </section>

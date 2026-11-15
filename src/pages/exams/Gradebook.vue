@@ -13,6 +13,7 @@ import {
 } from 'frappe-ui'
 import { schoolStore, addRecord, updateRecord } from '@/data/catalog/store'
 import { schoolSetup } from '@/data/school/schoolSetup'
+import { brand } from '@/data/school/brand'
 import { canCurrentUser } from '@/data/auth/permissions'
 import { currentUser, logActivity } from '@/data/activity/activity'
 import {
@@ -218,6 +219,9 @@ type ExamQuestion = {
   id: string
   text: string
   marks: number
+  /** Optional diagram / stimulus image (data URL or path) */
+  imageSrc?: string
+  imageCaption?: string
 }
 
 const createForm = reactive({
@@ -229,11 +233,32 @@ const createForm = reactive({
   date: new Date().toISOString().slice(0, 10),
   status: 'Open',
   subtitle: '',
+  duration: '1 hour 30 minutes',
+  venue: '',
+  invigilator: '',
+  term: schoolSetup.currentTerm || 'Term III',
+  academicYear: schoolSetup.academicYear || '2026',
+  /** Custom paper logo; empty = school brand logo */
+  logoSrc: '',
+  showLogo: true,
+  showCandidateBox: true,
+  showAnswerLines: true,
 })
 
 const createQuestions = ref<ExamQuestion[]>([
   { id: `q-${Date.now()}`, text: '', marks: 10 },
 ])
+
+const logoInput = ref<HTMLInputElement | null>(null)
+const paperImageInput = ref<HTMLInputElement | null>(null)
+const imageTargetQuestionId = ref<string | null>(null)
+const examFmtFocus = ref<'title' | 'instructions' | `q-${string}` | null>(null)
+/** Bump to remount contenteditable fields after load (avoids cursor jump). */
+const studioEpoch = ref(0)
+
+const paperLogoSrc = computed(
+  () => createForm.logoSrc || brand.logoUrl || '/little-royals-logo.png',
+)
 
 /** null = new paper; set when editing an existing exam */
 const editingExamId = ref<string | null>(null)
@@ -286,6 +311,8 @@ function removeQuestion(id: string) {
   if (createQuestions.value.length <= 1) {
     createQuestions.value[0].text = ''
     createQuestions.value[0].marks = 10
+    createQuestions.value[0].imageSrc = undefined
+    createQuestions.value[0].imageCaption = undefined
     markExamDirty()
     return
   }
@@ -304,10 +331,121 @@ function parseExamQuestions(raw: unknown): ExamQuestion[] {
       id: String(q.id || `q-${i + 1}`),
       text: String(q.text || ''),
       marks: Math.max(0, Number(q.marks) || 0),
+      imageSrc: q.imageSrc ? String(q.imageSrc) : undefined,
+      imageCaption: q.imageCaption ? String(q.imageCaption) : undefined,
     }))
   } catch {
     return [{ id: `q-${Date.now()}`, text: '', marks: 10 }]
   }
+}
+
+function readImageFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('Choose an image file (PNG, JPG, WebP)'))
+      return
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      reject(new Error('Image must be under 4 MB'))
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('Could not read image'))
+    reader.readAsDataURL(file)
+  })
+}
+
+async function onLogoUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  try {
+    createForm.logoSrc = await readImageFile(file)
+    createForm.showLogo = true
+    markExamDirty()
+    toast.success('School logo updated on this paper')
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Upload failed')
+  }
+}
+
+function clearPaperLogo() {
+  createForm.logoSrc = ''
+  markExamDirty()
+  toast.info('Using the default school logo')
+}
+
+function requestQuestionImage(questionId: string) {
+  imageTargetQuestionId.value = questionId
+  paperImageInput.value?.click()
+}
+
+function requestPaperImage() {
+  const focus = examFmtFocus.value
+  if (focus?.startsWith('q-')) {
+    const id = focus.slice(2)
+    if (createQuestions.value.some((q) => q.id === id)) {
+      requestQuestionImage(id)
+      return
+    }
+  }
+  const last = createQuestions.value[createQuestions.value.length - 1]
+  if (last) requestQuestionImage(last.id)
+  else toast.info('Add a question first, then insert a picture')
+}
+
+async function onPaperImageUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  const qid = imageTargetQuestionId.value
+  imageTargetQuestionId.value = null
+  if (!file || !qid) return
+  const q = createQuestions.value.find((row) => row.id === qid)
+  if (!q) return
+  try {
+    q.imageSrc = await readImageFile(file)
+    if (!q.imageCaption) q.imageCaption = 'Figure'
+    markExamDirty()
+    toast.success('Image added to the question')
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Upload failed')
+  }
+}
+
+function removeQuestionImage(questionId: string) {
+  const q = createQuestions.value.find((row) => row.id === questionId)
+  if (!q) return
+  q.imageSrc = undefined
+  q.imageCaption = undefined
+  markExamDirty()
+}
+
+/** Word-like formatting for the focused contenteditable. */
+function execExamFormat(command: string, value?: string) {
+  try {
+    document.execCommand(command, false, value)
+    markExamDirty()
+  } catch {
+    /* ignore */
+  }
+}
+
+function onEditableInput(
+  target: 'instructions' | ExamQuestion,
+  event: Event,
+) {
+  const el = event.target as HTMLElement
+  const html = el.innerHTML || ''
+  const text = el.innerText || ''
+  if (target === 'instructions') {
+    createForm.subtitle = text.trim() ? html : ''
+  } else {
+    target.text = text.trim() ? html : ''
+  }
+  markExamDirty()
 }
 
 function resetExamStudio() {
@@ -317,9 +455,20 @@ function resetExamStudio() {
   createForm.maxScore = 100
   createForm.date = new Date().toISOString().slice(0, 10)
   createForm.status = 'Draft'
+  createForm.duration = '1 hour 30 minutes'
+  createForm.venue = ''
+  createForm.invigilator = ''
+  createForm.term = schoolSetup.currentTerm || 'Term III'
+  createForm.academicYear = schoolSetup.academicYear || '2026'
+  createForm.logoSrc = ''
+  createForm.showLogo = true
+  createForm.showCandidateBox = true
+  createForm.showAnswerLines = true
   createQuestions.value = [{ id: `q-${Date.now()}`, text: '', marks: 10 }]
   editingExamId.value = null
   examDirty.value = false
+  examFmtFocus.value = null
+  studioEpoch.value += 1
 }
 
 function loadExamIntoStudio(exam: CatalogRow) {
@@ -334,8 +483,22 @@ function loadExamIntoStudio(exam: CatalogRow) {
     new Date().toISOString().slice(0, 10)
   createForm.status = String(exam.status || 'Draft')
   createForm.subtitle = String(exam.subtitle || '')
+  createForm.duration = String(exam.duration || '1 hour 30 minutes')
+  createForm.venue = String(exam.venue || '')
+  createForm.invigilator = String(exam.invigilator || '')
+  createForm.term = String(exam.term || schoolSetup.currentTerm || 'Term III')
+  createForm.academicYear = String(
+    exam.academicYear || schoolSetup.academicYear || '2026',
+  )
+  createForm.logoSrc = String(exam.logoSrc || '')
+  createForm.showLogo = String(exam.showLogo ?? 'true') !== 'false'
+  createForm.showCandidateBox =
+    String(exam.showCandidateBox ?? 'true') !== 'false'
+  createForm.showAnswerLines =
+    String(exam.showAnswerLines ?? 'true') !== 'false'
   createQuestions.value = parseExamQuestions(exam.questionsJson)
   examDirty.value = false
+  studioEpoch.value += 1
 }
 
 const createSubjectOptions = computed(() =>
@@ -571,14 +734,25 @@ function cancelCreate() {
   showCreate.value = false
 }
 
+function plainFromMaybeHtml(raw: string) {
+  const s = String(raw || '').trim()
+  if (!s) return ''
+  if (!/<[a-z][\s\S]*>/i.test(s)) return s
+  const tmp = document.createElement('div')
+  tmp.innerHTML = s
+  return (tmp.innerText || tmp.textContent || '').trim()
+}
+
 function collectExamQuestions() {
   return createQuestions.value
     .map((q, i) => ({
       id: q.id || `q-${i + 1}`,
       text: q.text.trim(),
       marks: Math.max(0, Number(q.marks) || 0),
+      imageSrc: q.imageSrc || undefined,
+      imageCaption: q.imageCaption?.trim() || undefined,
     }))
-    .filter((q) => q.text.length > 0)
+    .filter((q) => plainFromMaybeHtml(q.text).length > 0 || Boolean(q.imageSrc))
 }
 
 function saveExamPaper(asDraft: boolean) {
@@ -590,7 +764,7 @@ function saveExamPaper(asDraft: boolean) {
     return
   }
 
-  const name = createForm.name.trim()
+  const name = plainFromMaybeHtml(createForm.name).trim()
   if (name.length < 3) {
     toast.error('Enter an examination name at the top of the paper')
     return
@@ -634,6 +808,15 @@ function saveExamPaper(asDraft: boolean) {
     program,
     subtitle: createForm.subtitle.trim() || undefined,
     status,
+    duration: createForm.duration.trim() || undefined,
+    venue: createForm.venue.trim() || undefined,
+    invigilator: createForm.invigilator.trim() || undefined,
+    term: createForm.term.trim() || undefined,
+    academicYear: createForm.academicYear.trim() || undefined,
+    logoSrc: createForm.logoSrc || undefined,
+    showLogo: createForm.showLogo ? 'true' : 'false',
+    showCandidateBox: createForm.showCandidateBox ? 'true' : 'false',
+    showAnswerLines: createForm.showAnswerLines ? 'true' : 'false',
     questionsJson: JSON.stringify(questions),
     questionCount: questions.length,
   }
@@ -707,13 +890,13 @@ function saveExamPaper(asDraft: boolean) {
 
 function printExamStudioPaper() {
   const questions = collectExamQuestions()
-  if (!createForm.name.trim() || !questions.length) {
+  if (!plainFromMaybeHtml(createForm.name) || !questions.length) {
     toast.error('Save a name and at least one question before printing')
     return
   }
   const preview: CatalogRow = {
     id: editingExamId.value || 'preview',
-    name: createForm.name.trim(),
+    name: plainFromMaybeHtml(createForm.name),
     className: createForm.className,
     course: createForm.course,
     type: createForm.type,
@@ -721,6 +904,10 @@ function printExamStudioPaper() {
     date: createForm.date,
     status: createForm.status,
     subtitle: createForm.subtitle,
+    duration: createForm.duration,
+    venue: createForm.venue,
+    logoSrc: createForm.logoSrc || paperLogoSrc.value,
+    showLogo: createForm.showLogo ? 'true' : 'false',
     questionsJson: JSON.stringify(questions),
     questionCount: questions.length,
   }
@@ -753,6 +940,15 @@ watch(
     createForm.date,
     createForm.status,
     createForm.subtitle,
+    createForm.duration,
+    createForm.venue,
+    createForm.invigilator,
+    createForm.term,
+    createForm.academicYear,
+    createForm.logoSrc,
+    createForm.showLogo,
+    createForm.showCandidateBox,
+    createForm.showAnswerLines,
   ],
   () => markExamDirty(),
 )
@@ -1184,6 +1380,21 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
             </div>
           </header>
 
+          <input
+            ref="logoInput"
+            type="file"
+            accept="image/*"
+            class="hidden"
+            @change="onLogoUpload"
+          />
+          <input
+            ref="paperImageInput"
+            type="file"
+            accept="image/*"
+            class="hidden"
+            @change="onPaperImageUpload"
+          />
+
           <div class="exam-studio__ribbon" role="toolbar" aria-label="Exam paper">
             <Button
               size="sm"
@@ -1206,6 +1417,40 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
               label="Print preview"
               :disabled="!canPrint"
               @click="printExamStudioPaper"
+            />
+            <span class="exam-studio__ribbon-sep" aria-hidden="true" />
+            <div class="exam-studio__fmt" role="group" aria-label="Text format">
+              <button type="button" class="exam-studio__fmt-btn" title="Bold" @click="execExamFormat('bold')">
+                <strong>B</strong>
+              </button>
+              <button type="button" class="exam-studio__fmt-btn" title="Italic" @click="execExamFormat('italic')">
+                <em>I</em>
+              </button>
+              <button type="button" class="exam-studio__fmt-btn" title="Underline" @click="execExamFormat('underline')">
+                <span class="underline">U</span>
+              </button>
+              <button type="button" class="exam-studio__fmt-btn" title="Align left" @click="execExamFormat('justifyLeft')">
+                L
+              </button>
+              <button type="button" class="exam-studio__fmt-btn" title="Centre" @click="execExamFormat('justifyCenter')">
+                C
+              </button>
+              <button type="button" class="exam-studio__fmt-btn" title="Bullet list" @click="execExamFormat('insertUnorderedList')">
+                •
+              </button>
+            </div>
+            <span class="exam-studio__ribbon-sep" aria-hidden="true" />
+            <Button
+              size="sm"
+              icon-left="lucide-image"
+              label="Insert picture"
+              @click="requestPaperImage"
+            />
+            <Button
+              size="sm"
+              icon-left="lucide-badge"
+              label="Upload logo"
+              @click="logoInput?.click()"
             />
             <div class="exam-studio__ribbon-grow" />
             <Button
@@ -1241,6 +1486,34 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
               label="Date"
             />
             <FormControl
+              v-model="createForm.duration"
+              type="text"
+              label="Duration"
+              placeholder="e.g. 1 hour 30 minutes"
+            />
+            <FormControl
+              v-model="createForm.term"
+              type="text"
+              label="Term"
+            />
+            <FormControl
+              v-model="createForm.academicYear"
+              type="text"
+              label="Year"
+            />
+            <FormControl
+              v-model="createForm.venue"
+              type="text"
+              label="Venue / room"
+              placeholder="Optional"
+            />
+            <FormControl
+              v-model="createForm.invigilator"
+              type="text"
+              label="Invigilator"
+              placeholder="Optional"
+            />
+            <FormControl
               v-model="createForm.status"
               type="select"
               label="Status"
@@ -1248,20 +1521,79 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
             />
           </div>
 
+          <div class="exam-studio__toggles">
+            <label class="exam-studio__toggle">
+              <input v-model="createForm.showLogo" type="checkbox" />
+              Show school logo
+            </label>
+            <label class="exam-studio__toggle">
+              <input v-model="createForm.showCandidateBox" type="checkbox" />
+              Candidate details box
+            </label>
+            <label class="exam-studio__toggle">
+              <input v-model="createForm.showAnswerLines" type="checkbox" />
+              Answer lines
+            </label>
+            <button
+              v-if="createForm.logoSrc"
+              type="button"
+              class="exam-studio__link-btn"
+              @click="clearPaperLogo"
+            >
+              Reset logo to school default
+            </button>
+          </div>
+
           <div class="exam-studio__canvas">
             <article class="exam-studio__paper" aria-label="Exam paper">
               <header class="exam-studio__school">
-                <p class="exam-studio__school-name">
-                  {{ schoolSetup.name || 'Little Royals Kindergarten and Primary School' }}
-                </p>
-                <p class="exam-studio__school-meta">
-                  {{ createForm.className }} · {{ createForm.course }} ·
-                  {{ createForm.type }} · {{ createForm.date }}
-                </p>
-                <p class="exam-studio__school-marks">
-                  Total marks:
-                  <strong>{{ questionsTotal || createForm.maxScore }}</strong>
-                </p>
+                <div class="exam-studio__school-row">
+                  <button
+                    v-if="createForm.showLogo"
+                    type="button"
+                    class="exam-studio__logo-btn"
+                    title="Click to upload school logo"
+                    @click="logoInput?.click()"
+                  >
+                    <img
+                      :src="paperLogoSrc"
+                      :alt="brand.shortName || 'School logo'"
+                      class="exam-studio__logo"
+                    />
+                    <span class="exam-studio__logo-hint">Change logo</span>
+                  </button>
+                  <div class="exam-studio__school-text">
+                    <p class="exam-studio__school-name">
+                      {{ schoolSetup.name || brand.name || 'Little Royals Kindergarten and Primary School' }}
+                    </p>
+                    <p class="exam-studio__school-motto">
+                      {{ schoolSetup.motto || brand.motto || '' }}
+                    </p>
+                    <p class="exam-studio__school-addr">
+                      {{ schoolSetup.addressLine1 }}
+                      <template v-if="schoolSetup.city">
+                        · {{ schoolSetup.city }}
+                      </template>
+                      <template v-if="schoolSetup.phone">
+                        · {{ schoolSetup.phone }}
+                      </template>
+                    </p>
+                    <p class="exam-studio__school-meta">
+                      {{ createForm.term }} · {{ createForm.academicYear }} ·
+                      {{ createForm.className }} · {{ createForm.course }} ·
+                      {{ createForm.type }} · {{ createForm.date }}
+                    </p>
+                    <p class="exam-studio__school-marks">
+                      Duration:
+                      <strong>{{ createForm.duration || '—' }}</strong>
+                      · Total marks:
+                      <strong>{{ questionsTotal || createForm.maxScore }}</strong>
+                      <template v-if="createForm.venue">
+                        · Venue: <strong>{{ createForm.venue }}</strong>
+                      </template>
+                    </p>
+                  </div>
+                </div>
               </header>
 
               <input
@@ -1270,20 +1602,45 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
                 type="text"
                 placeholder="Examination title (e.g. Term III MOT · Mathematics)"
                 aria-label="Examination title"
+                @focus="examFmtFocus = 'title'"
               />
 
-              <textarea
-                v-model="createForm.subtitle"
-                class="exam-studio__instructions"
-                rows="2"
-                placeholder="Instructions for learners (optional) — e.g. Answer all questions. Show working."
+              <div
+                v-if="createForm.showCandidateBox"
+                class="exam-studio__candidate"
+              >
+                <div class="exam-studio__candidate-row">
+                  <span>Candidate name</span>
+                  <span class="exam-studio__fill" />
+                </div>
+                <div class="exam-studio__candidate-row">
+                  <span>Class</span>
+                  <span class="exam-studio__fill exam-studio__fill--short">{{ createForm.className }}</span>
+                  <span>Stream / No.</span>
+                  <span class="exam-studio__fill exam-studio__fill--short" />
+                </div>
+                <div class="exam-studio__candidate-row">
+                  <span>Invigilator</span>
+                  <span class="exam-studio__fill">{{ createForm.invigilator }}</span>
+                </div>
+              </div>
+
+              <div
+                :key="`instr-${studioEpoch}`"
+                class="exam-studio__instructions exam-studio__editable"
+                contenteditable="true"
+                role="textbox"
                 aria-label="Exam instructions"
+                data-placeholder="Instructions — e.g. Answer all questions. Show working. Calculators not allowed."
+                @focus="examFmtFocus = 'instructions'"
+                @input="onEditableInput('instructions', $event)"
+                v-html="createForm.subtitle"
               />
 
               <div class="exam-studio__questions">
                 <div
                   v-for="(q, index) in createQuestions"
-                  :key="q.id"
+                  :key="`${q.id}-${studioEpoch}`"
                   class="exam-studio__q"
                 >
                   <div class="exam-studio__q-head">
@@ -1298,6 +1655,13 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
                     <span class="exam-studio__q-marks-label">marks</span>
                     <button
                       type="button"
+                      class="exam-studio__q-img-btn"
+                      @click="requestQuestionImage(q.id)"
+                    >
+                      {{ q.imageSrc ? 'Replace image' : 'Add image' }}
+                    </button>
+                    <button
+                      type="button"
                       class="exam-studio__q-remove"
                       :aria-label="`Remove question ${index + 1}`"
                       @click="removeQuestion(q.id)"
@@ -1305,14 +1669,39 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
                       Remove
                     </button>
                   </div>
-                  <textarea
-                    v-model="q.text"
-                    class="exam-studio__q-text"
-                    rows="3"
-                    :placeholder="`Type question ${index + 1} here…`"
+                  <div
+                    class="exam-studio__q-text exam-studio__editable"
+                    contenteditable="true"
+                    role="textbox"
+                    :aria-label="`Question ${index + 1}`"
+                    :data-placeholder="`Type question ${index + 1} here…`"
+                    @focus="examFmtFocus = `q-${q.id}`"
+                    @input="onEditableInput(q, $event)"
+                    v-html="q.text"
                   />
-                  <div class="exam-studio__q-lines" aria-hidden="true">
-                    <span /><span /><span />
+                  <figure v-if="q.imageSrc" class="exam-studio__figure">
+                    <img :src="q.imageSrc" alt="" />
+                    <input
+                      v-model="q.imageCaption"
+                      class="exam-studio__figure-caption"
+                      type="text"
+                      placeholder="Figure caption (optional)"
+                      @input="markExamDirty"
+                    />
+                    <button
+                      type="button"
+                      class="exam-studio__figure-remove"
+                      @click="removeQuestionImage(q.id)"
+                    >
+                      Remove image
+                    </button>
+                  </figure>
+                  <div
+                    v-if="createForm.showAnswerLines"
+                    class="exam-studio__q-lines"
+                    aria-hidden="true"
+                  >
+                    <span /><span /><span /><span />
                   </div>
                 </div>
               </div>
@@ -1330,6 +1719,9 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
                   createQuestions.length === 1 ? '' : 's'
                 }}
                 · {{ questionsTotal }} marks
+                <template v-if="schoolSetup.headTeacher">
+                  · Head teacher: {{ schoolSetup.headTeacher }}
+                </template>
               </footer>
             </article>
           </div>

@@ -1,6 +1,12 @@
 import { authToken } from '@/data/auth/auth'
 import { apiBaseUrl, isApiEnabled } from '@/lib/apiMode'
 
+/** Live base URL (re-read so HMR / env changes apply). */
+export function getApiBase() {
+  return apiBaseUrl()
+}
+
+/** @deprecated use getApiBase() — kept for older imports */
 export const API_BASE = apiBaseUrl()
 
 export type ApiMeta = {
@@ -55,7 +61,8 @@ export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<{ data: T; meta?: ApiMeta }> {
-  if (!isApiEnabled() || !API_BASE) {
+  const base = getApiBase()
+  if (!isApiEnabled() || !base) {
     throw new ApiError(503, 'School API is disabled — desk is running offline')
   }
 
@@ -83,7 +90,7 @@ export async function apiRequest<T>(
     }
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${base}${path}`, {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
