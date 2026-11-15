@@ -18,7 +18,6 @@ import { canCurrentUser } from '@/data/auth/permissions'
 import { logActivity } from '@/data/activity/activity'
 import type { CatalogRow } from '@/data/catalog/catalog'
 import ListStatCards from '@/components/list/ListStatCards.vue'
-import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import ListToolbar from '@/components/list/ListToolbar.vue'
 
 const router = useRouter()
@@ -439,7 +438,6 @@ function useTemplate(tpl: CatalogRow) {
       {{ schoolSetup.shortName }}.
     </p>
 
-    <RelatedLinks />
     <ListStatCards :stats="stats" />
 
     <TabButtons v-model="deskTab" :options="deskTabs" class="school-tabs" />

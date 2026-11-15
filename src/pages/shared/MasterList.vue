@@ -28,7 +28,6 @@ import { useModuleAccess } from '@/composables/useModuleAccess'
 import CatalogTable from '@/components/list/CatalogTable.vue'
 import ListToolbar from '@/components/list/ListToolbar.vue'
 import PageIntro from '@/components/list/PageIntro.vue'
-import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import { buildListColumnTracks } from '@/lib/listColumns'
 import { sortSchoolClassRows } from '@/data/school/grades'
 import AppBackButton from '@/components/layout/AppBackButton.vue'
@@ -120,6 +119,12 @@ function editRecord(row: CatalogRow, event?: Event) {
   event?.stopPropagation()
   if (!requirePerm('write', 'edit records')) return
   openEditDialog(moduleKey.value, row)
+}
+
+function deleteRecord(row: CatalogRow, event?: Event) {
+  event?.stopPropagation()
+  if (!requirePerm('delete', 'delete records')) return
+  openDeleteDialog(moduleKey.value, [row.id])
 }
 
 function openDetail(row: CatalogRow) {
@@ -223,8 +228,6 @@ function clearSelection() {
       "
     />
 
-    <RelatedLinks />
-
     <PageIntro
       v-if="mod"
       :description="mod.description"
@@ -309,12 +312,14 @@ function clearSelection() {
       :grid-columns="columns"
       :can-print="allowPrint"
       :can-write="canWrite"
+      :can-delete="canDelete"
       :page="page"
       :total-pages="totalPages"
       :range-label="rangeLabel"
       :total="filtered.length"
       @open="openDetail"
       @edit="editRecord"
+      @delete="deleteRecord"
       @print="printRecord"
       @prev="goToPage(page - 1)"
       @next="goToPage(page + 1)"

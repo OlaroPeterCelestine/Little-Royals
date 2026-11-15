@@ -38,12 +38,11 @@ import { getLiveModule } from '@/data/catalog/store'
 import type { CatalogRow } from '@/data/catalog/catalog'
 import { canCurrentUser } from '@/data/auth/permissions'
 import ListStatCards from '@/components/list/ListStatCards.vue'
-import RelatedLinks from '@/components/list/RelatedLinks.vue'
 
 const router = useRouter()
 const route = useRoute()
 
-type RibbonTab = 'home' | 'insert' | 'design' | 'layout'
+type SideNav = 'elements' | 'text' | 'brand' | 'layout'
 
 function parseKind(raw: unknown): DocumentKind | '' {
   const v = String(raw || '')
@@ -56,20 +55,24 @@ const selectedModule = ref('fees')
 const selectedRecordId = ref('')
 const studioOpen = ref(Boolean(parseKind(route.query.kind)))
 const activeOverlay = ref<'stamp' | 'signature'>('stamp')
-const ribbonTab = ref<RibbonTab>('home')
+const sideNav = ref<SideNav>('elements')
 const dragging = ref(false)
 const resizing = ref(false)
-const zoom = ref(90)
+const zoom = ref(85)
 const ZOOM_MIN = 45
 const ZOOM_MAX = 160
 const ZOOM_STEP = 10
 const showGuides = ref(true)
 
-const ribbonTabs = [
-  { label: 'Home', value: 'home' },
-  { label: 'Insert', value: 'insert' },
-  { label: 'Design', value: 'design' },
-  { label: 'Layout', value: 'layout' },
+const sideNavItems: Array<{
+  value: SideNav
+  label: string
+  icon: string
+}> = [
+  { value: 'elements', label: 'Elements', icon: 'lucide-shapes' },
+  { value: 'text', label: 'Text', icon: 'lucide-type' },
+  { value: 'brand', label: 'Brand', icon: 'lucide-palette' },
+  { value: 'layout', label: 'Layout', icon: 'lucide-layout-template' },
 ]
 
 watch(
@@ -176,7 +179,7 @@ watch(selectedKind, (kind) => {
   if (!kind) return
   const mods = currentDef.value?.modules || []
   selectedModule.value = mods[0] || 'fees'
-  ribbonTab.value = 'home'
+  sideNav.value = 'elements'
   router.replace({
     path: '/documents',
     query: { ...route.query, kind },
@@ -388,7 +391,7 @@ async function onUpload(event: Event, target: 'stamp' | 'signature') {
       canvas.value.signature.visible = true
     }
     activeOverlay.value = target
-    ribbonTab.value = 'insert'
+    sideNav.value = 'elements'
     toast.success(target === 'stamp' ? 'Stamp image added' : 'Signature image added')
   } catch {
     toast.error('Could not read image')
@@ -424,7 +427,7 @@ function resetLayout() {
 function onDesignPreset(preset: 'formal' | 'modern' | 'classic') {
   if (!selectedKind.value) return
   applyDesignPreset(selectedKind.value, preset)
-  ribbonTab.value = 'design'
+  sideNav.value = 'brand'
   toast.success(
     preset === 'formal'
       ? 'Formal letter design applied'
@@ -474,12 +477,20 @@ function execDocCommand(command: string, value?: string) {
 
 function insertNotePrompt() {
   if (!canvas.value) return
-  ribbonTab.value = 'insert'
+  sideNav.value = 'elements'
   if (!canvas.value.note.trim()) {
     canvas.value.note =
-      'Additional note for parents / guardians — edit this text in the Design panel.'
+      'Additional note for parents / guardians — edit this in the right panel.'
   }
   toast.success('Extra note added at the foot of the page')
+}
+
+function selectOverlay(target: 'stamp' | 'signature') {
+  if (!canvas.value) return
+  activeOverlay.value = target
+  if (target === 'stamp') canvas.value.stamp.visible = true
+  else canvas.value.signature.visible = true
+  sideNav.value = 'elements'
 }
 
 const stageRef = ref<HTMLElement | null>(null)
@@ -496,7 +507,7 @@ function zoomOut() {
 }
 
 function zoomFit() {
-  zoom.value = 90
+  zoom.value = 85
 }
 
 function onOverlayPointerDown(
@@ -506,7 +517,7 @@ function onOverlayPointerDown(
   if (!canvas.value || !paperRef.value) return
   if ((event.target as HTMLElement).dataset.resize) return
   activeOverlay.value = target
-  ribbonTab.value = 'insert'
+  sideNav.value = 'elements'
   dragging.value = true
   const asset = target === 'stamp' ? canvas.value.stamp : canvas.value.signature
   const paper = paperRef.value.getBoundingClientRect()
@@ -597,11 +608,10 @@ const marginLabel = computed(() => {
   <!-- Gallery -->
   <div v-if="!studioOpen" class="school-page">
     <p class="text-p-base text-ink-gray-6">
-      Open any document in the Word-style studio — edit text on the page, design
-      fonts and colours, place stamp and signature, then print.
+      Open any document in the design studio — edit on the page, place stamp and
+      signature, style brand colours, then print.
     </p>
 
-    <RelatedLinks />
     <ListStatCards :stats="docStats" />
 
     <section class="school-section">
@@ -620,17 +630,16 @@ const marginLabel = computed(() => {
           </div>
           <p class="mt-1 text-xs text-ink-gray-5">{{ doc.description }}</p>
           <div class="mt-3 flex flex-wrap gap-1.5">
-            <Badge label="Word canvas" theme="blue" variant="subtle" />
-            <Badge label="Design" theme="green" variant="subtle" />
+            <Badge label="Design studio" theme="blue" variant="subtle" />
+            <Badge label="Canva-style" theme="green" variant="subtle" />
           </div>
         </button>
       </div>
     </section>
   </div>
 
-  <!-- Microsoft Word–style studio -->
+  <!-- Canva-style design studio -->
   <div v-else-if="canvas && currentDef && design" class="doc-studio">
-    <!-- Quick access / title bar -->
     <header class="doc-studio-titlebar">
       <div class="doc-studio-titlebar__left">
         <Button
@@ -642,7 +651,7 @@ const marginLabel = computed(() => {
         <div class="doc-studio-titlebar__file">
           <p class="doc-studio-titlebar__name">{{ currentDef.label }}</p>
           <p class="doc-studio-titlebar__path">
-            {{ previewTitle || 'Untitled' }} · A4
+            {{ previewTitle || 'Untitled' }} · A4 design
           </p>
         </div>
       </div>
@@ -661,6 +670,13 @@ const marginLabel = computed(() => {
         />
       </div>
       <div class="doc-studio-titlebar__right">
+        <Button
+          size="sm"
+          :variant="editMode ? 'solid' : 'subtle'"
+          icon-left="lucide-type"
+          :label="editMode ? 'Editing' : 'Edit text'"
+          @click="editMode = !editMode"
+        />
         <Button
           size="sm"
           icon-left="lucide-share-2"
@@ -685,374 +701,244 @@ const marginLabel = computed(() => {
       </div>
     </header>
 
-    <!-- Ribbon tabs -->
-    <nav class="doc-studio-ribbon-tabs" aria-label="Ribbon">
-      <button
-        v-for="t in ribbonTabs"
-        :key="t.value"
-        type="button"
-        class="doc-studio-ribbon-tabs__item"
-        :class="{ active: ribbonTab === t.value }"
-        @click="ribbonTab = t.value as RibbonTab"
-      >
-        {{ t.label }}
-      </button>
-    </nav>
+    <div class="doc-studio-workspace">
+      <!-- Left: Canva-style tools -->
+      <aside class="doc-studio-left" aria-label="Design tools">
+        <nav class="doc-studio-nav">
+          <button
+            v-for="item in sideNavItems"
+            :key="item.value"
+            type="button"
+            class="doc-studio-nav__item"
+            :class="{ active: sideNav === item.value }"
+            @click="sideNav = item.value"
+          >
+            <span :class="[item.icon, 'size-5']" />
+            <span>{{ item.label }}</span>
+          </button>
+        </nav>
 
-    <!-- Ribbon groups -->
-    <div class="doc-studio-ribbon" role="toolbar">
-      <!-- HOME -->
-      <template v-if="ribbonTab === 'home'">
-        <div class="doc-studio-ribbon__group">
-          <p class="doc-studio-ribbon__caption">Clipboard</p>
-          <div class="doc-studio-ribbon__row">
-            <Button
-              size="sm"
-              icon-left="lucide-type"
-              label="Edit text"
-              :variant="editMode ? 'solid' : 'subtle'"
-              @click="editMode = !editMode"
-            />
-            <Button
-              size="sm"
-              icon-left="lucide-eraser"
-              label="Clear edits"
-              @click="resetDocumentText"
-            />
-          </div>
-        </div>
-        <div class="doc-studio-ribbon__group">
-          <p class="doc-studio-ribbon__caption">Font</p>
-          <div class="doc-studio-ribbon__row">
-            <FormControl
-              v-model="design.fontFamily"
-              class="doc-studio-ribbon-select"
-              type="select"
-              :options="[...FONT_OPTIONS]"
-            />
-            <FormControl
-              v-model="design.fontSize"
-              class="doc-studio-ribbon-num"
-              type="number"
-              label=""
-            />
-            <button
-              type="button"
-              class="doc-studio-fmt"
-              title="Bold"
-              @click="execDocCommand('bold')"
-            >
-              <strong>B</strong>
-            </button>
-            <button
-              type="button"
-              class="doc-studio-fmt"
-              title="Italic"
-              @click="execDocCommand('italic')"
-            >
-              <em>I</em>
-            </button>
-            <button
-              type="button"
-              class="doc-studio-fmt"
-              title="Underline"
-              @click="execDocCommand('underline')"
-            >
-              <span class="underline">U</span>
-            </button>
-          </div>
-        </div>
-        <div class="doc-studio-ribbon__group">
-          <p class="doc-studio-ribbon__caption">Paragraph</p>
-          <div class="doc-studio-ribbon__row">
-            <button
-              type="button"
-              class="doc-studio-fmt"
-              title="Align left"
-              @click="execDocCommand('justifyLeft')"
-            >
-              <span class="lucide-align-left size-4" />
-            </button>
-            <button
-              type="button"
-              class="doc-studio-fmt"
-              title="Centre"
-              @click="execDocCommand('justifyCenter')"
-            >
-              <span class="lucide-align-center size-4" />
-            </button>
-            <button
-              type="button"
-              class="doc-studio-fmt"
-              title="Align right"
-              @click="execDocCommand('justifyRight')"
-            >
-              <span class="lucide-align-right size-4" />
-            </button>
-            <button
-              type="button"
-              class="doc-studio-fmt"
-              title="Justify"
-              @click="execDocCommand('justifyFull')"
-            >
-              <span class="lucide-align-justify size-4" />
-            </button>
-          </div>
-        </div>
-        <div class="doc-studio-ribbon__group">
-          <p class="doc-studio-ribbon__caption">Editing</p>
-          <div class="doc-studio-ribbon__row">
-            <FormControl
-              v-model="design.lineHeight"
-              class="doc-studio-ribbon-num"
-              type="number"
-              label="Line"
-            />
-          </div>
-        </div>
-      </template>
-
-      <!-- INSERT -->
-      <template v-else-if="ribbonTab === 'insert'">
-        <div class="doc-studio-ribbon__group">
-          <p class="doc-studio-ribbon__caption">Illustrations</p>
-          <div class="doc-studio-ribbon__row">
-            <button
-              type="button"
-              class="doc-studio-ribbon__chip"
-              :class="{ active: activeOverlay === 'stamp' }"
-              @click="
-                activeOverlay = 'stamp';
-                canvas.stamp.visible = true
-              "
-            >
-              <span class="lucide-stamp size-4" />
-              Stamp
-            </button>
-            <button
-              type="button"
-              class="doc-studio-ribbon__chip"
-              :class="{ active: activeOverlay === 'signature' }"
-              @click="
-                activeOverlay = 'signature';
-                canvas.signature.visible = true
-              "
-            >
-              <span class="lucide-pen-line size-4" />
-              Signature
-            </button>
-            <label class="doc-studio-ribbon__upload">
+        <div class="doc-studio-left__pane">
+          <template v-if="sideNav === 'elements'">
+            <h3 class="doc-studio-left__title">Elements</h3>
+            <p class="doc-studio-left__hint">
+              Drag stamp or signature on the page. Upload your own images.
+            </p>
+            <div class="doc-studio-tiles">
+              <button
+                type="button"
+                class="doc-studio-tile"
+                :class="{ active: activeOverlay === 'stamp' }"
+                @click="selectOverlay('stamp')"
+              >
+                <img :src="stampPreviewSrc()" alt="" class="doc-studio-tile__img" />
+                <span>School stamp</span>
+              </button>
+              <button
+                type="button"
+                class="doc-studio-tile"
+                :class="{ active: activeOverlay === 'signature' }"
+                @click="selectOverlay('signature')"
+              >
+                <img
+                  :src="signaturePreviewSrc()"
+                  alt=""
+                  class="doc-studio-tile__img doc-studio-tile__img--sig"
+                />
+                <span>Signature</span>
+              </button>
+            </div>
+            <label class="doc-studio-upload-card">
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/svg+xml"
                 class="sr-only"
                 @change="onUpload($event, activeOverlay)"
               />
-              <span class="lucide-image-plus size-4" />
-              Upload
+              <span class="lucide-image-plus size-5" />
+              <span>Upload {{ activeOverlay === 'stamp' ? 'stamp' : 'signature' }}</span>
             </label>
-            <Button size="sm" label="Defaults" @click="useDefaultAssets" />
-          </div>
-        </div>
-        <div class="doc-studio-ribbon__group">
-          <p class="doc-studio-ribbon__caption">Text</p>
-          <div class="doc-studio-ribbon__row">
-            <Button
-              size="sm"
-              icon-left="lucide-sticky-note"
-              label="Extra note"
-              @click="insertNotePrompt"
-            />
-          </div>
-        </div>
-        <div class="doc-studio-ribbon__group">
-          <p class="doc-studio-ribbon__caption">Selected overlay</p>
-          <div class="doc-studio-ribbon__row doc-studio-ribbon__row--wrap">
-            <FormControl
-              :model-value="
-                activeOverlay === 'stamp'
-                  ? canvas.stamp.visible
-                    ? 'yes'
-                    : 'no'
-                  : canvas.signature.visible
-                    ? 'yes'
-                    : 'no'
-              "
-              class="doc-studio-ribbon-select"
-              type="select"
-              label="Show"
-              :options="[
-                { label: 'Visible', value: 'yes' },
-                { label: 'Hidden', value: 'no' },
-              ]"
-              @update:model-value="
-                (v: string) => setOverlayVisible(activeOverlay, v)
-              "
-            />
-            <FormControl
-              v-if="activeOverlay === 'stamp'"
-              v-model="canvas.stamp.width"
-              class="doc-studio-ribbon-num"
-              type="number"
-              label="Size %"
-            />
-            <FormControl
-              v-else
-              v-model="canvas.signature.width"
-              class="doc-studio-ribbon-num"
-              type="number"
-              label="Size %"
-            />
-            <FormControl
-              v-if="activeOverlay === 'stamp'"
-              v-model="canvas.stamp.opacity"
-              class="doc-studio-ribbon-num"
-              type="number"
-              label="Opacity"
-            />
-            <FormControl
-              v-else
-              v-model="canvas.signature.opacity"
-              class="doc-studio-ribbon-num"
-              type="number"
-              label="Opacity"
-            />
-            <Button size="sm" label="Clear image" @click="clearAsset(activeOverlay)" />
-          </div>
-        </div>
-      </template>
+            <div class="doc-studio-left__stack">
+              <Button size="sm" label="Use defaults" @click="useDefaultAssets" />
+              <Button size="sm" label="Clear image" @click="clearAsset(activeOverlay)" />
+              <Button
+                size="sm"
+                icon-left="lucide-sticky-note"
+                label="Add page note"
+                @click="insertNotePrompt"
+              />
+            </div>
+          </template>
 
-      <!-- DESIGN -->
-      <template v-else-if="ribbonTab === 'design'">
-        <div class="doc-studio-ribbon__group">
-          <p class="doc-studio-ribbon__caption">Themes</p>
-          <div class="doc-studio-ribbon__row">
-            <Button size="sm" label="Formal" @click="onDesignPreset('formal')" />
-            <Button size="sm" label="Modern" @click="onDesignPreset('modern')" />
+          <template v-else-if="sideNav === 'text'">
+            <h3 class="doc-studio-left__title">Text</h3>
+            <p class="doc-studio-left__hint">
+              Click outlined fields on the page, then format here.
+            </p>
+            <FormControl
+              v-model="design.fontFamily"
+              type="select"
+              label="Font"
+              :options="[...FONT_OPTIONS]"
+            />
+            <div class="doc-studio-left__row">
+              <FormControl
+                v-model="design.fontSize"
+                type="number"
+                label="Size"
+              />
+              <FormControl
+                v-model="design.lineHeight"
+                type="number"
+                label="Line"
+              />
+            </div>
+            <div class="doc-studio-fmt-row">
+              <button type="button" class="doc-studio-fmt" title="Bold" @click="execDocCommand('bold')">
+                <strong>B</strong>
+              </button>
+              <button type="button" class="doc-studio-fmt" title="Italic" @click="execDocCommand('italic')">
+                <em>I</em>
+              </button>
+              <button type="button" class="doc-studio-fmt" title="Underline" @click="execDocCommand('underline')">
+                <span class="underline">U</span>
+              </button>
+              <button type="button" class="doc-studio-fmt" title="Left" @click="execDocCommand('justifyLeft')">
+                <span class="lucide-align-left size-4" />
+              </button>
+              <button type="button" class="doc-studio-fmt" title="Centre" @click="execDocCommand('justifyCenter')">
+                <span class="lucide-align-center size-4" />
+              </button>
+              <button type="button" class="doc-studio-fmt" title="Right" @click="execDocCommand('justifyRight')">
+                <span class="lucide-align-right size-4" />
+              </button>
+              <button type="button" class="doc-studio-fmt" title="Justify" @click="execDocCommand('justifyFull')">
+                <span class="lucide-align-justify size-4" />
+              </button>
+            </div>
             <Button
               size="sm"
-              label="Classic"
-              @click="onDesignPreset('classic')"
+              icon-left="lucide-eraser"
+              label="Clear text edits"
+              @click="resetDocumentText"
             />
-            <Button size="sm" label="Reset design" @click="onResetDesign" />
-          </div>
-        </div>
-        <div class="doc-studio-ribbon__group">
-          <p class="doc-studio-ribbon__caption">Colours</p>
-          <div class="doc-studio-ribbon__swatches">
-            <button
-              v-for="p in ACCENT_PRESETS"
-              :key="p.value"
-              type="button"
-              class="doc-studio-swatch"
-              :class="{ active: design.accentColor === p.value }"
-              :style="{ background: p.value }"
-              :title="p.label"
-              @click="design.accentColor = p.value"
-            />
-            <label class="doc-studio-swatch doc-studio-swatch--custom" title="Custom">
-              <input v-model="design.accentColor" type="color" />
-            </label>
-          </div>
-        </div>
-        <div class="doc-studio-ribbon__group">
-          <p class="doc-studio-ribbon__caption">Page look</p>
-          <div class="doc-studio-ribbon__row">
+          </template>
+
+          <template v-else-if="sideNav === 'brand'">
+            <h3 class="doc-studio-left__title">Brand & style</h3>
+            <p class="doc-studio-left__hint">
+              One-click themes, then fine-tune colours and paper.
+            </p>
+            <div class="doc-studio-preset-grid">
+              <button type="button" class="doc-studio-preset" @click="onDesignPreset('formal')">
+                <span class="doc-studio-preset__swatch" style="background:#1e3a5f" />
+                Formal
+              </button>
+              <button type="button" class="doc-studio-preset" @click="onDesignPreset('modern')">
+                <span class="doc-studio-preset__swatch" style="background:#0f766e" />
+                Modern
+              </button>
+              <button type="button" class="doc-studio-preset" @click="onDesignPreset('classic')">
+                <span class="doc-studio-preset__swatch" style="background:#2e3192" />
+                Classic
+              </button>
+            </div>
+            <p class="doc-studio-left__label">Accent colour</p>
+            <div class="doc-studio-ribbon__swatches">
+              <button
+                v-for="p in ACCENT_PRESETS"
+                :key="p.value"
+                type="button"
+                class="doc-studio-swatch"
+                :class="{ active: design.accentColor === p.value }"
+                :style="{ background: p.value }"
+                :title="p.label"
+                @click="design.accentColor = p.value"
+              />
+              <label class="doc-studio-swatch doc-studio-swatch--custom" title="Custom">
+                <input v-model="design.accentColor" type="color" />
+              </label>
+            </div>
             <FormControl
               v-model="design.paperTint"
-              class="doc-studio-ribbon-select"
               type="select"
+              label="Paper"
               :options="[...PAPER_TINT_OPTIONS]"
             />
             <FormControl
               v-model="design.headingAlign"
-              class="doc-studio-ribbon-select"
               type="select"
+              label="Title align"
               :options="[
-                { label: 'Title centred', value: 'center' },
-                { label: 'Title left', value: 'left' },
+                { label: 'Centred', value: 'center' },
+                { label: 'Left', value: 'left' },
               ]"
             />
             <FormControl
               :model-value="design.boldTitles ? 'yes' : 'no'"
-              class="doc-studio-ribbon-select"
               type="select"
+              label="Titles"
               :options="[
-                { label: 'Bold titles', value: 'yes' },
-                { label: 'Regular titles', value: 'no' },
+                { label: 'Bold', value: 'yes' },
+                { label: 'Regular', value: 'no' },
               ]"
               @update:model-value="setBoldTitles"
             />
-          </div>
-        </div>
-      </template>
+            <Button size="sm" label="Reset design" @click="onResetDesign" />
+          </template>
 
-      <!-- LAYOUT -->
-      <template v-else>
-        <div class="doc-studio-ribbon__group">
-          <p class="doc-studio-ribbon__caption">Page setup</p>
-          <div class="doc-studio-ribbon__row">
+          <template v-else>
+            <h3 class="doc-studio-left__title">Page layout</h3>
+            <p class="doc-studio-left__hint">
+              Margins, letterhead ribbon, watermark, and guides.
+            </p>
             <FormControl
               v-model="design.margin"
-              class="doc-studio-ribbon-select"
               type="select"
+              label="Margins"
               :options="[...MARGIN_OPTIONS]"
             />
             <Badge label="A4 portrait" theme="gray" variant="subtle" />
-          </div>
-        </div>
-        <div class="doc-studio-ribbon__group">
-          <p class="doc-studio-ribbon__caption">Letterhead</p>
-          <div class="doc-studio-ribbon__row">
             <FormControl
               :model-value="design.showRibbon ? 'yes' : 'no'"
-              class="doc-studio-ribbon-select"
               type="select"
               label="Top ribbon"
               :options="[
-                { label: 'Show ribbon', value: 'yes' },
-                { label: 'Hide ribbon', value: 'no' },
+                { label: 'Show', value: 'yes' },
+                { label: 'Hide', value: 'no' },
               ]"
               @update:model-value="setShowRibbon"
             />
             <FormControl
               :model-value="design.showWatermark ? 'yes' : 'no'"
-              class="doc-studio-ribbon-select"
               type="select"
               label="Watermark"
               :options="[
-                { label: 'Show watermark', value: 'yes' },
-                { label: 'Hide watermark', value: 'no' },
+                { label: 'Show', value: 'yes' },
+                { label: 'Hide', value: 'no' },
               ]"
               @update:model-value="setShowWatermark"
             />
             <FormControl
               v-model="design.watermarkOpacity"
-              class="doc-studio-ribbon-num"
               type="number"
-              label="WM opacity"
+              label="Watermark opacity"
             />
-          </div>
-        </div>
-        <div class="doc-studio-ribbon__group">
-          <p class="doc-studio-ribbon__caption">View</p>
-          <div class="doc-studio-ribbon__row">
             <FormControl
               :model-value="showGuides ? 'yes' : 'no'"
-              class="doc-studio-ribbon-select"
               type="select"
+              label="Ruler"
               :options="[
-                { label: 'Ruler on', value: 'yes' },
-                { label: 'Ruler off', value: 'no' },
+                { label: 'On', value: 'yes' },
+                { label: 'Off', value: 'no' },
               ]"
               @update:model-value="(v: string) => (showGuides = v === 'yes')"
             />
-          </div>
+          </template>
         </div>
-      </template>
-    </div>
+      </aside>
 
-    <div class="doc-studio-body">
+      <!-- Center canvas -->
       <div
         ref="stageRef"
         class="doc-studio-stage"
@@ -1101,7 +987,7 @@ const marginLabel = computed(() => {
               }"
               aria-label="Move stamp"
               @pointerdown.prevent="onOverlayPointerDown($event, 'stamp')"
-              @click="activeOverlay = 'stamp'"
+              @click="selectOverlay('stamp')"
             >
               <img :src="stampPreviewSrc()" alt="" draggable="false" />
               <span class="doc-studio-handle-label">Stamp</span>
@@ -1126,7 +1012,7 @@ const marginLabel = computed(() => {
               }"
               aria-label="Move signature"
               @pointerdown.prevent="onOverlayPointerDown($event, 'signature')"
-              @click="activeOverlay = 'signature'"
+              @click="selectOverlay('signature')"
             >
               <img :src="signaturePreviewSrc()" alt="" draggable="false" />
               <span class="doc-studio-handle-label">Signature</span>
@@ -1141,12 +1027,69 @@ const marginLabel = computed(() => {
         </div>
       </div>
 
-      <aside class="doc-studio-panel">
+      <!-- Right: properties -->
+      <aside class="doc-studio-panel" aria-label="Properties">
         <div class="doc-studio-panel__head">
-          <h2>Document</h2>
+          <h2>Properties</h2>
           <p>
-            Click blue-outlined text to type · use the ribbon for fonts,
-            colours, stamp &amp; layout · drag overlays on the page
+            {{
+              activeOverlay === 'stamp'
+                ? 'School stamp selected'
+                : 'Signature selected'
+            }}
+            · drag on the page to place
+          </p>
+        </div>
+
+        <div class="doc-studio-panel-block">
+          <p class="doc-studio-panel-block__title">
+            {{ activeOverlay === 'stamp' ? 'Stamp' : 'Signature' }}
+          </p>
+          <FormControl
+            :model-value="
+              activeOverlay === 'stamp'
+                ? canvas.stamp.visible
+                  ? 'yes'
+                  : 'no'
+                : canvas.signature.visible
+                  ? 'yes'
+                  : 'no'
+            "
+            type="select"
+            label="Visibility"
+            :options="[
+              { label: 'Visible', value: 'yes' },
+              { label: 'Hidden', value: 'no' },
+            ]"
+            @update:model-value="(v: string) => setOverlayVisible(activeOverlay, v)"
+          />
+          <FormControl
+            v-if="activeOverlay === 'stamp'"
+            v-model="canvas.stamp.width"
+            type="number"
+            label="Size (%)"
+          />
+          <FormControl
+            v-else
+            v-model="canvas.signature.width"
+            type="number"
+            label="Size (%)"
+          />
+          <FormControl
+            v-if="activeOverlay === 'stamp'"
+            v-model="canvas.stamp.opacity"
+            type="number"
+            label="Opacity (0–1)"
+          />
+          <FormControl
+            v-else
+            v-model="canvas.signature.opacity"
+            type="number"
+            label="Opacity (0–1)"
+          />
+          <p v-if="activeAsset()" class="doc-studio-meta">
+            Position x {{ Math.round(activeAsset()!.x) }}% · y
+            {{ Math.round(activeAsset()!.y) }}%
           </p>
         </div>
 
@@ -1170,12 +1113,14 @@ const marginLabel = computed(() => {
         </div>
 
         <div class="doc-studio-panel-block">
-          <p class="doc-studio-panel-block__title">Overlay position</p>
-          <p v-if="activeAsset()" class="doc-studio-meta">
-            {{ activeOverlay === 'stamp' ? 'Stamp' : 'Signature' }} · x
-            {{ Math.round(activeAsset()!.x) }}% · y
-            {{ Math.round(activeAsset()!.y) }}% · w
-            {{ Math.round(Number(activeAsset()!.width)) }}%
+          <p class="doc-studio-panel-block__title">Page snapshot</p>
+          <p class="doc-studio-meta">
+            {{
+              FONT_OPTIONS.find((f) => f.value === design?.fontFamily)?.label ||
+              design?.fontFamily
+            }}
+            · {{ design?.fontSize }}pt · {{ marginLabel }} ·
+            {{ design?.paperTint }} paper
           </p>
         </div>
 
@@ -1198,11 +1143,10 @@ const marginLabel = computed(() => {
       </aside>
     </div>
 
-    <!-- Status bar -->
     <footer class="doc-studio-statusbar">
       <span>Page 1 of 1</span>
-      <span>{{ marginLabel }} margins · A4</span>
-      <span v-if="editMode" class="doc-studio-statusbar__live">Editing</span>
+      <span>{{ marginLabel }} · A4</span>
+      <span v-if="editMode" class="doc-studio-statusbar__live">Text editing on</span>
       <div class="doc-studio-statusbar__grow" />
       <div class="doc-studio-zoom">
         <Button size="sm" icon="lucide-minus" @click="zoomOut" />

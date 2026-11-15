@@ -12,7 +12,6 @@ import {
 import { schoolStore, unpaidFeeCount } from '@/data/catalog/store'
 import { schoolSetup } from '@/data/school/schoolSetup'
 import ListStatCards from '@/components/list/ListStatCards.vue'
-import RelatedLinks from '@/components/list/RelatedLinks.vue'
 
 const PaymentsLedger = defineAsyncComponent(() => import('@/pages/finance/Payments.vue'))
 const BarChart = defineAsyncComponent(() =>
@@ -124,7 +123,6 @@ function statusTheme(status?: string) {
       Dashboard and mobile-money ledger — one desk (was two pages).
     </p>
 
-    <RelatedLinks />
     <TabButtons v-model="tab" :options="tabs" class="school-tabs" />
 
     <template v-if="tab === 'desk'">

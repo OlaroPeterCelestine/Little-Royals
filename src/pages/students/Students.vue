@@ -32,7 +32,6 @@ import { useModuleAccess } from '@/composables/useModuleAccess'
 import ListPagination from '@/components/list/ListPagination.vue'
 import ListToolbar from '@/components/list/ListToolbar.vue'
 import PageIntro from '@/components/list/PageIntro.vue'
-import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import { pushWithReturn } from '@/composables/useAppBack'
 
 const router = useRouter()
@@ -112,7 +111,6 @@ function openDetail(id: string) {
   </PageHeader>
 
   <div class="school-page">
-    <RelatedLinks />
     <PageIntro
       description="Enrolled pupils across nursery and primary — search, filter, and manage from one desk."
       :stats="studentStats"
@@ -180,14 +178,14 @@ function openDetail(id: string) {
         v-model:active="active"
         selectable
         :columns="{
-          base: ['minmax(0,1.5fr)', 'minmax(0,0.7fr)', 'minmax(0,5.5rem)'],
+          base: ['minmax(0,1.5fr)', 'minmax(0,0.7fr)', 'minmax(0,7.75rem)'],
           md: [
             'minmax(0,1.5fr)',
             'minmax(0,0.75fr)',
             'minmax(0,0.75fr)',
             'minmax(0,0.45fr)',
             'minmax(0,0.7fr)',
-            'minmax(0,5.5rem)',
+            'minmax(0,7.75rem)',
           ],
           lg: [
             'minmax(0,1.5fr)',
@@ -196,7 +194,7 @@ function openDetail(id: string) {
             'minmax(0,0.7fr)',
             'minmax(0,0.45fr)',
             'minmax(0,0.7fr)',
-            'minmax(0,5.5rem)',
+            'minmax(0,7.75rem)',
           ],
         }"
       >
@@ -272,8 +270,8 @@ function openDetail(id: string) {
               <Button
                 class="relative shrink-0"
                 icon="lucide-eye"
-                tooltip="Open student"
-                aria-label="Open"
+                tooltip="View student"
+                aria-label="View"
                 @click.stop="openDetail(item.id)"
               />
               <Button
@@ -283,6 +281,15 @@ function openDetail(id: string) {
                 tooltip="Edit student"
                 aria-label="Edit"
                 @click.stop="openEditDialog('students', item)"
+              />
+              <Button
+                v-if="canDelete"
+                class="relative shrink-0"
+                icon="lucide-trash-2"
+                theme="red"
+                tooltip="Delete student"
+                aria-label="Delete"
+                @click.stop="openDeleteDialog('students', [item.id])"
               />
             </ListCell>
           </ListRow>

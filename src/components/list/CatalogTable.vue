@@ -22,6 +22,7 @@ const props = withDefaults(
     active?: string
     canPrint?: boolean
     canWrite?: boolean
+    canDelete?: boolean
     emptyText?: string
     page?: number
     totalPages?: number
@@ -34,6 +35,7 @@ const props = withDefaults(
     selection: () => [],
     canPrint: false,
     canWrite: false,
+    canDelete: false,
     emptyText: 'No records match your filters.',
     page: 1,
     totalPages: 1,
@@ -48,6 +50,7 @@ const emit = defineEmits<{
   'update:active': [string | undefined]
   open: [row: CatalogRow]
   edit: [row: CatalogRow, event?: Event]
+  delete: [row: CatalogRow, event?: Event]
   print: [row: CatalogRow, event?: Event]
   prev: []
   next: []
@@ -150,13 +153,13 @@ function hideOnMobile(index: number) {
                 icon="lucide-printer"
                 :tooltip="`Print ${item.name}`"
                 aria-label="Print"
-                @click="emit('print', item, $event)"
+                @click.stop="emit('print', item, $event)"
               />
               <Button
                 class="relative shrink-0"
                 icon="lucide-eye"
-                :tooltip="`Open ${item.name}`"
-                aria-label="Open"
+                :tooltip="`View ${item.name}`"
+                aria-label="View"
                 @click.stop="emit('open', item)"
               />
               <Button
@@ -165,7 +168,16 @@ function hideOnMobile(index: number) {
                 icon="lucide-pencil"
                 :tooltip="`Edit ${item.name}`"
                 aria-label="Edit"
-                @click="emit('edit', item, $event)"
+                @click.stop="emit('edit', item, $event)"
+              />
+              <Button
+                v-if="canDelete"
+                class="relative shrink-0"
+                icon="lucide-trash-2"
+                theme="red"
+                :tooltip="`Delete ${item.name}`"
+                aria-label="Delete"
+                @click.stop="emit('delete', item, $event)"
               />
             </slot>
           </ListCell>

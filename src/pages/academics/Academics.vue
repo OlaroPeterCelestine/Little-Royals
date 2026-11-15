@@ -28,7 +28,6 @@ import { useModuleAccess } from '@/composables/useModuleAccess'
 import CatalogTable from '@/components/list/CatalogTable.vue'
 import ListToolbar from '@/components/list/ListToolbar.vue'
 import PageIntro from '@/components/list/PageIntro.vue'
-import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import { buildListColumnTracks } from '@/lib/listColumns'
 
 type SectionTab = 'all' | 'nursery' | 'primary'
@@ -314,6 +313,14 @@ function editRecord(row: CatalogRow, event?: Event) {
   openEditDialog(moduleKey.value, row)
 }
 
+function deleteRecord(row: CatalogRow, event?: Event) {
+  event?.stopPropagation()
+  if (!moduleKey.value || !requirePerm('delete', 'delete records')) return
+  openDeleteDialog(moduleKey.value, [row.id], () => {
+    selection.value = selection.value.filter((id) => id !== row.id)
+  })
+}
+
 function openDetail(row: CatalogRow) {
   if (!moduleKey.value) return
   router.push(`/${moduleKey.value}/${row.id}`)
@@ -387,7 +394,6 @@ function clearSelection() {
       "
     />
 
-    <RelatedLinks />
     <PageIntro
       description="Nursery and primary teaching in one place — filter by section, then pick a tool."
       :stats="overviewStats"
@@ -482,6 +488,7 @@ function clearSelection() {
         :grid-columns="columns"
         :can-print="false"
         :can-write="canWrite"
+        :can-delete="canDelete"
         :empty-text="`No ${TOOLS[tool].label.toLowerCase()} for this section.`"
         :page="page"
         :total-pages="totalPages"
@@ -489,6 +496,7 @@ function clearSelection() {
         :total="filtered.length"
         @open="openDetail"
         @edit="editRecord"
+        @delete="deleteRecord"
         @print="printRecord"
         @prev="goToPage(page - 1)"
         @next="goToPage(page + 1)"

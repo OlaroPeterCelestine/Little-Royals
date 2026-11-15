@@ -50,7 +50,7 @@ export function buildListColumnTracks(
   cols: CatalogColumn[],
   options: { actions?: string } = {},
 ) {
-  const actions = options.actions || 'minmax(0, 5.5rem)'
+  const actions = options.actions || 'minmax(0, 7.75rem)'
   const tracks = cols.map((c, i) => {
     if (i === 0 || c.primary) return 'minmax(0, 1.5fr)'
     if (c.badge || c.key === 'status') return 'minmax(0, 0.7fr)'

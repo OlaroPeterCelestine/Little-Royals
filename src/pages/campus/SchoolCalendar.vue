@@ -15,7 +15,6 @@ import { canCurrentUser } from '@/data/auth/permissions'
 import { pushWithReturn } from '@/composables/useAppBack'
 import type { CatalogRow } from '@/data/catalog/catalog'
 import ListStatCards from '@/components/list/ListStatCards.vue'
-import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import type { ListStat } from '@/composables/useListPage'
 
 const router = useRouter() // used by pushWithReturn
@@ -269,7 +268,6 @@ function addEvent() {
       />
     </div>
 
-    <RelatedLinks />
     <ListStatCards :stats="monthStats" />
 
     <div class="flex flex-wrap items-center justify-between gap-3">

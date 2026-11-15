@@ -23,7 +23,6 @@ import {
   sortSchoolClassNames,
 } from '@/data/school/grades'
 import ListStatCards from '@/components/list/ListStatCards.vue'
-import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import CatalogTabDesk from '@/components/list/CatalogTabDesk.vue'
 import AppBackButton from '@/components/layout/AppBackButton.vue'
 import type { CatalogRow } from '@/data/catalog/catalog'
@@ -890,7 +889,6 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
   </PageHeader>
 
   <div class="school-page">
-    <RelatedLinks />
     <ListStatCards :stats="stats" />
 
     <TabButtons v-model="tab" :options="tabs" class="school-tabs" />
@@ -1324,7 +1322,7 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
       <CatalogTabDesk
         :tabs="resultsTabs"
         :show-stats="false"
-        :show-related="false"
+       
       />
     </template>
 
@@ -1334,7 +1332,7 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
         :tabs="settingsTabs"
         query-key="settings"
         :show-stats="false"
-        :show-related="false"
+       
       />
     </template>
   </div>

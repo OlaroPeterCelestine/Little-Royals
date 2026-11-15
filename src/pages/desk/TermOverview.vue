@@ -13,7 +13,6 @@ import { schoolSetup } from '@/data/school/schoolSetup'
 import { schoolStore } from '@/data/catalog/store'
 import ListPagination from '@/components/list/ListPagination.vue'
 import ListStatCards from '@/components/list/ListStatCards.vue'
-import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import { PAGE_SIZE } from '@/composables/useListPage'
 import {
   axisTicks,
@@ -333,7 +332,6 @@ function chipColor(kind: TimelineKind) {
       {{ schoolSetup.currentTerm }} {{ schoolSetup.academicYear }}.
     </p>
 
-    <RelatedLinks />
     <ListStatCards :stats="stats" />
 
     <TabButtons v-model="view" :options="viewTabs" class="school-tabs" />

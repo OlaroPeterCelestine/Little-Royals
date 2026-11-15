@@ -25,20 +25,20 @@ import {
 import { schoolSetup } from '@/data/school/schoolSetup'
 import {
   openCreateDialog,
+  openDeleteDialog,
   openEditDialog,
 } from '@/composables/useModuleForms'
 import { useModuleAccess } from '@/composables/useModuleAccess'
 import { pushWithReturn } from '@/composables/useAppBack'
 import CatalogTable from '@/components/list/CatalogTable.vue'
 import PageIntro from '@/components/list/PageIntro.vue'
-import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import { buildListColumnTracks } from '@/lib/listColumns'
 import { getLiveModule } from '@/data/catalog/store'
 import { useListPage } from '@/composables/useListPage'
 
 const route = useRoute()
 const router = useRouter()
-const { canCreate, canWrite } = useModuleAccess('timetable')
+const { canCreate, canWrite, canDelete } = useModuleAccess('timetable')
 const periodsAccess = useModuleAccess('periods')
 
 type ViewTab = 'calendar' | 'list' | 'periods'
@@ -209,6 +209,18 @@ function editLesson(row: CatalogRow, event?: Event) {
   openEditDialog('timetable', row)
 }
 
+function deleteLesson(row: CatalogRow, event?: Event) {
+  event?.stopPropagation()
+  if (!canDelete.value) return
+  openDeleteDialog('timetable', [row.id])
+}
+
+function deletePeriod(row: CatalogRow, event?: Event) {
+  event?.stopPropagation()
+  if (!periodsAccess.canDelete.value) return
+  openDeleteDialog('periods', [row.id])
+}
+
 function primaryAction() {
   if (view.value === 'periods') addPeriod()
   else addLesson()
@@ -228,7 +240,6 @@ function primaryAction() {
   </PageHeader>
 
   <div class="school-page space-y-5">
-    <RelatedLinks />
     <PageIntro :description="intro" :stats="stats" />
 
     <div class="flex flex-wrap items-end justify-between gap-3">
@@ -334,12 +345,14 @@ function primaryAction() {
         :selectable="false"
         :can-print="false"
         :can-write="canWrite"
+        :can-delete="canDelete"
         :page="page"
         :total-pages="totalPages"
         :range-label="rangeLabel"
         :total="filteredSlots.length"
         @open="openSlot"
         @edit="editLesson"
+        @delete="deleteLesson"
         @prev="goToPage(page - 1)"
         @next="goToPage(page + 1)"
         @go="goToPage"
@@ -354,6 +367,7 @@ function primaryAction() {
         :selectable="false"
         :can-print="false"
         :can-write="periodsAccess.canWrite.value"
+        :can-delete="periodsAccess.canDelete.value"
         :page="periodPage"
         :total-pages="periodTotalPages"
         :range-label="periodRangeLabel"
@@ -361,6 +375,7 @@ function primaryAction() {
         empty-text="No periods yet. Add lesson and break times for the school day."
         @open="openPeriod"
         @edit="editPeriod"
+        @delete="deletePeriod"
         @prev="goPeriodPage(periodPage - 1)"
         @next="goPeriodPage(periodPage + 1)"
         @go="goPeriodPage"

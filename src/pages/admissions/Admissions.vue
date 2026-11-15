@@ -12,6 +12,7 @@ import {
   printAdmissionLetter,
 } from '@/data/admissions/admitFlow'
 import {
+  openDeleteDialog,
   openEditDialog,
 } from '@/composables/useModuleForms'
 import { pushWithReturn } from '@/composables/useAppBack'
@@ -81,6 +82,11 @@ function editRow(moduleKey: string, row: CatalogRow, event?: Event) {
   openEditDialog(moduleKey, row)
 }
 
+function deleteRow(moduleKey: string, row: CatalogRow, event?: Event) {
+  event?.stopPropagation()
+  openDeleteDialog(moduleKey, [row.id])
+}
+
 function onAdmit(row: CatalogRow, withLetter: boolean) {
   try {
     if (withLetter) {
@@ -127,8 +133,8 @@ function onLetter(row: CatalogRow, moduleKey: string) {
       requirements.
     </p>
     <ListStatCards :stats="stats" />
-    <CatalogTabDesk :tabs="tabs" :show-stats="false" :show-related="true">
-      <template #row-actions="{ item, moduleKey, canWrite }">
+    <CatalogTabDesk :tabs="tabs" :show-stats="false">
+      <template #row-actions="{ item, moduleKey, canWrite, canDelete }">
         <Button
           v-if="moduleKey === 'applicants' && canCurrentUser('admissions', 'create') && !isAdmitted(item)"
           class="relative shrink-0"
@@ -151,8 +157,8 @@ function onLetter(row: CatalogRow, moduleKey: string) {
         <Button
           class="relative shrink-0"
           icon="lucide-eye"
-          :tooltip="`Open ${item.name}`"
-          aria-label="Open"
+          :tooltip="`View ${item.name}`"
+          aria-label="View"
           @click.stop="openRow(moduleKey, item)"
         />
         <Button
@@ -161,7 +167,16 @@ function onLetter(row: CatalogRow, moduleKey: string) {
           icon="lucide-pencil"
           :tooltip="`Edit ${item.name}`"
           aria-label="Edit"
-          @click="editRow(moduleKey, item, $event)"
+          @click.stop="editRow(moduleKey, item, $event)"
+        />
+        <Button
+          v-if="canDelete"
+          class="relative shrink-0"
+          icon="lucide-trash-2"
+          theme="red"
+          :tooltip="`Delete ${item.name}`"
+          aria-label="Delete"
+          @click.stop="deleteRow(moduleKey, item, $event)"
         />
       </template>
     </CatalogTabDesk>

@@ -28,7 +28,6 @@ import {
 import CatalogTable from '@/components/list/CatalogTable.vue'
 import ListToolbar from '@/components/list/ListToolbar.vue'
 import ListStatCards from '@/components/list/ListStatCards.vue'
-import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import type { ListStat } from '@/composables/useListPage'
 
 export type DeskTab = {
@@ -44,14 +43,11 @@ const props = withDefaults(
     queryKey?: string
     /** Show auto stats for the active tab module (default true). */
     showStats?: boolean
-    /** Related desk links for this hub (default true). */
-    showRelated?: boolean
     /** Optional override; when set, replaces auto status stats. */
     stats?: ListStat[]
   }>(),
   {
     showStats: true,
-    showRelated: true,
   },
 )
 
@@ -195,6 +191,12 @@ function editRow(row: CatalogRow, event?: Event) {
   openEditDialog(moduleKey.value, row)
 }
 
+function deleteRow(row: CatalogRow, event?: Event) {
+  event?.stopPropagation()
+  if (!moduleKey.value || !canDelete.value) return
+  openDeleteDialog(moduleKey.value, [row.id])
+}
+
 function printRow(row: CatalogRow, event?: Event) {
   event?.stopPropagation()
   if (!moduleKey.value || !allowPrint.value) {
@@ -237,8 +239,6 @@ function clearSelection() {
 </script>
 
 <template>
-  <RelatedLinks v-if="showRelated" />
-
   <TabButtons
     v-if="tabs.length > 1"
     v-model="tab"
@@ -342,6 +342,7 @@ function clearSelection() {
     :grid-columns="columns"
     :can-print="allowPrint"
     :can-write="canWrite"
+    :can-delete="canDelete"
     :page="page"
     :total-pages="totalPages"
     :range-label="rangeLabel"
@@ -349,6 +350,7 @@ function clearSelection() {
     :empty-text="`No ${mod.title?.toLowerCase() || 'records'} yet.`"
     @open="openRow"
     @edit="editRow"
+    @delete="deleteRow"
     @print="printRow"
     @prev="goToPage(page - 1)"
     @next="goToPage(page + 1)"
@@ -357,7 +359,13 @@ function clearSelection() {
     <template v-if="$slots['row-actions']" #actions="slotProps">
       <slot
         name="row-actions"
-        v-bind="{ ...slotProps, moduleKey, canWrite, canPrint: allowPrint }"
+        v-bind="{
+          ...slotProps,
+          moduleKey,
+          canWrite,
+          canDelete,
+          canPrint: allowPrint,
+        }"
       />
     </template>
   </CatalogTable>

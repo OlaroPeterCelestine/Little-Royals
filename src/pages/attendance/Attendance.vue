@@ -13,7 +13,6 @@ import { gradeSelectOptions } from '@/data/school/grades'
 import { addRecord, getLiveModule } from '@/data/catalog/store'
 import CatalogTabDesk from '@/components/list/CatalogTabDesk.vue'
 import ListStatCards from '@/components/list/ListStatCards.vue'
-import RelatedLinks from '@/components/list/RelatedLinks.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -187,7 +186,6 @@ function saveRegister() {
       pages).
     </p>
 
-    <RelatedLinks />
     <ListStatCards :stats="stats" />
 
     <TabButtons v-model="tab" :options="tabs" class="school-tabs" />
@@ -196,19 +194,19 @@ function saveRegister() {
       v-if="tab === 'registers'"
       :tabs="registerTabs"
       :show-stats="false"
-      :show-related="false"
+     
     />
     <CatalogTabDesk
       v-else-if="tab === 'early'"
       :tabs="earlyTabs"
       :show-stats="false"
-      :show-related="false"
+     
     />
     <CatalogTabDesk
       v-else-if="tab === 'staff'"
       :tabs="staffTabs"
       :show-stats="false"
-      :show-related="false"
+     
     />
 
     <template v-else>

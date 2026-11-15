@@ -212,6 +212,14 @@ function editRecord(row: CatalogRow, event?: Event) {
   openEditDialog(moduleKey.value, row)
 }
 
+function deleteRecord(row: CatalogRow, event?: Event) {
+  event?.stopPropagation()
+  if (!requirePerm('delete', 'delete records')) return
+  openDeleteDialog(moduleKey.value, [row.id], () => {
+    selection.value = selection.value.filter((id) => id !== row.id)
+  })
+}
+
 function openDetail(row: CatalogRow) {
   pushWithReturn(router, personDetailPath(moduleKey.value, row.id))
 }
@@ -356,6 +364,7 @@ function clearSelection() {
       :grid-columns="columns"
       :can-print="false"
       :can-write="canWrite"
+      :can-delete="canDelete"
       :empty-text="`No ${TAB_META[tab].label.toLowerCase()} match your filters.`"
       :page="page"
       :total-pages="totalPages"
@@ -363,6 +372,7 @@ function clearSelection() {
       :total="filtered.length"
       @open="openDetail"
       @edit="editRecord"
+      @delete="deleteRecord"
       @print="printRecord"
       @prev="goToPage(page - 1)"
       @next="goToPage(page + 1)"

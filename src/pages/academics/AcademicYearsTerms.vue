@@ -26,7 +26,6 @@ import {
 } from '@/composables/useModuleForms'
 import { useModuleAccess } from '@/composables/useModuleAccess'
 import PageIntro from '@/components/list/PageIntro.vue'
-import RelatedLinks from '@/components/list/RelatedLinks.vue'
 import AppBackButton from '@/components/layout/AppBackButton.vue'
 
 const router = useRouter()
@@ -303,7 +302,6 @@ function goOverview() {
   </PageHeader>
 
   <div class="school-page space-y-6">
-    <RelatedLinks />
     <PageIntro
       description="Academic years and terms are linked — pick a year to manage its Term I–III dates, then set the current term for the whole school desk."
       :stats="stats"
