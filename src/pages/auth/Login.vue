@@ -179,6 +179,9 @@ function askAdmin() {
               placeholder="you@school.edu"
               required
             />
+            <small class="login-field-hint"
+              >School desk login email (the address your admin created). Required.</small
+            >
           </label>
 
           <label class="login-field">
@@ -204,6 +207,9 @@ function askAdmin() {
                 />
               </button>
             </div>
+            <small class="login-field-hint"
+              >Password for your desk account. Case-sensitive. Required.</small
+            >
           </label>
 
           <div class="login-row">
@@ -237,6 +243,9 @@ function askAdmin() {
               placeholder="you@school.edu"
               required
             />
+            <small class="login-field-hint"
+              >Enter the email on your desk account. A reset code will be issued for that inbox.</small
+            >
           </label>
           <p v-if="error" class="login-error">{{ error }}</p>
           <button type="submit" class="login-submit" :disabled="loading">
@@ -255,6 +264,9 @@ function askAdmin() {
           <label class="login-field">
             <span>Email</span>
             <input v-model="email" type="email" required />
+            <small class="login-field-hint"
+              >Same email you used to request the reset code.</small
+            >
           </label>
           <label class="login-field">
             <span>Reset code</span>
@@ -266,6 +278,9 @@ function askAdmin() {
               placeholder="6-digit code"
               required
             />
+            <small class="login-field-hint"
+              >6-digit code from the reset email (or shown on screen in non-production).</small
+            >
           </label>
           <p v-if="issuedCodeHint" class="login-code-hint">
             Dev code: <strong>{{ issuedCodeHint }}</strong>
@@ -279,6 +294,9 @@ function askAdmin() {
               minlength="8"
               required
             />
+            <small class="login-field-hint"
+              >At least 8 characters. Choose something you have not used here before.</small
+            >
           </label>
           <label class="login-field">
             <span>Confirm password</span>
@@ -289,6 +307,9 @@ function askAdmin() {
               minlength="8"
               required
             />
+            <small class="login-field-hint"
+              >Re-type the new password exactly to confirm. Required.</small
+            >
           </label>
           <p v-if="error" class="login-error">{{ error }}</p>
           <button type="submit" class="login-submit" :disabled="loading">
@@ -481,6 +502,13 @@ function askAdmin() {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+}
+
+.login-field-hint {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #6b7280;
+  font-weight: 400;
 }
 
 .login-field > span {

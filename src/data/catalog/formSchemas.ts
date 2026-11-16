@@ -1,4 +1,5 @@
 import type { ModuleFormSpec } from '@/lib/forms/types'
+import { resolveFieldHelp } from '@/lib/forms/fieldHelp'
 import {
   gradeSelectOptions,
   sectionSelectOptions,
@@ -2322,18 +2323,32 @@ export function buildFallbackForm(
           }
         }
       }
+      field.help = resolveFieldHelp(field)
       return field
     })
 
   if (!fields.some((f) => f.name === 'name')) {
-    fields.unshift({ name: 'name', label: 'Name', type: 'text', required: true })
+    const nameField: ModuleFormSpec['sections'][0]['fields'][0] = {
+      name: 'name',
+      label: 'Name',
+      type: 'text',
+      required: true,
+    }
+    nameField.help = resolveFieldHelp(nameField)
+    fields.unshift(nameField)
   }
 
   return {
     module: moduleKey,
     title: `New ${singular}`,
     singular,
-    sections: [{ title: title || singular, fields }],
+    sections: [
+      {
+        title: title || singular,
+        description: `Fill in each field. Items marked * are required. Hover or read the grey text under a field for what to enter.`,
+        fields,
+      },
+    ],
   }
 }
 

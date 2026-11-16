@@ -197,6 +197,8 @@ function inviteUser() {
         type: 'text',
         required: true,
         placeholder: 'e.g. Agnes Nabukeera',
+        description:
+          'Staff member’s full name as it should appear on the desk. Required.',
         validate: (v) =>
           String(v || '').trim().length >= 2 ? null : 'Name is required',
       },
@@ -206,6 +208,8 @@ function inviteUser() {
         type: 'text',
         required: true,
         placeholder: 'name@littleroyals.ug',
+        description:
+          'Login email — must be unique. Used for sign-in and password reset. Required.',
         validate: (v) =>
           String(v || '').includes('@') ? null : 'Enter a valid email',
       },
@@ -215,6 +219,8 @@ function inviteUser() {
         type: 'password',
         required: true,
         placeholder: 'Min 8 characters',
+        description:
+          'Temporary password (8+ characters). Share securely; user should change it after first login. Required.',
         validate: (v) =>
           String(v || '').length >= 8 ? null : 'Password must be at least 8 characters',
       },
@@ -225,12 +231,16 @@ function inviteUser() {
         required: true,
         defaultValue: roleOptions[0]?.value,
         options: roleOptions,
+        description:
+          'Desk role that controls which menus and actions they can use. Required.',
       },
       {
         name: 'department',
         label: 'Department',
         type: 'text',
         placeholder: 'Primary / Nursery / Finance',
+        description:
+          'Optional office or section (e.g. Primary, Nursery, Finance).',
       },
     ],
     onConfirm: async ({ values }) => {
@@ -301,6 +311,8 @@ function editUser(user: SystemUser) {
         required: true,
         defaultValue: user.role,
         options: roles.map((r) => ({ label: r.name, value: r.key })),
+        description:
+          'Desk role that controls which menus and actions they can use. Required.',
       },
       {
         name: 'status',
@@ -313,12 +325,16 @@ function editUser(user: SystemUser) {
           { label: 'Invited', value: 'Invited' },
           { label: 'Disabled', value: 'Disabled' },
         ],
+        description:
+          'Active can sign in; Invited is pending; Disabled blocks login. Required.',
       },
       {
         name: 'department',
         label: 'Department',
         type: 'text',
         defaultValue: user.department || '',
+        description:
+          'Optional office or section (e.g. Primary, Nursery, Finance).',
       },
     ],
     onConfirm: async ({ values }) => {
@@ -1067,6 +1083,7 @@ function roleSummaryLabel(roleKey: string) {
                 label="Role name"
                 type="text"
                 placeholder="e.g. Sports Coach"
+                description="Short name shown in Users and invite forms. Required."
               />
               <FormControl
                 v-model="roleForm.status"
@@ -1076,6 +1093,7 @@ function roleSummaryLabel(roleKey: string) {
                   { label: 'Active', value: 'Active' },
                   { label: 'Disabled', value: 'Disabled' },
                 ]"
+                description="Only Active roles can be assigned to new users."
               />
               <FormControl
                 v-model="roleForm.deskAccess"
@@ -1085,6 +1103,7 @@ function roleSummaryLabel(roleKey: string) {
                   { label: 'Desk access', value: 'yes' },
                   { label: 'Portal only', value: 'no' },
                 ]"
+                description="Desk access opens staff menus; Portal only is for parents/students."
               />
               <FormControl
                 v-if="isCreating"
@@ -1092,6 +1111,7 @@ function roleSummaryLabel(roleKey: string) {
                 label="Optional starter"
                 type="select"
                 :options="copyFromOptions"
+                description="Copy CRUD permissions from an existing role to start faster. Optional."
               />
               <FormControl
                 v-model="roleForm.description"
@@ -1100,6 +1120,7 @@ function roleSummaryLabel(roleKey: string) {
                 type="textarea"
                 :rows="2"
                 placeholder="What this role can do at Little Royals"
+                description="Plain-language note for admins about what this role is for."
               />
               <div class="flex flex-wrap gap-2 sm:col-span-2">
                 <Badge
@@ -1170,12 +1191,14 @@ function roleSummaryLabel(roleKey: string) {
                     type="select"
                     label="Module group"
                     :options="moduleGroups"
+                    description="Filter the permission grid by school area (People, Fees, etc.)."
                   />
                   <FormControl
                     v-model="moduleQuery"
                     type="text"
                     label="Search modules"
                     placeholder="students, fees, exams…"
+                    description="Type part of a module name to find it in the grid."
                   />
                 </div>
               </div>

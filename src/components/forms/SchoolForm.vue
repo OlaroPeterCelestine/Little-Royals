@@ -185,8 +185,11 @@ function submit(asDraft: boolean) {
     >
       <div class="mb-4 space-y-1">
         <h2 class="school-section-title">{{ section.title }}</h2>
-        <p v-if="section.description" class="text-sm text-ink-gray-6">
-          {{ section.description }}
+        <p class="text-sm text-ink-gray-6">
+          {{
+            section.description ||
+            'Fields marked * are required. Grey text under each input explains what to enter.'
+          }}
         </p>
       </div>
       <div class="grid gap-4 sm:grid-cols-2">

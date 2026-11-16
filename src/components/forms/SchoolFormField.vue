@@ -14,6 +14,10 @@ import {
   resolvePersonPhotoSrc,
   uploadPersonPhoto,
 } from '@/lib/personPhoto'
+import {
+  resolveFieldHelp,
+  resolveFieldPlaceholder,
+} from '@/lib/forms/fieldHelp'
 
 const props = defineProps<{
   field: FormFieldSpec
@@ -168,6 +172,13 @@ watch(
   },
   { immediate: true },
 )
+
+const fieldHelp = computed(() => resolveFieldHelp(props.field))
+const fieldPlaceholder = computed(() =>
+  isDropdown.value
+    ? `Select ${props.field.label.toLowerCase()}…`
+    : resolveFieldPlaceholder(props.field),
+)
 </script>
 
 <template>
@@ -177,12 +188,10 @@ watch(
       :type="controlType"
       :label="`${field.label}${field.required ? ' *' : ''}`"
       :model-value="modelValue as string | number | boolean"
-      :placeholder="
-        isDropdown ? `Select ${field.label.toLowerCase()}…` : field.placeholder
-      "
+      :placeholder="fieldPlaceholder"
       :options="isDropdown ? options : undefined"
       :disabled="field.readOnly || field.auto || field.type === 'readonly'"
-      :description="field.help"
+      :description="fieldHelp"
       @update:model-value="onUpdate"
     />
 
@@ -206,7 +215,7 @@ watch(
           {{ opt.label }}
         </option>
       </select>
-      <p v-if="field.help" class="text-xs text-ink-gray-5">{{ field.help }}</p>
+      <p class="text-xs text-ink-gray-5 leading-snug">{{ fieldHelp }}</p>
     </div>
 
     <div v-else class="space-y-2">
@@ -237,7 +246,7 @@ watch(
           </button>
         </div>
       </div>
-      <p v-if="field.help" class="text-xs text-ink-gray-5">{{ field.help }}</p>
+      <p class="text-xs text-ink-gray-5 leading-snug">{{ fieldHelp }}</p>
     </div>
   </div>
 </template>
