@@ -71,6 +71,74 @@ export const catalog: Record<string, CatalogModule> = {
     rows: [],
   },
 
+  parents: {
+    key: 'parents',
+    title: 'Parents',
+    singular: 'Parent',
+    icon: 'lucide-users',
+    description: 'Parent and guardian records linked to pupils',
+    group: 'Student',
+    columns: [
+      { key: 'name', label: 'Parent', primary: true },
+      { key: 'relation', label: 'Relation' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'email', label: 'Email' },
+      { key: 'status', label: 'Status', badge: true },
+    ],
+    rows: [],
+  },
+
+  subjects: {
+    key: 'subjects',
+    title: 'Subjects',
+    singular: 'Subject',
+    icon: 'lucide-book-open',
+    description: 'Curriculum subjects and teaching assignments',
+    group: 'Academics',
+    columns: [
+      { key: 'name', label: 'Subject', primary: true },
+      { key: 'code', label: 'Code' },
+      { key: 'program', label: 'Program' },
+      { key: 'instructor', label: 'Instructor' },
+      { key: 'status', label: 'Status', badge: true },
+    ],
+    rows: [],
+  },
+
+  users: {
+    key: 'users',
+    title: 'Users',
+    singular: 'User',
+    icon: 'lucide-shield',
+    description: 'Desk logins loaded from the school API',
+    group: 'Admin',
+    columns: [
+      { key: 'name', label: 'User', primary: true },
+      { key: 'email', label: 'Email' },
+      { key: 'role', label: 'Role' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'status', label: 'Status', badge: true },
+    ],
+    rows: [],
+  },
+
+  notifications: {
+    key: 'notifications',
+    title: 'Notifications',
+    singular: 'Notification',
+    icon: 'lucide-bell',
+    description: 'Realtime desk notifications',
+    group: 'Admin',
+    columns: [
+      { key: 'name', label: 'Title', primary: true },
+      { key: 'title', label: 'Title' },
+      { key: 'body', label: 'Body' },
+      { key: 'route', label: 'Route' },
+      { key: 'status', label: 'Status', badge: true },
+    ],
+    rows: [],
+  },
+
   guardians: {
     key: 'guardians',
     title: 'Guardians',
