@@ -32,11 +32,12 @@ export function wsBaseUrl(): string {
   const raw = String(import.meta.env.VITE_WS_URL ?? '').trim()
   if (isSameOrigin(raw) || !raw) {
     const http = apiBaseUrl()
-    if (!http && typeof window !== 'undefined') {
+    if (http) return http.replace(/^http/, 'ws')
+    // Same-origin: resolve against the current page (works behind host nginx TLS).
+    if (typeof window !== 'undefined' && window.location?.host) {
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       return `${proto}//${window.location.host}`
     }
-    if (http) return http.replace(/^http/, 'ws')
     return ''
   }
   return raw.replace(/\/$/, '')

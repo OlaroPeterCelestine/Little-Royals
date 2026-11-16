@@ -8,10 +8,17 @@ export type RealtimeEvent = {
   at: string
 }
 
-const WS_BASE = wsBaseUrl()
+function resolveWsBase(): string {
+  const configured = wsBaseUrl()
+  if (configured) return configured
+  if (typeof window === 'undefined') return ''
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${proto}//${window.location.host}`
+}
 
 function wsURL(token: string) {
-  return `${WS_BASE}/api/v1/ws?token=${encodeURIComponent(token)}`
+  const base = resolveWsBase().replace(/\/$/, '')
+  return `${base}/api/v1/ws?token=${encodeURIComponent(token)}`
 }
 
 const connected = ref(false)
@@ -33,9 +40,10 @@ export function onRealtime(fn: (evt: RealtimeEvent) => void) {
 }
 
 export function connectRealtime() {
-  if (!isApiEnabled() || !WS_BASE) return
+  if (!isApiEnabled()) return
   const token = authToken()
   if (!token) return
+  if (!resolveWsBase()) return
   if (
     socket &&
     (socket.readyState === WebSocket.OPEN ||
@@ -91,6 +99,7 @@ export function disconnectRealtime() {
     clearTimeout(retryTimer)
     retryTimer = null
   }
+  retries = 0
   socket?.close()
   socket = null
   connected.value = false
@@ -101,6 +110,10 @@ export function sendRealtime(type: string, payload: unknown) {
   if (!socket || socket.readyState !== WebSocket.OPEN) return false
   socket.send(JSON.stringify({ type, payload }))
   return true
+}
+
+export function isRealtimeConnected() {
+  return connected.value
 }
 
 /** Use in app shell to keep a single shared WebSocket alive. */
