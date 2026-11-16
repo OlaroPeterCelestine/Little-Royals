@@ -32,6 +32,6 @@ jobs:
               git -C backend fetch --all --prune
               git -C backend reset --hard origin/main
             else
-              git clone https://github.com/OlaroPeterCelestine/Little-Royals-API.git backend
+              git clone git@github.com:OlaroPeterCelestine/Little-Royals-API.git backend
             fi
             ./scripts/deploy-vps.sh
