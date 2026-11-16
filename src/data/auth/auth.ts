@@ -19,10 +19,10 @@ const BOOT_KEY = 'little-royals-auth-boot'
 
 /** One-time: clear stale sessions after login/auth policy changes. */
 try {
-  if (localStorage.getItem(BOOT_KEY) !== '5') {
+  if (localStorage.getItem(BOOT_KEY) !== '6') {
     localStorage.removeItem(STORAGE_KEY)
     sessionStorage.removeItem(STORAGE_KEY)
-    localStorage.setItem(BOOT_KEY, '5')
+    localStorage.setItem(BOOT_KEY, '6')
   }
 } catch {
   /* ignore */
@@ -273,17 +273,13 @@ export async function loginWithCredentials(input: {
 
   assertLoginAllowed(email)
 
-  // Desk always accepts any email + password locally. When the API is on,
-  // try it first for a real JWT; if that fails (validation, wrong password,
-  // downtime), open a local desk session so teachers are never locked out.
+  // Production desk is API-backed: require a real JWT. Silent local fallback
+  // left teachers "logged in" with no token → 401s on every module, then the
+  // router cleared the session and bounced them back to /login.
   if (!isApiEnabled()) {
     return loginLocal({ email, password, remember: input.remember })
   }
-  try {
-    return await loginViaApi({ email, password, remember: input.remember })
-  } catch {
-    return loginLocal({ email, password, remember: input.remember })
-  }
+  return loginViaApi({ email, password, remember: input.remember })
 }
 
 type ForgotAPIResponse = {

@@ -1,3 +1,4 @@
+import { isAuthenticated } from '@/data/auth/auth'
 import { ensureModule, moduleFromPath } from '@/data/catalog/catalogSync'
 
 /** Path → lazy page loader. Warm these after paint / on sidebar hover. */
@@ -40,8 +41,9 @@ function normalizePath(path: string) {
 export function prefetchRoute(path?: string) {
   if (!path) return
   const base = normalizePath(path)
+  // Never hit protected catalog APIs from /login (no JWT yet).
   const mod = moduleFromPath(base)
-  if (mod) void ensureModule(mod)
+  if (mod && isAuthenticated.value) void ensureModule(mod)
 
   if (warmed.has(base)) return
   const load = ROUTE_LOADERS[base]
@@ -63,6 +65,7 @@ export function prefetchRoute(path?: string) {
 
 /** Warm only the most-used route chunks after first paint. */
 export function prefetchCorePages() {
+  // JS chunk warm is fine anonymous; catalog ensureModule needs a session.
   const core = [
     '/dashboard',
     '/students',
