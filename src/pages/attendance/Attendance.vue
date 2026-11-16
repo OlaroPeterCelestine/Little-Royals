@@ -13,6 +13,7 @@ import { gradeSelectOptions } from '@/data/school/grades'
 import { addRecord, getLiveModule } from '@/data/catalog/store'
 import CatalogTabDesk from '@/components/list/CatalogTabDesk.vue'
 import ListStatCards from '@/components/list/ListStatCards.vue'
+import StaffClockPanel from '@/components/attendance/StaffClockPanel.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -202,12 +203,10 @@ async function saveRegister() {
       :show-stats="false"
      
     />
-    <CatalogTabDesk
-      v-else-if="tab === 'staff'"
-      :tabs="staffTabs"
-      :show-stats="false"
-     
-    />
+    <template v-else-if="tab === 'staff'">
+      <StaffClockPanel />
+      <CatalogTabDesk :tabs="staffTabs" :show-stats="false" />
+    </template>
 
     <template v-else>
       <div class="school-page-toolbar">

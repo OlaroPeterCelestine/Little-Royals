@@ -1638,6 +1638,102 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
     ],
   },
 
+  'staff-attendance': {
+    module: 'staff-attendance',
+    title: 'Staff Clock Record',
+    singular: 'Staff day',
+    sections: [
+      {
+        title: 'Staff day',
+        description:
+          'Prefer Attendance → Staff → Clock in (GPS + geofence). Manual rows are for corrections.',
+        fields: [
+          {
+            name: 'name',
+            label: 'Staff name',
+            type: 'text',
+            required: true,
+            help: 'Teacher or staff member clocking this day. Required.',
+          },
+          {
+            name: 'staffEmail',
+            label: 'Staff email',
+            type: 'email',
+            help: 'Login email — used to match open shifts for clock-out.',
+          },
+          {
+            name: 'date',
+            label: 'Date',
+            type: 'date',
+            required: true,
+            help: 'Calendar day of this shift. Required.',
+          },
+          {
+            name: 'checkIn',
+            label: 'Clock in',
+            type: 'text',
+            placeholder: '07:45',
+            help: 'Arrival time (24h). Prefer the Clock in button so GPS is recorded.',
+          },
+          {
+            name: 'checkOut',
+            label: 'Clock out',
+            type: 'text',
+            placeholder: '16:30',
+            help: 'Departure time (24h). Leave blank while still on shift.',
+          },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            required: true,
+            options: [
+              { label: 'Present', value: 'Present' },
+              { label: 'Late', value: 'Late' },
+              { label: 'Absent', value: 'Absent' },
+              { label: 'Leave', value: 'Leave' },
+            ],
+          },
+          {
+            name: 'onCampus',
+            label: 'On campus',
+            type: 'select',
+            options: [
+              { label: 'Yes', value: 'Yes' },
+              { label: 'No', value: 'No' },
+              { label: 'N/A', value: 'N/A' },
+            ],
+            help: 'Filled automatically by GPS clock when geofence is on.',
+          },
+          {
+            name: 'distanceM',
+            label: 'Distance (m)',
+            type: 'number',
+            help: 'Metres from campus centre at clock-in (auto from GPS).',
+          },
+          {
+            name: 'latitude',
+            label: 'Latitude',
+            type: 'text',
+            help: 'GPS latitude at clock-in.',
+          },
+          {
+            name: 'longitude',
+            label: 'Longitude',
+            type: 'text',
+            help: 'GPS longitude at clock-in.',
+          },
+          {
+            name: 'subtitle',
+            label: 'Notes',
+            type: 'textarea',
+            help: 'Optional note for this shift.',
+          },
+        ],
+      },
+    ],
+  },
+
   payroll: {
     module: 'payroll',
     title: 'Payroll Run',

@@ -132,6 +132,21 @@ watch(tab, (value) => {
 })
 
 watch(
+  () => form.geoEnabled,
+  (on) => {
+    if (!on) return
+    if (!String(form.geoRadiusMeters || '').trim()) {
+      form.geoRadiusMeters = '250'
+      markDirty()
+    }
+    if (!String(form.geoLabel || '').trim()) {
+      form.geoLabel = 'Main campus'
+      markDirty()
+    }
+  },
+)
+
+watch(
   () => route.query.tab,
   (value) => {
     const next = parseTab(value)
@@ -551,7 +566,8 @@ function resetDefaults() {
         <div>
           <h2 class="school-section-title mb-0">Campus geofence</h2>
           <p class="mt-1 text-sm text-ink-gray-5">
-            Circle around the school for gated attendance and staff check-in.
+            Draw a circle around the school. When enabled, teachers and staff can
+            only clock in / out from Attendance → Staff while inside this radius.
           </p>
         </div>
         <Badge
@@ -578,7 +594,7 @@ function resetDefaults() {
               Enforce campus geofence
             </span>
             <span class="block text-xs text-ink-gray-5">
-              When on, check-ins outside the radius are flagged off-campus
+              When on, staff clock-in and clock-out outside the radius are blocked
             </span>
           </span>
         </label>
@@ -622,7 +638,17 @@ function resetDefaults() {
             label="Open in Maps"
             @click="openMaps"
           />
+          <Button
+            icon-left="lucide-user-check"
+            label="Open staff clock"
+            @click="router.push({ path: '/attendance', query: { tab: 'staff' } })"
+          />
         </div>
+        <p class="sm:col-span-2 text-xs text-ink-gray-5">
+          Tip: stand at the school gate or office, tap <em>Use my location</em>,
+          pick a radius that covers the compound, enable the fence, then Save.
+          Teachers clock in under Attendance → Staff.
+        </p>
         <FormControl
           v-model="form.geoNotes"
           class="sm:col-span-2"

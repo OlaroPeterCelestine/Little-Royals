@@ -794,13 +794,16 @@ export const catalog: Record<string, CatalogModule> = {
     title: 'Staff Attendance',
     singular: 'Staff Day',
     icon: 'lucide-user-check',
-    description: 'Daily attendance for teachers and staff',
+    description:
+      'Teacher and staff clock-in / out — gated by campus geofence when enabled',
     group: 'Attendance',
     columns: [
       { key: 'name', label: 'Staff', primary: true },
       { key: 'date', label: 'Date' },
       { key: 'checkIn', label: 'In' },
       { key: 'checkOut', label: 'Out' },
+      { key: 'onCampus', label: 'On campus' },
+      { key: 'distanceM', label: 'Distance (m)' },
       { key: 'status', label: 'Status', badge: true },
     ],
     rows: [],
