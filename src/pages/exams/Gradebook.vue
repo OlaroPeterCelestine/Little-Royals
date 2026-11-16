@@ -34,7 +34,12 @@ import {
   parseMarksCsv,
   safeCsvFilename,
 } from '@/lib/marksCsv'
-import { sanitizeNumber } from '@/lib/sanitize'
+import {
+  sanitizeImageSrc,
+  sanitizeNumber,
+  sanitizeRichHtml,
+  sanitizeText,
+} from '@/lib/sanitize'
 
 const router = useRouter()
 const route = useRoute()
@@ -329,10 +334,14 @@ function parseExamQuestions(raw: unknown): ExamQuestion[] {
     }
     return parsed.map((q: Record<string, unknown>, i: number) => ({
       id: String(q.id || `q-${i + 1}`),
-      text: String(q.text || ''),
+      text: sanitizeRichHtml(String(q.text || '')),
       marks: Math.max(0, Number(q.marks) || 0),
-      imageSrc: q.imageSrc ? String(q.imageSrc) : undefined,
-      imageCaption: q.imageCaption ? String(q.imageCaption) : undefined,
+      imageSrc: q.imageSrc
+        ? sanitizeImageSrc(String(q.imageSrc)) || undefined
+        : undefined,
+      imageCaption: q.imageCaption
+        ? sanitizeText(String(q.imageCaption), 'text', 200)
+        : undefined,
     }))
   } catch {
     return [{ id: `q-${Date.now()}`, text: '', marks: 10 }]
@@ -406,7 +415,12 @@ async function onPaperImageUpload(event: Event) {
   const q = createQuestions.value.find((row) => row.id === qid)
   if (!q) return
   try {
-    q.imageSrc = await readImageFile(file)
+    const src = sanitizeImageSrc(await readImageFile(file))
+    if (!src) {
+      toast.error('Only PNG, JPEG, GIF, or WebP images are allowed')
+      return
+    }
+    q.imageSrc = src
     if (!q.imageCaption) q.imageCaption = 'Figure'
     markExamDirty()
     toast.success('Image added to the question')
@@ -438,12 +452,12 @@ function onEditableInput(
   event: Event,
 ) {
   const el = event.target as HTMLElement
-  const html = el.innerHTML || ''
   const text = el.innerText || ''
+  const safe = text.trim() ? sanitizeRichHtml(el.innerHTML || '') : ''
   if (target === 'instructions') {
-    createForm.subtitle = text.trim() ? html : ''
+    createForm.subtitle = safe
   } else {
-    target.text = text.trim() ? html : ''
+    target.text = safe
   }
   markExamDirty()
 }
@@ -747,10 +761,12 @@ function collectExamQuestions() {
   return createQuestions.value
     .map((q, i) => ({
       id: q.id || `q-${i + 1}`,
-      text: q.text.trim(),
+      text: sanitizeRichHtml(q.text.trim()),
       marks: Math.max(0, Number(q.marks) || 0),
-      imageSrc: q.imageSrc || undefined,
-      imageCaption: q.imageCaption?.trim() || undefined,
+      imageSrc: sanitizeImageSrc(q.imageSrc) || undefined,
+      imageCaption: q.imageCaption
+        ? sanitizeText(q.imageCaption.trim(), 'text', 200)
+        : undefined,
     }))
     .filter((q) => plainFromMaybeHtml(q.text).length > 0 || Boolean(q.imageSrc))
 }

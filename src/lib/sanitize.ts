@@ -201,3 +201,67 @@ export function sanitizeRecordValues(
   }
   return out
 }
+
+const ALLOWED_RICH_TAGS = new Set([
+  'B',
+  'STRONG',
+  'I',
+  'EM',
+  'U',
+  'BR',
+  'P',
+  'DIV',
+  'SPAN',
+  'UL',
+  'OL',
+  'LI',
+])
+
+/**
+ * Allow only safe formatting tags for exam contenteditable fields.
+ * Strips scripts, event handlers, and unknown elements.
+ */
+export function sanitizeRichHtml(raw: unknown, maxLen = 20000): string {
+  const input = String(raw ?? '')
+  if (!input.trim()) return ''
+  if (typeof document === 'undefined') {
+    return sanitizeText(input, 'textarea', maxLen)
+  }
+  const template = document.createElement('template')
+  template.innerHTML = input
+  const walk = (node: Node) => {
+    const kids = Array.from(node.childNodes)
+    for (const child of kids) {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        const el = child as HTMLElement
+        if (!ALLOWED_RICH_TAGS.has(el.tagName)) {
+          const text = document.createTextNode(el.textContent || '')
+          el.replaceWith(text)
+          continue
+        }
+        // Drop all attributes (onclick, style urls, href, etc.).
+        for (const attr of Array.from(el.attributes)) {
+          el.removeAttribute(attr.name)
+        }
+        walk(el)
+      } else if (child.nodeType === Node.COMMENT_NODE) {
+        child.parentNode?.removeChild(child)
+      }
+    }
+  }
+  walk(template.content)
+  let out = template.innerHTML.replace(SCRIPTISH, '').replace(CONTROL_CHARS, '')
+  if (out.length > maxLen) out = out.slice(0, maxLen)
+  return out
+}
+
+/** Only allow safe image sources for exam figures (https or data:image/*). */
+export function sanitizeImageSrc(raw: unknown): string {
+  const s = String(raw ?? '').trim()
+  if (!s) return ''
+  if (/^https:\/\//i.test(s)) return s.slice(0, 2048)
+  if (/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(s)) {
+    return s.slice(0, 6_000_000)
+  }
+  return ''
+}

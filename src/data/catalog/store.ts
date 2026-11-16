@@ -25,7 +25,11 @@ import {
 } from '@/data/students/studentNumber'
 import { sortSchoolClassRows } from '@/data/school/grades'
 import { asString, type RecordValues } from '@/types/records'
-import { sanitizeFieldValue, sanitizeText } from '@/lib/sanitize'
+import {
+  sanitizeFieldValue,
+  sanitizeRecordValues,
+  sanitizeText,
+} from '@/lib/sanitize'
 import { isApiEnabled } from '@/lib/apiMode'
 import {
   bodyFromRow,
@@ -197,6 +201,7 @@ export async function addRecord(
 ): Promise<CatalogRow> {
   const mod = schoolStore[key]
   if (!mod) throw new Error(`Unknown module: ${key}`)
+  values = sanitizeRecordValues(values as Record<string, unknown>) as RecordValues
   const name = sanitizeText(asString(values.name), 'name')
   if (!name) throw new Error('Name is required')
   values.name = name
@@ -285,6 +290,7 @@ export async function updateRecord(
   const row = mod.rows.find((r) => r.id === id)
   if (!row) throw new Error('Record not found')
 
+  values = sanitizeRecordValues(values as Record<string, unknown>) as RecordValues
   const name = sanitizeText(asString(values.name), 'name')
   if (!name) throw new Error('Name is required')
   values.name = name
