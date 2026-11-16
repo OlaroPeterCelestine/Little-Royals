@@ -33,3 +33,10 @@ cp backend/.env.example backend/.env
 | `api` | Go API | `18080` |
 | `postgres` | Database | localhost only |
 | `redis` | Cache / realtime | internal |
+
+Realtime: desk opens `ws(s)://{desk-host}/api/v1/ws` (nginx proxies to the API). Health reports `realtime.transport`.
+
+```bash
+# With API on :18080 and admin credentials seeded:
+node scripts/smoke-realtime.mjs
+```

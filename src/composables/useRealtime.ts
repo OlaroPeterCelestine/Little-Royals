@@ -86,6 +86,7 @@ export function connectRealtime() {
 
 function scheduleReconnect() {
   if (retryTimer) return
+  if (!authToken()) return
   const delay = Math.min(1000 * 2 ** retries, 15000)
   retries += 1
   retryTimer = setTimeout(() => {
@@ -105,7 +106,7 @@ export function disconnectRealtime() {
   connected.value = false
 }
 
-/** Send a realtime frame (WebRTC signaling, collab). No-op if socket is down. */
+/** Send a realtime frame (signaling, collab). No-op if socket is down. */
 export function sendRealtime(type: string, payload: unknown) {
   if (!socket || socket.readyState !== WebSocket.OPEN) return false
   socket.send(JSON.stringify({ type, payload }))

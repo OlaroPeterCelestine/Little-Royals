@@ -2,9 +2,7 @@ import { computed, reactive } from 'vue'
 import { authToken } from '@/data/auth/auth'
 import type { NotificationTone, SchoolNotification } from '@/data/activity/notifications'
 import { onRealtime, connectRealtime, disconnectRealtime } from '@/composables/useRealtime'
-import { apiBaseUrl, isApiEnabled } from '@/lib/apiMode'
-
-const API_BASE = apiBaseUrl()
+import { apiUrl, isApiConfigured, isApiEnabled } from '@/lib/apiMode'
 
 type APINotification = {
   id: string
@@ -51,7 +49,7 @@ export const liveNotifications = computed(() => live.items)
 export const realtimeConnected = computed(() => live.connected)
 
 export async function fetchLiveNotifications() {
-  if (!isApiEnabled() || !API_BASE) {
+  if (!isApiEnabled() || !isApiConfigured()) {
     live.items = []
     return
   }
@@ -61,7 +59,7 @@ export async function fetchLiveNotifications() {
     return
   }
   try {
-    const res = await fetch(`${API_BASE}/api/v1/notifications`, {
+    const res = await fetch(apiUrl('/api/v1/notifications'), {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     })
     if (!res.ok) return
@@ -77,11 +75,11 @@ export async function fetchLiveNotifications() {
 export async function markLiveNotificationRead(id: string) {
   const item = live.items.find((n) => n.id === id)
   if (item) item.read = true
-  if (!isApiEnabled() || !API_BASE) return
+  if (!isApiEnabled() || !isApiConfigured()) return
   const token = authToken()
   if (!token) return
   try {
-    await fetch(`${API_BASE}/api/v1/notifications/${id}/read`, {
+    await fetch(apiUrl(`/api/v1/notifications/${id}/read`), {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     })

@@ -1,4 +1,4 @@
-import { apiBaseUrl, isApiEnabled } from '@/lib/apiMode'
+import { apiUrl, isApiEnabled } from '@/lib/apiMode'
 import { authToken } from '@/data/auth/auth'
 import type { SealedEnvelope, VaultIdentity } from '@/lib/e2ee/vaultCrypto'
 
@@ -8,7 +8,7 @@ async function vaultFetch<T>(path: string, init?: RequestInit): Promise<T> {
   if (!isApiEnabled()) throw new Error('Private vault needs the school API')
   const token = authToken()
   if (!token) throw new Error('Sign in first to use the private vault')
-  const res = await fetch(`${apiBaseUrl()}/api/v1/vault${path}`, {
+  const res = await fetch(apiUrl(`/api/v1/vault${path}`), {
     ...init,
     headers: {
       Accept: 'application/json',

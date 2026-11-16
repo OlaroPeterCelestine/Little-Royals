@@ -11,7 +11,7 @@ import {
   writeJsonStorage,
   type AuthSessionShape,
 } from '@/lib/security'
-import { apiBaseUrl, isApiEnabled } from '@/lib/apiMode'
+import { apiBaseUrl, apiUrl, isApiEnabled } from '@/lib/apiMode'
 import { hydrateSchoolFromApi } from '@/data/school/schoolSetup'
 
 const STORAGE_KEY = 'little-royals-auth'
@@ -146,7 +146,7 @@ async function loginViaApi(input: {
   const email = input.email
   let payload: LoginAPIResponse
   try {
-    const res = await fetch(`${apiBaseUrl()}/api/v1/auth/login`, {
+    const res = await fetch(apiUrl('/api/v1/auth/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
@@ -315,7 +315,7 @@ export async function requestPasswordReset(emailRaw: string): Promise<{
     )
   }
   try {
-    const res = await fetch(`${apiBaseUrl()}/api/v1/auth/forgot-password`, {
+    const res = await fetch(apiUrl('/api/v1/auth/forgot-password'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ email }),
@@ -353,7 +353,7 @@ export async function resetPasswordWithCode(input: {
     throw new Error('Password reset needs the school API')
   }
   try {
-    const res = await fetch(`${apiBaseUrl()}/api/v1/auth/reset-password`, {
+    const res = await fetch(apiUrl('/api/v1/auth/reset-password'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ email, code, newPassword }),
@@ -394,7 +394,7 @@ export async function changePassword(input: {
     throw new Error('Sign in with the API first, then change your password')
   }
   try {
-    const res = await fetch(`${apiBaseUrl()}/api/v1/auth/change-password`, {
+    const res = await fetch(apiUrl('/api/v1/auth/change-password'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -423,7 +423,7 @@ export function logout() {
   const token = state.session?.token
   // Best-effort server logout — revoke JWT jti + write audit row.
   if (isApiEnabled() && token) {
-    void fetch(`${apiBaseUrl()}/api/v1/auth/logout`, {
+    void fetch(apiUrl('/api/v1/auth/logout'), {
       method: 'POST',
       headers: {
         Accept: 'application/json',

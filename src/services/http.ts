@@ -1,7 +1,7 @@
 import { authToken } from '@/data/auth/auth'
-import { apiBaseUrl, isApiEnabled } from '@/lib/apiMode'
+import { apiBaseUrl, apiUrl, isApiConfigured, isApiEnabled } from '@/lib/apiMode'
 
-/** Live base URL (re-read so HMR / env changes apply). */
+/** Live base URL (re-read so HMR / env changes apply). Empty = same-origin. */
 export function getApiBase() {
   return apiBaseUrl()
 }
@@ -116,7 +116,6 @@ async function fetchOnce<T>(
   token: string | null,
   etag?: string,
 ): Promise<{ data: T; meta?: ApiMeta; etag?: string; notModified?: boolean }> {
-  const base = getApiBase()
   const { method = 'GET', body, signal } = options
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -132,7 +131,7 @@ async function fetchOnce<T>(
     headers['If-None-Match'] = etag
   }
 
-  const res = await fetch(`${base}${path}`, {
+  const res = await fetch(apiUrl(path), {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -168,10 +167,9 @@ export async function apiRequest<T>(
   options: RequestOptions = {},
 ): Promise<{ data: T; meta?: ApiMeta }> {
   // Empty base = same-origin (VPS nginx proxies /api → Go). Only disable when the flag is off.
-  if (!isApiEnabled()) {
+  if (!isApiEnabled() || !isApiConfigured()) {
     throw new ApiError(503, 'School API is disabled — desk is running offline')
   }
-  const base = getApiBase()
 
   const { method = 'GET', auth = true, bustCache = false } = options
   const token: string | null = auth
