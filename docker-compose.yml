@@ -41,8 +41,10 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
+    # Bind to localhost only — host nginx (or local curl) reaches the API.
+    # Never publish the API on the public interface.
     ports:
-      - "${API_HTTP_PORT:-18080}:8080"
+      - "${API_HTTP_PORT:-127.0.0.1:18080}:8080"
     env_file:
       - ./backend/.env
     environment:
@@ -87,8 +89,9 @@ services:
         VITE_APP_NAME: ${VITE_APP_NAME:-Little Royals Desk}
         VITE_APP_ENV: production
     restart: unless-stopped
+    # Bind to localhost only — public traffic enters via host nginx :80/:443.
     ports:
-      - "${WEB_HTTP_PORT:-8080}:80"
+      - "${WEB_HTTP_PORT:-127.0.0.1:8080}:80"
     depends_on:
       api:
         condition: service_started
