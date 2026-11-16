@@ -12,6 +12,7 @@ import {
   hydrateSchoolFromApi,
   hydrateSchoolPublic,
 } from '@/data/school/schoolSetup'
+import { hydrateRolesFromApi } from '@/data/auth/permissions'
 import { isApiEnabled } from '@/lib/apiMode'
 import { installNavProgress } from '@/lib/navProgress'
 import { schedulePrefetch } from '@/lib/prefetch'
@@ -53,7 +54,10 @@ async function boot() {
     if (isAuthenticated.value) {
       void hydrateSchoolFromApi().then(() => {
         const first = moduleFromPath(router.currentRoute.value.path)
-        void hydrateCatalogFromApi(first ? [first] : [])
+        void Promise.all([
+          hydrateRolesFromApi(),
+          hydrateCatalogFromApi(first ? [first] : []),
+        ])
       })
     } else {
       void hydrateSchoolPublic()

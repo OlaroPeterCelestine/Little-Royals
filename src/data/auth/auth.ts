@@ -180,7 +180,11 @@ async function loginViaApi(input: {
   state.session = session
   persist(session)
   applyUser({ name: data.name, email: data.email, role })
-  void hydrateSchoolFromApi()
+  void hydrateSchoolFromApi().then(async () => {
+    const { hydrateRolesFromApi } = await import('@/data/auth/permissions')
+    const { hydrateCatalogFromApi } = await import('@/data/catalog/catalogSync')
+    await Promise.all([hydrateRolesFromApi(), hydrateCatalogFromApi(['users'])])
+  })
 
   const local = getUserByEmail(data.email)
   if (local) {

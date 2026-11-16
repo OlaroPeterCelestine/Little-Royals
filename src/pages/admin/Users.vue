@@ -39,6 +39,10 @@ import {
   type SystemUser,
 } from '@/data/auth/permissions'
 import { currentUser, formatActivityTime, logActivity } from '@/data/activity/activity'
+import { isApiEnabled } from '@/lib/apiMode'
+import { apiRequest, clearApiGetCacheFor } from '@/services/http'
+import { ensureModule } from '@/data/catalog/catalogSync'
+import { API_ROLES, ROLE_LABELS } from '@/data/auth/roles'
 import ListPagination from '@/components/list/ListPagination.vue'
 import ListToolbar from '@/components/list/ListToolbar.vue'
 import PageIntro from '@/components/list/PageIntro.vue'
@@ -173,12 +177,19 @@ function goToPage(p: number) {
 }
 
 function inviteUser() {
+  const roleOptions = roles
+    .filter((r) => r.status === 'Active')
+    .map((r) => ({ label: r.name, value: r.key }))
+  if (!roleOptions.length) {
+    toast.error('No roles in the database yet. Create a role first.')
+    return
+  }
   dialog.prompt({
     title: 'Invite user',
-    message: 'Send a Little Royals desk invite with a starting role.',
+    message: 'Create a desk login with a role from the database.',
     icon: 'lucide-user-plus',
     theme: 'blue',
-    confirmLabel: 'Send invite',
+    confirmLabel: 'Create user',
     fields: [
       {
         name: 'name',
@@ -199,12 +210,21 @@ function inviteUser() {
           String(v || '').includes('@') ? null : 'Enter a valid email',
       },
       {
+        name: 'password',
+        label: 'Temporary password',
+        type: 'password',
+        required: true,
+        placeholder: 'Min 8 characters',
+        validate: (v) =>
+          String(v || '').length >= 8 ? null : 'Password must be at least 8 characters',
+      },
+      {
         name: 'role',
         label: 'Role',
         type: 'select',
         required: true,
-        defaultValue: 'Teacher',
-        options: roles.map((r) => ({ label: r.name, value: r.key })),
+        defaultValue: roleOptions[0]?.value,
+        options: roleOptions,
       },
       {
         name: 'department',
@@ -214,28 +234,53 @@ function inviteUser() {
       },
     ],
     onConfirm: async ({ values }) => {
+      const name = String(values.name).trim()
+      const email = String(values.email).trim().toLowerCase()
+      const role = String(values.role)
+      const password = String(values.password || '')
+      if (isApiEnabled()) {
+        try {
+          const { data } = await apiRequest<{
+            id: string
+            name: string
+            email: string
+            role: string
+            status?: string
+          }>('/api/v1/users', {
+            method: 'POST',
+            body: { name, email, role, password, status: 'Active' },
+          })
+          clearApiGetCacheFor('/api/v1/users')
+          await ensureModule('users', { force: true })
+          logActivity({
+            action: 'Created',
+            module: 'users',
+            moduleLabel: 'User',
+            recordId: data?.id,
+            recordName: data?.name || name,
+            summary: `Created user ${name}`,
+            detail: `${role} · ${email}`,
+            severity: 'success',
+          })
+          toast.success(`User created: ${email}`)
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Could not create user')
+          throw err
+        }
+        return
+      }
       const id = `USR-${String(systemUsers.length + 1).padStart(2, '0')}`
       const user: SystemUser = {
         id,
-        name: String(values.name).trim(),
-        email: String(values.email).trim().toLowerCase(),
-        role: String(values.role),
+        name,
+        email,
+        role,
         status: 'Invited',
         department: values.department
           ? String(values.department)
           : undefined,
       }
       systemUsers.unshift(user)
-      logActivity({
-        action: 'Created',
-        module: 'users',
-        moduleLabel: 'User',
-        recordId: user.id,
-        recordName: user.name,
-        summary: `Invited user ${user.name}`,
-        detail: `${user.role} · ${user.email}`,
-        severity: 'success',
-      })
       toast.success(`Invite sent to ${user.email}`)
     },
   })
@@ -277,13 +322,36 @@ function editUser(user: SystemUser) {
       },
     ],
     onConfirm: async ({ values }) => {
-      user.role = String(values.role)
-      user.status = String(values.status) as SystemUser['status']
-      user.department = values.department
+      const nextRole = String(values.role)
+      const nextStatus = String(values.status) as SystemUser['status']
+      const nextDept = values.department
         ? String(values.department)
         : undefined
+      if (isApiEnabled()) {
+        const apiStatus =
+          nextStatus === 'Disabled' ? 'Inactive' : 'Active'
+        try {
+          await apiRequest(`/api/v1/users/${encodeURIComponent(user.id)}`, {
+            method: 'PUT',
+            body: {
+              role: nextRole,
+              status: apiStatus,
+              phone: user.phone,
+            },
+          })
+          clearApiGetCacheFor('/api/v1/users')
+          await ensureModule('users', { force: true })
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Update failed')
+          throw err
+        }
+      } else {
+        user.role = nextRole
+        user.status = nextStatus
+        user.department = nextDept
+      }
       if (user.email === currentUser.email) {
-        currentUser.role = user.role
+        currentUser.role = nextRole
         currentUser.name = user.name
       }
       logActivity({
@@ -293,7 +361,7 @@ function editUser(user: SystemUser) {
         recordId: user.id,
         recordName: user.name,
         summary: `Updated user ${user.name}`,
-        detail: `${user.role} · ${user.status}`,
+        detail: `${nextRole} · ${nextStatus}`,
         severity: 'info',
       })
       toast.success(`${user.name} updated`)
@@ -312,7 +380,21 @@ function disableUser(user: SystemUser) {
     confirmLabel: 'Yes, disable',
     cancelLabel: 'Keep active',
     onConfirm: async () => {
-      user.status = 'Disabled'
+      if (isApiEnabled()) {
+        try {
+          await apiRequest(`/api/v1/users/${encodeURIComponent(user.id)}`, {
+            method: 'PUT',
+            body: { status: 'Inactive' },
+          })
+          clearApiGetCacheFor('/api/v1/users')
+          await ensureModule('users', { force: true })
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Disable failed')
+          throw err
+        }
+      } else {
+        user.status = 'Disabled'
+      }
       logActivity({
         action: 'Updated',
         module: 'users',
@@ -615,7 +697,7 @@ function resetMatrix() {
   toast.info('CRUD matrix reset')
 }
 
-function saveRole() {
+async function saveRole() {
   const name = roleForm.name.trim()
   if (name.length < 2) {
     toast.error('Role name is required')
@@ -627,34 +709,45 @@ function saveRole() {
     snapshot[doc.key] = { ...(matrix[doc.key] || ensureMatrixRow(doc.key)) }
   }
 
-  if (isCreating.value) {
-    const role = createRole({
+  try {
+    if (isCreating.value) {
+      // Prefer a canonical API key when the name matches a known role label.
+      const matched = API_ROLES.find(
+        (k) =>
+          ROLE_LABELS[k].toLowerCase() === name.toLowerCase() ||
+          k.toLowerCase() === name.toLowerCase().replace(/\s+/g, ''),
+      )
+      const role = await createRole({
+        name,
+        key: matched,
+        description: roleForm.description,
+        deskAccess: roleForm.deskAccess === 'yes',
+        status: roleForm.status as 'Active' | 'Disabled',
+        matrix: snapshot,
+      })
+      dirty.value = false
+      toast.success(
+        `Role “${role.name}” created from custom CRUD (${matrixSummary.value.read} modules readable)`,
+      )
+      forceCloseRoleDialog()
+      return
+    }
+
+    const key = editingKey.value
+    if (!key) return
+    await updateRole(key, {
       name,
       description: roleForm.description,
       deskAccess: roleForm.deskAccess === 'yes',
       status: roleForm.status as 'Active' | 'Disabled',
-      matrix: snapshot,
     })
+    applyPermMatrix(key, snapshot)
     dirty.value = false
-    toast.success(
-      `Role “${role.name}” created from custom CRUD (${matrixSummary.value.read} modules readable)`,
-    )
+    toast.success(`Role “${name}” saved with custom CRUD permissions`)
     forceCloseRoleDialog()
-    return
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Could not save role')
   }
-
-  const key = editingKey.value
-  if (!key) return
-  updateRole(key, {
-    name,
-    description: roleForm.description,
-    deskAccess: roleForm.deskAccess === 'yes',
-    status: roleForm.status as 'Active' | 'Disabled',
-  })
-  applyPermMatrix(key, snapshot)
-  dirty.value = false
-  toast.success(`Role “${name}” saved with custom CRUD permissions`)
-  forceCloseRoleDialog()
 }
 
 function roleSummaryLabel(roleKey: string) {

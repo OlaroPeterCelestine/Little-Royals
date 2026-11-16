@@ -509,136 +509,11 @@ function seedPerms(): RoleDocPermission[] {
   return out
 }
 
-export const roles = reactive<RoleDef[]>([
-  {
-    id: 'ROLE-01',
-    key: 'Admin',
-    name: ROLE_LABELS.Admin,
-    description: 'Full school desk access — users, finance, academics',
-    deskAccess: true,
-    status: 'Active',
-  },
-  {
-    id: 'ROLE-02',
-    key: 'HeadTeacher',
-    name: ROLE_LABELS.HeadTeacher,
-    description: 'Academic leadership — students, classes, attendance',
-    deskAccess: true,
-    status: 'Active',
-  },
-  {
-    id: 'ROLE-03',
-    key: 'Teacher',
-    name: ROLE_LABELS.Teacher,
-    description: 'Class teachers — attendance, assessment, student notes',
-    deskAccess: true,
-    status: 'Active',
-  },
-  {
-    id: 'ROLE-04',
-    key: 'Admissions',
-    name: ROLE_LABELS.Admissions,
-    description: 'Applicants, admissions and enrollments',
-    deskAccess: true,
-    status: 'Active',
-  },
-  {
-    id: 'ROLE-05',
-    key: 'Accountant',
-    name: ROLE_LABELS.Accountant,
-    description: 'Fee structures, invoices and collections',
-    deskAccess: true,
-    status: 'Active',
-  },
-  {
-    id: 'ROLE-06',
-    key: 'Parent',
-    name: ROLE_LABELS.Parent,
-    description: 'Parent portal — fees, attendance, results and calendar',
-    deskAccess: true,
-    status: 'Active',
-  },
-  {
-    id: 'ROLE-07',
-    key: 'Librarian',
-    name: ROLE_LABELS.Librarian,
-    description: 'Library catalogue and issues',
-    deskAccess: true,
-    status: 'Active',
-  },
-  {
-    id: 'ROLE-08',
-    key: 'Staff',
-    name: ROLE_LABELS.Staff,
-    description: 'General staff — limited operational access',
-    deskAccess: true,
-    status: 'Active',
-  },
-])
-
-const demoSystemUsers: SystemUser[] = [
-  {
-    id: 'USR-01',
-    name: 'School Admin',
-    email: 'admin@littleroyals.school',
-    role: 'Admin',
-    status: 'Active',
-    lastLogin: new Date().toISOString(),
-    department: 'Administration',
-    title: 'School Admin',
-    phone: '+256 700 112 233',
-    bio: 'Leads Little Royals Kindergarten and Primary operations, NCDC programmes and UNEB readiness.',
-    location: 'Kampala, Uganda',
-    joinedAt: '2022-01-15',
-  },
-  {
-    id: 'USR-02',
-    name: 'Ada Teacher',
-    email: 'teacher@littleroyals.school',
-    role: 'Teacher',
-    status: 'Active',
-    lastLogin: new Date(Date.now() - 95 * 60_000).toISOString(),
-    department: 'Primary',
-    title: 'Class teacher · P.4 Yellow',
-    phone: '+256 772 445 566',
-    bio: 'Primary class teacher focusing on literacy, numeracy and attendance.',
-    location: 'Kampala, Uganda',
-    joinedAt: '2023-03-01',
-  },
-  {
-    id: 'USR-03',
-    name: 'Finance Officer',
-    email: 'accountant@littleroyals.school',
-    role: 'Accountant',
-    status: 'Active',
-    lastLogin: new Date(Date.now() - 2 * 24 * 60_000).toISOString(),
-    department: 'Finance',
-    title: 'Fees & collections',
-    phone: '+256 755 221 100',
-    bio: 'Manages fee structures, invoices and term collections in UGX.',
-    location: 'Kampala, Uganda',
-    joinedAt: '2022-09-05',
-  },
-  {
-    id: 'USR-04',
-    name: 'Sam Parent',
-    email: 'parent@littleroyals.school',
-    role: 'Parent',
-    status: 'Active',
-    lastLogin: new Date(Date.now() - 5 * 24 * 60_000).toISOString(),
-    department: 'Parents',
-    title: 'Parent portal',
-    phone: '+256 780 334 455',
-    bio: 'Guardian account for viewing fees, attendance and results.',
-    location: 'Ntinda, Kampala',
-    joinedAt: '2024-02-12',
-  },
-]
+/** Live roles — empty under API until GET /api/v1/roles hydrates from the database. */
+export const roles = reactive<RoleDef[]>([])
 
 /** Live desk users — empty under API until `/api/v1/users` hydrates the catalog. */
-export const systemUsers = reactive<SystemUser[]>(
-  isApiEnabled() ? [] : demoSystemUsers.map((u) => ({ ...u })),
-)
+export const systemUsers = reactive<SystemUser[]>([])
 
 function userFromCatalogRow(row: CatalogRow): SystemUser {
   const statusRaw = String(row.status || 'Active')
@@ -648,16 +523,66 @@ function userFromCatalogRow(row: CatalogRow): SystemUser {
     id: String(row.id),
     name: String(row.name || ''),
     email: String(row.email || '').toLowerCase(),
-    role: String(row.role || 'Staff'),
+    role: String(row.role || ''),
     status,
-    lastLogin: row.lastLogin ? String(row.lastLogin) : undefined,
+    lastLogin:
+      row.lastLoginAt || row.lastLogin
+        ? String(row.lastLoginAt || row.lastLogin)
+        : undefined,
     department: row.department ? String(row.department) : undefined,
     title: row.title ? String(row.title) : undefined,
     phone: row.phone ? String(row.phone) : undefined,
     bio: row.bio ? String(row.bio) : undefined,
     location: row.location ? String(row.location) : undefined,
-    joinedAt: row.joinedAt ? String(row.joinedAt) : undefined,
+    joinedAt: row.joinedAt || row.createdAt
+      ? String(row.joinedAt || row.createdAt)
+      : undefined,
     photo: row.photo ? String(row.photo) : undefined,
+  }
+}
+
+type ApiDeskRole = {
+  id: string
+  key: string
+  name: string
+  description?: string
+  deskAccess?: boolean
+  status?: string
+}
+
+function roleFromApi(row: ApiDeskRole): RoleDef {
+  const statusRaw = String(row.status || 'Active')
+  const status: RoleDef['status'] =
+    statusRaw === 'Disabled' ? 'Disabled' : 'Active'
+  return {
+    id: String(row.id),
+    key: String(row.key),
+    name: String(row.name || row.key),
+    description: String(row.description || ''),
+    deskAccess: row.deskAccess !== false,
+    status,
+  }
+}
+
+/** Pull assignable roles from the database (GET /api/v1/roles). */
+export async function hydrateRolesFromApi(): Promise<boolean> {
+  if (!isApiEnabled()) return false
+  try {
+    const { apiRequest } = await import('@/services/http')
+    const { data } = await apiRequest<ApiDeskRole[] | { items?: ApiDeskRole[] }>(
+      '/api/v1/roles?limit=200',
+      { bustCache: true },
+    )
+    const items = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.items)
+        ? data.items
+        : []
+    const next = items.map(roleFromApi).filter((r) => Boolean(r.key))
+    roles.splice(0, roles.length, ...next)
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -861,27 +786,46 @@ export function applyPermMatrix(
   })
 }
 
-export function createRole(input: {
+export async function createRole(input: {
   name: string
   description?: string
   deskAccess?: boolean
   status?: RoleDef['status']
   copyFrom?: string
+  /** Canonical API role key when known (Admin, Teacher, …). */
+  key?: string
   /** Custom CRUD matrix — when set, this defines the role. */
   matrix?: Record<string, DocPerms>
-}): RoleDef {
+}): Promise<RoleDef> {
   const name = input.name.trim()
-  const key = roleKeyFromName(name)
-  const role: RoleDef = {
+  const key = (input.key || roleKeyFromName(name)).trim()
+  const description =
+    (input.description || '').trim() || `Custom role · ${name}`
+  const deskAccess = input.deskAccess !== false
+  const status = input.status || 'Active'
+
+  let role: RoleDef = {
     id: `ROLE-${String(roles.length + 1).padStart(2, '0')}`,
     key,
     name,
-    description: (input.description || '').trim() || `Custom role · ${name}`,
-    deskAccess: input.deskAccess !== false,
-    status: input.status || 'Active',
+    description,
+    deskAccess,
+    status,
   }
-  roles.push(role)
-  seedRolePerms(key, {
+
+  if (isApiEnabled()) {
+    const { apiRequest } = await import('@/services/http')
+    const { data } = await apiRequest<ApiDeskRole>('/api/v1/roles', {
+      method: 'POST',
+      body: { key, name, description, deskAccess, status },
+    })
+    if (data) role = roleFromApi(data)
+    await hydrateRolesFromApi()
+  } else {
+    roles.push(role)
+  }
+
+  seedRolePerms(role.key, {
     copyFrom: input.matrix ? undefined : input.copyFrom,
     matrix: input.matrix,
   })
@@ -906,16 +850,40 @@ export function createRole(input: {
   return role
 }
 
-export function updateRole(
+export async function updateRole(
   key: string,
   patch: Partial<Pick<RoleDef, 'name' | 'description' | 'deskAccess' | 'status'>>,
 ) {
   const role = roles.find((r) => r.key === key)
   if (!role) return null
-  if (patch.name != null) role.name = patch.name.trim() || role.name
-  if (patch.description != null) role.description = patch.description.trim()
-  if (patch.deskAccess != null) role.deskAccess = patch.deskAccess
-  if (patch.status != null) role.status = patch.status
+
+  if (isApiEnabled()) {
+    const { apiRequest } = await import('@/services/http')
+    const { data } = await apiRequest<ApiDeskRole>(
+      `/api/v1/roles/${encodeURIComponent(role.id)}`,
+      {
+        method: 'PUT',
+        body: {
+          name: patch.name,
+          description: patch.description,
+          deskAccess: patch.deskAccess,
+          status: patch.status,
+        },
+      },
+    )
+    if (data) {
+      const next = roleFromApi(data)
+      Object.assign(role, next)
+    } else {
+      await hydrateRolesFromApi()
+    }
+  } else {
+    if (patch.name != null) role.name = patch.name.trim() || role.name
+    if (patch.description != null) role.description = patch.description.trim()
+    if (patch.deskAccess != null) role.deskAccess = patch.deskAccess
+    if (patch.status != null) role.status = patch.status
+  }
+
   logActivity({
     action: 'Updated',
     module: 'roles',
