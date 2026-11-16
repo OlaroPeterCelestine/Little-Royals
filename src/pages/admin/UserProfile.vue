@@ -30,6 +30,8 @@ import {
 } from '@/data/auth/permissions'
 import { changePassword } from '@/data/auth/auth'
 import { isApiEnabled } from '@/lib/apiMode'
+import { apiRequest, clearApiGetCacheFor } from '@/services/http'
+import { ensureModule } from '@/data/catalog/catalogSync'
 
 const route = useRoute()
 const router = useRouter()
@@ -155,8 +157,26 @@ async function saveProfile() {
     toast.error('Enter a valid email')
     return
   }
+  if (!isApiEnabled()) {
+    toast.error('School API is required — profiles are saved on the server')
+    return
+  }
   saving.value = true
   try {
+    const apiStatus =
+      form.status === 'Disabled' ? 'Inactive' : 'Active'
+    await apiRequest(`/api/v1/users/${encodeURIComponent(u.id)}`, {
+      method: 'PUT',
+      body: {
+        name,
+        email: form.email.trim().toLowerCase(),
+        phone: form.phone.trim() || undefined,
+        role: form.role,
+        status: apiStatus,
+      },
+    })
+    clearApiGetCacheFor('/api/v1/users')
+    await ensureModule('users', { force: true })
     u.name = name
     u.email = form.email.trim().toLowerCase()
     u.title = form.title.trim() || undefined
@@ -182,7 +202,9 @@ async function saveProfile() {
       severity: 'info',
     })
     editing.value = false
-    toast.success('Profile updated')
+    toast.success('Profile saved on the server')
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Could not save profile')
   } finally {
     saving.value = false
   }
@@ -201,6 +223,16 @@ function disableUser() {
     confirmLabel: 'Yes, disable',
     cancelLabel: 'Keep active',
     onConfirm: async () => {
+      if (!isApiEnabled()) {
+        toast.error('School API is required — users are updated on the server')
+        throw new Error('School API required')
+      }
+      await apiRequest(`/api/v1/users/${encodeURIComponent(u.id)}`, {
+        method: 'PUT',
+        body: { status: 'Inactive' },
+      })
+      clearApiGetCacheFor('/api/v1/users')
+      await ensureModule('users', { force: true })
       u.status = 'Disabled'
       logActivity({
         action: 'Updated',
@@ -211,7 +243,7 @@ function disableUser() {
         summary: `Disabled user ${u.name}`,
         severity: 'warning',
       })
-      toast.warning(`${u.name} disabled`)
+      toast.warning(`${u.name} disabled on the server`)
     },
   })
 }
@@ -225,6 +257,7 @@ function statusTheme(status: string) {
 function onUserPhoto(value: string) {
   const u = user.value
   if (!u) return
+  // File itself is already on the server (/api/v1/files); keep the file: id for display.
   u.photo = value
 }
 

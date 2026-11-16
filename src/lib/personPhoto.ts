@@ -160,16 +160,21 @@ export async function uploadPersonPhoto(
     throw new Error('Photo must be under 5 MB')
   }
 
+  if (!isApiEnabled()) {
+    throw new Error(
+      'School API is required — photos are stored on the server, not in this browser',
+    )
+  }
+  if (!authToken()) {
+    throw new Error('Sign in again to upload photos')
+  }
+
   const webp = await compressImageToWebp(file, {
     maxEdge: 1280,
     quality: 0.82,
     maxInputBytes: 5 * 1024 * 1024,
     background: 'white',
   })
-
-  if (!isApiEnabled() || !authToken()) {
-    return readImageFileAsDataUrl(file)
-  }
 
   const body = new FormData()
   body.append('file', webp)

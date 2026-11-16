@@ -274,20 +274,26 @@ export async function hydrateSchoolFromApi(): Promise<boolean> {
 }
 
 export async function saveSchoolSetup(next: Partial<SchoolSetup>) {
-  Object.assign(schoolSetup, next)
-  if (isApiEnabled()) {
-    try {
-      const { data } = await apiRequest<ApiSchool>('/api/v1/school', {
-        method: 'PUT',
-        body: schoolToApiBody(schoolSetup),
-        bustCache: true,
-      })
-      if (data && typeof data === 'object') {
-        Object.assign(schoolSetup, schoolFromApi(data))
-      }
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('School update failed')
+  if (!isApiEnabled()) {
+    throw new Error(
+      'School API is required — school setup is saved on the server, not in this browser',
+    )
+  }
+  // Merge locally for the request body only — do not commit until PUT succeeds.
+  const pending = { ...schoolSetup, ...next }
+  try {
+    const { data } = await apiRequest<ApiSchool>('/api/v1/school', {
+      method: 'PUT',
+      body: schoolToApiBody(pending),
+      bustCache: true,
+    })
+    if (data && typeof data === 'object') {
+      Object.assign(schoolSetup, schoolFromApi(data))
+    } else {
+      Object.assign(schoolSetup, pending)
     }
+  } catch (err) {
+    throw err instanceof Error ? err : new Error('School update failed')
   }
   logActivity({
     action: 'Updated',
@@ -303,25 +309,18 @@ export async function saveSchoolSetup(next: Partial<SchoolSetup>) {
 }
 
 export async function resetSchoolSetup() {
-  if (isApiEnabled()) {
-    await hydrateSchoolFromApi()
-    logActivity({
-      action: 'Updated',
-      module: 'school-setup',
-      moduleLabel: 'School Setup',
-      recordName: schoolSetup.name || 'School',
-      summary: 'Reloaded school setup from server',
-      severity: 'warning',
-    })
-    return
+  if (!isApiEnabled()) {
+    throw new Error(
+      'School API is required — school setup is loaded from the server',
+    )
   }
-  Object.assign(schoolSetup, offlineDefaults)
+  await hydrateSchoolFromApi()
   logActivity({
     action: 'Updated',
     module: 'school-setup',
     moduleLabel: 'School Setup',
-    recordName: schoolSetup.name,
-    summary: 'Reset school setup to defaults',
+    recordName: schoolSetup.name || 'School',
+    summary: 'Reloaded school setup from server',
     severity: 'warning',
   })
 }

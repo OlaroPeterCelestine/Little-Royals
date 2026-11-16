@@ -42,6 +42,14 @@ import {
   UUID_RE,
 } from '@/data/catalog/catalogSync'
 
+function requireServerApi() {
+  if (!isApiEnabled()) {
+    throw new Error(
+      'School API is required — records are saved on the server, not in this browser',
+    )
+  }
+}
+
 function appendAuditLog(input: {
   action: string
   module: string
@@ -50,6 +58,8 @@ function appendAuditLog(input: {
   changes?: FieldChange[]
   result?: string
 }) {
+  // With the API on, audit trails live on the server — do not invent local rows.
+  if (isApiEnabled()) return
   const audit = schoolStore['audit-logs']
   if (!audit) return
   const n = audit.rows.length + 1
@@ -192,15 +202,18 @@ function applyAudit(
 }
 
 /**
- * Create a record — server first when the API is on.
- * Local demo/offline mode only writes in-memory.
+ * Create a record — always on the school API (never browser-only).
  */
 export async function addRecord(
   key: string,
   values: RecordValues,
 ): Promise<CatalogRow> {
+  requireServerApi()
   const mod = schoolStore[key]
   if (!mod) throw new Error(`Unknown module: ${key}`)
+  if (!isServerModule(key)) {
+    throw new Error(`“${key}” is not available on the server`)
+  }
   values = sanitizeRecordValues(values as Record<string, unknown>) as RecordValues
   const name = sanitizeText(asString(values.name), 'name')
   if (!name) throw new Error('Name is required')
@@ -257,19 +270,13 @@ export async function addRecord(
   }
   assignRowFields(draft, mod, values)
 
-  let row = draft
-  if (isApiEnabled()) {
-    if (!isServerModule(key)) {
-      throw new Error(`“${key}” is not available on the server`)
-    }
-    const body = bodyFromRow({ ...draft, ...values, name })
-    body.name = name
-    if (TYPED_API_MODULES.has(key) && !UUID_RE.test(String(body.id || ''))) {
-      delete body.id
-    }
-    row = rowFromApi(await createOnServer(key, body as { name: string }))
-    if (row.status) row.statusTheme = statusTheme(String(row.status))
+  const body = bodyFromRow({ ...draft, ...values, name })
+  body.name = name
+  if (TYPED_API_MODULES.has(key) && !UUID_RE.test(String(body.id || ''))) {
+    delete body.id
   }
+  const row = rowFromApi(await createOnServer(key, body as { name: string }))
+  if (row.status) row.statusTheme = statusTheme(String(row.status))
 
   mod.rows.unshift(row)
   keepModuleOrder(key)
@@ -278,15 +285,19 @@ export async function addRecord(
 }
 
 /**
- * Update a record — server first when the API is on.
+ * Update a record — always on the school API (never browser-only).
  */
 export async function updateRecord(
   key: string,
   id: string,
   values: RecordValues,
 ): Promise<CatalogRow> {
+  requireServerApi()
   const mod = schoolStore[key]
   if (!mod) throw new Error(`Unknown module: ${key}`)
+  if (!isServerModule(key)) {
+    throw new Error(`“${key}” is not available on the server`)
+  }
   const row = mod.rows.find((r) => r.id === id)
   if (!row) throw new Error('Record not found')
 
@@ -302,31 +313,15 @@ export async function updateRecord(
 
   const before = snapshotRecord(row)
 
-  if (isApiEnabled()) {
-    if (!isServerModule(key)) {
-      throw new Error(`“${key}” is not available on the server`)
-    }
-    const body = bodyFromRow({ ...row, ...values, name })
-    body.name = name
-    delete body.id
-    const updated = await updateOnServer(key, id, body)
-    Object.keys(row).forEach((k) => {
-      if (k !== 'id') delete (row as Record<string, unknown>)[k]
-    })
-    Object.assign(row, updated)
-    if (row.status) row.statusTheme = statusTheme(String(row.status))
-  } else {
-    row.name = name
-    if (values.status) {
-      const status = asString(values.status)
-      row.status = status
-      row.statusTheme = statusTheme(status)
-    }
-    if (values.subtitle !== undefined) {
-      row.subtitle = values.subtitle ? asString(values.subtitle) : undefined
-    }
-    assignRowFields(row, mod, values)
-  }
+  const body = bodyFromRow({ ...row, ...values, name })
+  body.name = name
+  delete body.id
+  const updated = await updateOnServer(key, id, body)
+  Object.keys(row).forEach((k) => {
+    if (k !== 'id') delete (row as Record<string, unknown>)[k]
+  })
+  Object.assign(row, updated)
+  if (row.status) row.statusTheme = statusTheme(String(row.status))
 
   keepModuleOrder(key)
   const after = snapshotRecord(row)
@@ -335,20 +330,19 @@ export async function updateRecord(
 }
 
 /**
- * Delete records — server first when the API is on.
+ * Delete records — always on the school API (never browser-only).
  */
 export async function deleteRecords(key: string, ids: string[]) {
+  requireServerApi()
   const mod = schoolStore[key]
   if (!mod) throw new Error(`Unknown module: ${key}`)
+  if (!isServerModule(key)) {
+    throw new Error(`“${key}” is not available on the server`)
+  }
   if (!ids.length) throw new Error('Select at least one record to delete')
   const doomed = mod.rows.filter((r) => ids.includes(r.id))
 
-  if (isApiEnabled()) {
-    if (!isServerModule(key)) {
-      throw new Error(`“${key}” is not available on the server`)
-    }
-    await deleteOnServer(key, ids)
-  }
+  await deleteOnServer(key, ids)
 
   const countBefore = mod.rows.length
   mod.rows = mod.rows.filter((r) => !ids.includes(r.id))

@@ -194,15 +194,30 @@ function publishAnnouncement() {
     confirmLabel: 'Publish',
     onConfirm: async () => {
       const at = new Date().toISOString()
-      localStorage.setItem(
-        'pearl-last-announcement',
-        JSON.stringify({
-          title: heading,
-          content: announcementBody.value,
-          at,
-        }),
-      )
+      // Persist on the server (notifications catalog), not localStorage.
+      await addRecord('notifications', {
+        name: heading,
+        title: heading,
+        body: announcementBody.value,
+        subtitle: 'Announcement',
+        status: 'Active',
+        channel: 'Announcement',
+        audience: 'Parents & teachers',
+        publishedAt: at.slice(0, 10),
+      })
       lastPublished.value = at
+      try {
+        localStorage.setItem(
+          'pearl-last-announcement',
+          JSON.stringify({
+            title: heading,
+            content: announcementBody.value,
+            at,
+          }),
+        )
+      } catch {
+        /* device cache only */
+      }
       logActivity({
         action: 'Published',
         module: 'announcements',
@@ -211,7 +226,7 @@ function publishAnnouncement() {
         summary: `Published announcement ${heading}`,
         severity: 'success',
       })
-      toast.success('Announcement published to parents and teachers')
+      toast.success('Announcement saved on the server')
     },
   })
 }

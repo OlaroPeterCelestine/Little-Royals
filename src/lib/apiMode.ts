@@ -1,6 +1,6 @@
 /**
- * Desk prefers the Go API when enabled; falls back to local catalog if the API
- * is unreachable (see auth hybrid login + catalogSync).
+ * Desk is server-authoritative when VITE_USE_API is on.
+ * Create / update / delete always go through the Go API — never browser-only.
  *
  * Local: VITE_API_BASE_URL=http://127.0.0.1:18080
  * VPS Docker (nginx proxies /api → api): VITE_API_BASE_URL=same-origin

@@ -813,7 +813,12 @@ export async function createRole(input: {
     status,
   }
 
-  if (isApiEnabled()) {
+  if (!isApiEnabled()) {
+    throw new Error(
+      'School API is required — roles are saved on the server, not in this browser',
+    )
+  }
+  {
     const { apiRequest } = await import('@/services/http')
     const { data } = await apiRequest<ApiDeskRole>('/api/v1/roles', {
       method: 'POST',
@@ -821,8 +826,6 @@ export async function createRole(input: {
     })
     if (data) role = roleFromApi(data)
     await hydrateRolesFromApi()
-  } else {
-    roles.push(role)
   }
 
   seedRolePerms(role.key, {
@@ -857,7 +860,12 @@ export async function updateRole(
   const role = roles.find((r) => r.key === key)
   if (!role) return null
 
-  if (isApiEnabled()) {
+  if (!isApiEnabled()) {
+    throw new Error(
+      'School API is required — roles are saved on the server, not in this browser',
+    )
+  }
+  {
     const { apiRequest } = await import('@/services/http')
     const { data } = await apiRequest<ApiDeskRole>(
       `/api/v1/roles/${encodeURIComponent(role.id)}`,
@@ -877,11 +885,6 @@ export async function updateRole(
     } else {
       await hydrateRolesFromApi()
     }
-  } else {
-    if (patch.name != null) role.name = patch.name.trim() || role.name
-    if (patch.description != null) role.description = patch.description.trim()
-    if (patch.deskAccess != null) role.deskAccess = patch.deskAccess
-    if (patch.status != null) role.status = patch.status
   }
 
   logActivity({

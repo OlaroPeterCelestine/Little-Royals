@@ -279,19 +279,8 @@ function inviteUser() {
         }
         return
       }
-      const id = `USR-${String(systemUsers.length + 1).padStart(2, '0')}`
-      const user: SystemUser = {
-        id,
-        name,
-        email,
-        role,
-        status: 'Invited',
-        department: values.department
-          ? String(values.department)
-          : undefined,
-      }
-      systemUsers.unshift(user)
-      toast.success(`Invite sent to ${user.email}`)
+      toast.error('School API is required — users are created on the server')
+      throw new Error('School API required')
     },
   })
 }
@@ -362,9 +351,8 @@ function editUser(user: SystemUser) {
           throw err
         }
       } else {
-        user.role = nextRole
-        user.status = nextStatus
-        user.department = nextDept
+        toast.error('School API is required — users are updated on the server')
+        throw new Error('School API required')
       }
       if (user.email === currentUser.email) {
         currentUser.role = nextRole
@@ -380,7 +368,7 @@ function editUser(user: SystemUser) {
         detail: `${nextRole} · ${nextStatus}`,
         severity: 'info',
       })
-      toast.success(`${user.name} updated`)
+      toast.success(`${user.name} updated on the server`)
     },
   })
 }
@@ -409,7 +397,8 @@ function disableUser(user: SystemUser) {
           throw err
         }
       } else {
-        user.status = 'Disabled'
+        toast.error('School API is required — users are updated on the server')
+        throw new Error('School API required')
       }
       logActivity({
         action: 'Updated',
@@ -420,7 +409,7 @@ function disableUser(user: SystemUser) {
         summary: `Disabled user ${user.name}`,
         severity: 'warning',
       })
-      toast.warning(`${user.name} disabled`)
+      toast.warning(`${user.name} disabled on the server`)
     },
   })
 }
