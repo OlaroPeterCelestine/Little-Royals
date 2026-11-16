@@ -1,7 +1,11 @@
 import { ref } from 'vue'
 import { schoolStore } from '@/data/catalog/store'
 import { isApiEnabled } from '@/lib/apiMode'
-import { clearApiGetCacheFor } from '@/services/http'
+import { saveModuleSnapshot, loadAllModuleSnapshots } from '@/lib/catalogCache'
+import {
+  clearApiGetCacheFor,
+  onApiGetCacheUpdate,
+} from '@/services/http'
 import {
   FRONTEND_MODULES,
   catalogServices,
@@ -10,7 +14,6 @@ import {
 import type { CatalogRow as StoreRow } from '@/data/catalog/catalog'
 import type { CatalogRow as ApiRow } from '@/services/catalog'
 import type { RecordValues } from '@/types/records'
-import { asString } from '@/types/records'
 
 /** True while background API hydrate is running (Gmail-style quiet sync). */
 export const catalogSyncing = ref(false)
@@ -18,7 +21,10 @@ export const catalogSyncLabel = ref('')
 
 const moduleFreshAt = new Map<string, number>()
 const moduleInflight = new Map<string, Promise<boolean>>()
-const MODULE_FRESH_MS = 20_000
+/** Soft TTL — skip network if we just pulled; SWR still refreshes HTTP cache. */
+const MODULE_FRESH_MS = 12_000
+let idleBackfillScheduled = false
+let swrBridgeInstalled = false
 
 function isFrontendModule(key: string): key is FrontendModule {
   return (FRONTEND_MODULES as readonly string[]).includes(key)
@@ -121,19 +127,88 @@ export function moduleFromPath(path?: string): FrontendModule | null {
   return isFrontendModule(key) ? key : null
 }
 
+function setModuleRows(module: FrontendModule, apiItems: ApiRow[]) {
+  const mod = schoolStore[module]
+  if (!mod) return false
+  mod.rows = apiItems.map(rowFromApi)
+  moduleFreshAt.set(module, Date.now())
+  void saveModuleSnapshot(module, mod.rows)
+  return true
+}
+
 async function pullModule(module: FrontendModule, bust = false): Promise<boolean> {
   try {
     if (bust) clearApiGetCacheFor(`/api/v1/${module}`)
     const { items } = await catalogServices[module].list({ limit: 500 })
-    const mod = schoolStore[module]
-    if (!mod) return false
-    // API is authoritative — even an empty list replaces hardcoded seed rows.
-    mod.rows = items.map(rowFromApi)
-    moduleFreshAt.set(module, Date.now())
-    return true
+    return setModuleRows(module, items)
   } catch {
     return false
   }
+}
+
+/** Paint last-known rows from IndexedDB before network (instant open). */
+export async function restoreCatalogFromCache(): Promise<number> {
+  if (!isApiEnabled()) return 0
+  const snaps = await loadAllModuleSnapshots()
+  let n = 0
+  for (const [key, rows] of Object.entries(snaps)) {
+    if (!isFrontendModule(key)) continue
+    const mod = schoolStore[key]
+    if (!mod || mod.rows.length) continue
+    mod.rows = rows.map((r) => ({ ...r }))
+    // Mark slightly stale so soft ensure still revalidates in background.
+    moduleFreshAt.set(key, Date.now() - MODULE_FRESH_MS + 1_500)
+    n += 1
+  }
+  return n
+}
+
+/** Bridge HTTP SWR refreshes into the reactive desk store. */
+export function installCatalogSwrBridge() {
+  if (swrBridgeInstalled || !isApiEnabled()) return
+  swrBridgeInstalled = true
+  onApiGetCacheUpdate((path, value) => {
+    // Expect list paths like /api/v1/students?limit=500
+    const m = path.match(/^\/api\/v1\/([a-z0-9-]+)(?:\?|$)/i)
+    if (!m) return
+    const module = m[1]
+    if (!isFrontendModule(module)) return
+    const data = value.data
+    let items: ApiRow[] | null = null
+    if (Array.isArray(data)) items = data as ApiRow[]
+    else if (data && typeof data === 'object' && Array.isArray((data as { items?: unknown }).items)) {
+      items = (data as { items: ApiRow[] }).items
+    }
+    if (!items) return
+    setModuleRows(module, items)
+  })
+}
+
+function scheduleIdleBackfill(exclude: Set<string>) {
+  if (idleBackfillScheduled || !isApiEnabled()) return
+  idleBackfillScheduled = true
+  const run = () => {
+    const rest = FRONTEND_MODULES.filter((m) => !exclude.has(m))
+    let i = 0
+    const step = () => {
+      if (i >= rest.length) return
+      const slice = rest.slice(i, i + 4)
+      i += 4
+      void Promise.all(slice.map((m) => ensureModule(m))).finally(() => {
+        const idle = (window as Window & {
+          requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+        }).requestIdleCallback
+        if (idle) idle(step, { timeout: 4000 })
+        else setTimeout(step, 600)
+      })
+    }
+    step()
+  }
+  const idle = (window as Window & {
+    requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+  }).requestIdleCallback
+  if (idle) idle(run, { timeout: 2500 })
+  else setTimeout(run, 400)
 }
 
 /** Modules the dashboard / post-login desk needs first. */
@@ -244,11 +319,14 @@ export async function hydrateCatalogFromApi(
   return { ok: failed.length < order.length, loaded, failed }
 }
 
-/** After login / focus: warm the desk modules users see first. */
+/** After login / focus: warm priority modules first, idle-backfill the rest. */
 export async function hydrateDeskAfterAuth(extraPriority: string[] = []): Promise<void> {
   if (!isApiEnabled()) return
+  installCatalogSwrBridge()
   const priority = [...extraPriority, ...DESK_HYDRATE_PRIORITY]
-  await hydrateCatalogFromApi(priority, { force: true })
+  const seen = new Set(priority.filter(isFrontendModule))
+  await hydrateCatalogFromApi(priority, { force: true, priorityOnly: true })
+  scheduleIdleBackfill(seen)
 }
 
 export const UUID_RE =

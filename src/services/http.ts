@@ -58,9 +58,28 @@ type CacheEntry = {
 
 const getCache = new Map<string, CacheEntry>()
 const inflight = new Map<string, Promise<{ data: unknown; meta?: ApiMeta }>>()
+const cacheListeners = new Set<(path: string, value: { data: unknown; meta?: ApiMeta }) => void>()
 
 function cacheKey(path: string, token: string | null) {
   return `${token || ''}:${path}`
+}
+
+/** Subscribe to GET cache writes (SWR background refresh → live store). */
+export function onApiGetCacheUpdate(
+  fn: (path: string, value: { data: unknown; meta?: ApiMeta }) => void,
+) {
+  cacheListeners.add(fn)
+  return () => cacheListeners.delete(fn)
+}
+
+function notifyCacheUpdate(path: string, value: { data: unknown; meta?: ApiMeta }) {
+  cacheListeners.forEach((fn) => {
+    try {
+      fn(path, value)
+    } catch {
+      /* ignore listener errors */
+    }
+  })
 }
 
 /** Drop all client GET cache (call after writes). */
@@ -76,12 +95,19 @@ export function clearApiGetCacheFor(pathFragment: string) {
   }
 }
 
-function storeGet(key: string, value: { data: unknown; meta?: ApiMeta }, etag?: string) {
+function storeGet(
+  key: string,
+  value: { data: unknown; meta?: ApiMeta },
+  etag: string | undefined,
+  path: string,
+  notify: boolean,
+) {
   getCache.set(key, { at: Date.now(), etag, value })
   if (getCache.size > 120) {
     const first = getCache.keys().next().value
     if (first) getCache.delete(first)
   }
+  if (notify) notifyCacheUpdate(path, value)
 }
 
 async function fetchOnce<T>(
@@ -167,11 +193,11 @@ export async function apiRequest<T>(
         const p = fetchOnce<T>(path, options, token, hit.etag)
           .then((fresh) => {
             if (fresh.notModified) {
-              storeGet(key, hit.value, hit.etag)
+              storeGet(key, hit.value, hit.etag, path, false)
               return hit.value
             }
             const next = { data: fresh.data, meta: fresh.meta }
-            storeGet(key, next, fresh.etag)
+            storeGet(key, next, fresh.etag, path, true)
             return next
           })
           .catch(() => hit.value)
@@ -192,11 +218,11 @@ export async function apiRequest<T>(
   const run = fetchOnce<T>(path, options, token, bustCache ? undefined : hit?.etag)
     .then((fresh) => {
       if (fresh.notModified && hit) {
-        storeGet(key, hit.value, hit.etag)
+        storeGet(key, hit.value, hit.etag, path, false)
         return hit.value as { data: T; meta?: ApiMeta }
       }
       const next = { data: fresh.data as T, meta: fresh.meta }
-      if (isGet) storeGet(key, next, fresh.etag)
+      if (isGet) storeGet(key, next, fresh.etag, path, true)
       else {
         // Only drop related GETs — wiping the whole cache made every CRUD feel slow.
         const basePath = path.split('?')[0].replace(/\/[0-9a-f-]{36}$/i, '')
@@ -211,3 +237,4 @@ export async function apiRequest<T>(
   if (isGet) inflight.set(key, run as Promise<{ data: unknown; meta?: ApiMeta }>)
   return run
 }
+

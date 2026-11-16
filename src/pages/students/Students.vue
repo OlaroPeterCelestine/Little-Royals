@@ -44,7 +44,9 @@ const { canCreate, canWrite, canDelete, requirePerm } =
   useModuleAccess('students')
 
 onMounted(() => {
-  if (isApiEnabled()) void ensureModule('students', { force: true })
+  if (!isApiEnabled()) return
+  const empty = !(getLiveModule('students')?.rows?.length)
+  void ensureModule('students', { force: empty })
 })
 
 const mod = computed(() => getLiveModule('students')!)

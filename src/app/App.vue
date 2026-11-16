@@ -17,6 +17,10 @@ import {
   startRealtimeNotifications,
   stopRealtimeNotifications,
 } from '@/data/activity/liveNotifications'
+import {
+  startCatalogRealtime,
+  stopCatalogRealtime,
+} from '@/data/catalog/catalogRealtime'
 import { navBusy, navProgress } from '@/lib/navProgress'
 
 const route = useRoute()
@@ -42,8 +46,13 @@ function viewKey(r: {
 watch(
   showDesk,
   (on) => {
-    if (on) startRealtimeNotifications()
-    else stopRealtimeNotifications()
+    if (on) {
+      startRealtimeNotifications()
+      startCatalogRealtime()
+    } else {
+      stopRealtimeNotifications()
+      stopCatalogRealtime()
+    }
   },
   { immediate: true },
 )

@@ -61,11 +61,15 @@ const { canCreate, canWrite, canDelete, canPrint, requirePerm } =
 onMounted(() => {
   if (!isApiEnabled()) return
   const key = moduleKey.value
-  if (key) void ensureModule(key, { force: true })
+  if (!key) return
+  // Force only when empty — otherwise soft SWR (cache first, refresh quietly).
+  const empty = !(mod.value?.rows?.length)
+  void ensureModule(key, { force: empty })
 })
 watch(moduleKey, (key) => {
   if (!isApiEnabled() || !key) return
-  void ensureModule(key, { force: true })
+  const empty = !(getLiveModule(key)?.rows?.length)
+  void ensureModule(key, { force: empty })
 })
 
 const extraFilterKey = computed(() => {

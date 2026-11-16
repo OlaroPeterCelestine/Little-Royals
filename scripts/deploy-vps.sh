@@ -48,19 +48,21 @@ if [[ -z "${SCHOOL_DB_PASSWORD:-}" || "$SCHOOL_DB_PASSWORD" == "change-me-school
   exit 1
 fi
 
-echo "==> Building & starting containers…"
+API_REPLICAS="${API_REPLICAS:-2}"
+
+echo "==> Building & starting containers (api×${API_REPLICAS} for load balancing)…"
 docker compose \
   --env-file "$ENV_DOCKER" \
   --env-file "$ENV_API" \
-  up -d --build --remove-orphans
+  up -d --build --remove-orphans --scale "api=${API_REPLICAS}"
 
 echo "==> Waiting for API health…"
 WEB_PORT="${WEB_HTTP_PORT:-8080}"
 API_PORT="${API_HTTP_PORT:-18080}"
 ok=0
 for _ in $(seq 1 40); do
-  if curl -fsS "http://127.0.0.1:${API_PORT}/health" >/dev/null 2>&1 \
-    || curl -fsS "http://127.0.0.1:${WEB_PORT}/health" >/dev/null 2>&1; then
+  if curl -fsS "http://127.0.0.1:${WEB_PORT}/health" >/dev/null 2>&1 \
+    || curl -fsS "http://127.0.0.1:${API_PORT}/health" >/dev/null 2>&1; then
     ok=1
     break
   fi

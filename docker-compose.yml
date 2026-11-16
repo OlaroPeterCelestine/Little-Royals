@@ -41,10 +41,10 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    # Bind to localhost only — host nginx (or local curl) reaches the API.
-    # Never publish the API on the public interface.
+    # Two API workers behind web nginx (least_conn). Host port is a range so
+    # both replicas can bind for debug curl without colliding.
     ports:
-      - "${API_HTTP_PORT:-127.0.0.1:18080}:8080"
+      - "${API_HTTP_PORT_RANGE:-127.0.0.1:18080-18081}:8080"
     env_file:
       - ./backend/.env
     environment:
@@ -76,6 +76,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    # Compose scale target (also passed via deploy-vps.sh --scale api=2).
+    deploy:
+      replicas: 2
 
   web:
     build:

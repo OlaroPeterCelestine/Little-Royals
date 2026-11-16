@@ -6,7 +6,9 @@ import { isAuthenticated, refreshAuthSession } from '@/data/auth/auth'
 import {
   ensureModule,
   hydrateDeskAfterAuth,
+  installCatalogSwrBridge,
   moduleFromPath,
+  restoreCatalogFromCache,
 } from '@/data/catalog/catalogSync'
 import {
   hydrateSchoolFromApi,
@@ -38,6 +40,12 @@ async function boot() {
     await router.replace({ name: 'login' })
   }
 
+  // Paint last-known lists before mount (WhatsApp-style instant open).
+  if (isApiEnabled() && isAuthenticated.value) {
+    installCatalogSwrBridge()
+    await restoreCatalogFromCache()
+  }
+
   app.mount('#app')
   window.addEventListener('focus', () => {
     refreshAuthSession()
@@ -46,6 +54,13 @@ async function boot() {
       const mod = moduleFromPath(router.currentRoute.value.path)
       if (mod) void ensureModule(mod)
     }
+  })
+  // Visibility change → soft refresh current module (background tab returns).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return
+    if (!isApiEnabled() || !isAuthenticated.value) return
+    const mod = moduleFromPath(router.currentRoute.value.path)
+    if (mod) void ensureModule(mod)
   })
   schedulePrefetch()
 

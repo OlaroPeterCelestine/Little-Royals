@@ -35,9 +35,9 @@ const accessDenied = computed(() => String(route.query.denied || '') === '1')
 
 onMounted(() => {
   if (!isApiEnabled()) return
-  // Force the figures the dashboard paints from — don't wait on the full catalog.
+  // Soft revalidate — IDB / login hydrate already filled priority modules.
   for (const mod of DESK_HYDRATE_PRIORITY) {
-    void ensureModule(mod, { force: true })
+    void ensureModule(mod)
   }
 })
 
