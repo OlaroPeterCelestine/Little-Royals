@@ -61,6 +61,10 @@ export default defineConfig(({ mode }) => ({
           if (id.includes('node_modules/tesseract.js')) {
             return 'tesseract'
           }
+          // Frappe UI chrome separate from app routes for smoother first paint.
+          if (id.includes('node_modules/frappe-ui')) {
+            return 'frappe-ui'
+          }
           // Seed / schema payloads — cache separately from UI chrome.
           if (
             id.includes('/src/data/catalog/catalog.ts') ||
