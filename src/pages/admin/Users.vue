@@ -216,7 +216,7 @@ function inviteUser() {
       {
         name: 'password',
         label: 'Temporary password',
-        type: 'password',
+        type: 'text',
         required: true,
         placeholder: 'Min 8 characters',
         description:

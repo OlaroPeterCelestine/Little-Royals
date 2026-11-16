@@ -11,7 +11,7 @@ import {
   writeJsonStorage,
   type AuthSessionShape,
 } from '@/lib/security'
-import { apiBaseUrl, apiUrl, isApiEnabled } from '@/lib/apiMode'
+import { apiUrl, isApiEnabled } from '@/lib/apiMode'
 import { hydrateSchoolFromApi } from '@/data/school/schoolSetup'
 
 const STORAGE_KEY = 'little-royals-auth'

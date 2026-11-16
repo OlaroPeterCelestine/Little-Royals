@@ -8,6 +8,7 @@ export type ActivityAction =
   | 'Viewed'
   | 'Permission'
   | 'Login'
+  | 'Logout'
   | 'Published'
   | 'Exported'
   | 'Printed'
