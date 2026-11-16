@@ -219,6 +219,9 @@ export async function addRecord(
     if (!asString(values.studentNumber).trim()) {
       values.studentNumber = provisionalId
     }
+    if (!asString(values.admissionNo).trim()) {
+      values.admissionNo = asString(values.studentNumber) || provisionalId
+    }
     if (!asString(values.learnerNumber).trim()) {
       values.learnerNumber = learnerNumberFromStudentNumber(
         String(values.studentNumber || provisionalId),
@@ -228,6 +231,14 @@ export async function addRecord(
       values.schoolPayAccount = schoolPayAccountFromStudentNumber(
         String(values.studentNumber || provisionalId),
       )
+    }
+  }
+  if (key === 'staff') {
+    if (!asString(values.staffNo).trim()) {
+      values.staffNo = provisionalId
+    }
+    if (!asString(values.roleTitle).trim() && asString(values.jobTitle).trim()) {
+      values.roleTitle = asString(values.jobTitle)
     }
   }
 

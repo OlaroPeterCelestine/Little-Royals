@@ -55,18 +55,44 @@ export function rowFromApi(raw: ApiRow): StoreRow {
   return out
 }
 
+const LOOKS_LIKE_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+/** Desk date inputs are YYYY-MM-DD; Go time.Time needs RFC3339. */
+function apiDateValue(value: unknown): unknown {
+  if (typeof value !== 'string') return value
+  const v = value.trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return `${v}T00:00:00Z`
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v)) return `${v}:00Z`
+  return value
+}
+
 export function bodyFromRow(row: StoreRow | RecordValues): Record<string, unknown> {
   const body: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(row)) {
     if (v === undefined || v === null) continue
     if (k === 'statusTheme') continue
-    body[k] = typeof v === 'boolean' ? String(v) : v
+    const normalized = apiDateValue(v)
+    body[k] = typeof normalized === 'boolean' ? String(normalized) : normalized
   }
   // Typed people resources use first/last name — derive from desk "name" when missing.
   if (!body.firstName && typeof body.name === 'string') {
     const parts = String(body.name).trim().split(/\s+/)
     if (parts[0]) body.firstName = parts[0]
     if (parts.length > 1 && !body.lastName) body.lastName = parts.slice(1).join(' ')
+  }
+  // Desk ↔ typed API field aliases
+  if (!body.admissionNo && body.studentNumber) {
+    body.admissionNo = body.studentNumber
+  }
+  if (!body.staffNo && body.id && !LOOKS_LIKE_UUID.test(String(body.id))) {
+    body.staffNo = body.id
+  }
+  if (!body.roleTitle && body.jobTitle) {
+    body.roleTitle = body.jobTitle
+  }
+  if (!body.relation && body.relationship) {
+    body.relation = body.relationship
   }
   return body
 }
