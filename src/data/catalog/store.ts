@@ -102,14 +102,18 @@ function statusTheme(status: string): BadgeTheme {
 
 const allSeed: Record<string, CatalogModule> = { ...seed, ...catalogExtra }
 
-/** Live mutable school catalog — dialogs create/update/delete against this. */
+/**
+ * Live mutable school catalog.
+ * When the Go API is enabled, start with empty rows — never paint hardcoded demo
+ * students/fees/etc. Module metadata (columns, forms) still comes from the catalog.
+ */
 export const schoolStore = reactive(
   Object.fromEntries(
     Object.entries(allSeed).map(([key, mod]) => [
       key,
       {
         ...mod,
-        rows: mod.rows.map((row) => ({ ...row })),
+        rows: isApiEnabled() ? [] : mod.rows.map((row) => ({ ...row })),
       } satisfies CatalogModule,
     ]),
   ),

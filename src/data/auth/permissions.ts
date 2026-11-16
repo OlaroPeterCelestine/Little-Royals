@@ -1,4 +1,4 @@
-import { computed, reactive } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { catalog } from '@/data/catalog/catalog'
 import { catalogExtra } from '@/data/catalog/catalogExtra'
 import { currentUser, logActivity } from '@/data/activity/activity'
@@ -11,6 +11,9 @@ import {
   type ApiRole,
 } from '@/data/auth/roles'
 import { FRONTEND_MODULES } from '@/services/catalog'
+import { isApiEnabled } from '@/lib/apiMode'
+import { schoolStore } from '@/data/catalog/store'
+import type { CatalogRow } from '@/data/catalog/catalog'
 
 export type PermFlag =
   | 'read'
@@ -573,7 +576,7 @@ export const roles = reactive<RoleDef[]>([
   },
 ])
 
-export const systemUsers = reactive<SystemUser[]>([
+const demoSystemUsers: SystemUser[] = [
   {
     id: 'USR-01',
     name: 'School Admin',
@@ -630,7 +633,46 @@ export const systemUsers = reactive<SystemUser[]>([
     location: 'Ntinda, Kampala',
     joinedAt: '2024-02-12',
   },
-])
+]
+
+/** Live desk users — empty under API until `/api/v1/users` hydrates the catalog. */
+export const systemUsers = reactive<SystemUser[]>(
+  isApiEnabled() ? [] : demoSystemUsers.map((u) => ({ ...u })),
+)
+
+function userFromCatalogRow(row: CatalogRow): SystemUser {
+  const statusRaw = String(row.status || 'Active')
+  const status: SystemUser['status'] =
+    statusRaw === 'Disabled' || statusRaw === 'Invited' ? statusRaw : 'Active'
+  return {
+    id: String(row.id),
+    name: String(row.name || ''),
+    email: String(row.email || '').toLowerCase(),
+    role: String(row.role || 'Staff'),
+    status,
+    lastLogin: row.lastLogin ? String(row.lastLogin) : undefined,
+    department: row.department ? String(row.department) : undefined,
+    title: row.title ? String(row.title) : undefined,
+    phone: row.phone ? String(row.phone) : undefined,
+    bio: row.bio ? String(row.bio) : undefined,
+    location: row.location ? String(row.location) : undefined,
+    joinedAt: row.joinedAt ? String(row.joinedAt) : undefined,
+    photo: row.photo ? String(row.photo) : undefined,
+  }
+}
+
+if (isApiEnabled()) {
+  watch(
+    () => schoolStore.users?.rows ?? [],
+    (rows) => {
+      const next = rows
+        .map(userFromCatalogRow)
+        .filter((u) => Boolean(u.email) || Boolean(u.name))
+      systemUsers.splice(0, systemUsers.length, ...next)
+    },
+    { deep: true, immediate: true },
+  )
+}
 
 export function getUserById(id: string) {
   return systemUsers.find((u) => u.id === id)

@@ -1,31 +1,4 @@
-import type { BadgeTheme, CatalogColumn, CatalogModule, CatalogRow } from '@/data/catalog/catalog'
-
-function statusTheme(status: string): BadgeTheme {
-  const s = status.toLowerCase()
-  if (['active', 'present', 'paid', 'approved', 'achieved', 'recorded'].some((x) => s.includes(x)))
-    return 'green'
-  if (['unpaid', 'absent', 'rejected', 'overdue'].some((x) => s.includes(x))) return 'red'
-  if (['draft', 'pending', 'planned', 'emerging', 'developing'].some((x) => s.includes(x)))
-    return 'amber'
-  return 'gray'
-}
-
-function row(
-  id: string,
-  name: string,
-  fields: Record<string, string | number> = {},
-  status?: string,
-  subtitle?: string,
-): CatalogRow {
-  return {
-    id,
-    name,
-    subtitle,
-    status,
-    statusTheme: status ? statusTheme(status) : undefined,
-    ...fields,
-  }
-}
+import type { CatalogColumn, CatalogModule, CatalogRow } from '@/data/catalog/catalog'
 
 function mod(
   key: string,
@@ -56,22 +29,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'endDate', label: 'End' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row(
-        'AY-2026',
-        '2026',
-        { startDate: '2026-01-15', endDate: '2026-12-05', terms: 3 },
-        'Active',
-        'Linked to Term I–III',
-      ),
-      row(
-        'AY-2027',
-        '2027',
-        { startDate: '2027-01-18', endDate: '2027-12-04', terms: 3 },
-        'Planned',
-        'Linked to Term I–III',
-      ),
-    ],
+    [],
   ),
 
   staff: mod(
@@ -89,159 +47,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'phone', label: 'Phone' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row(
-        'EMP-01',
-        'Grace Namuli',
-        {
-          firstName: 'Grace',
-          lastName: 'Namuli',
-          employeeNumber: 'EMP-01',
-          gender: 'Female',
-          dateOfBirth: '1988-04-12',
-          nationality: 'Ugandan',
-          nationalId: 'CF880412101ABC',
-          maritalStatus: 'Married',
-          languages: 'English, Luganda',
-          address: 'Ntinda, Kampala',
-          department: 'Primary',
-          jobTitle: 'Class Teacher',
-          phone: '+256700111001',
-          altPhone: '+256772111001',
-          email: 'grace.namuli@littleroyals.ug',
-          emergencyContact: 'John Namuli · +256700111099',
-          employmentType: 'Permanent',
-          startDate: '2019-02-01',
-          yearsExperience: 12,
-          qualification: 'B.Ed Mathematics',
-          bloodGroup: 'O+',
-          medicalAlerts: 'None',
-          bio: 'Heads primary numeracy and class teaching for upper primary.',
-        },
-        'Active',
-        'Teaching staff',
-      ),
-      row(
-        'EMP-02',
-        'Peter Okello',
-        {
-          firstName: 'Peter',
-          lastName: 'Okello',
-          employeeNumber: 'EMP-02',
-          gender: 'Male',
-          dateOfBirth: '1990-09-03',
-          nationality: 'Ugandan',
-          nationalId: 'CM900903102DEF',
-          maritalStatus: 'Single',
-          languages: 'English, Acholi',
-          address: 'Kisaasi, Kampala',
-          department: 'Primary',
-          jobTitle: 'Subject Teacher',
-          phone: '+256700111002',
-          email: 'peter.okello@littleroyals.ug',
-          emergencyContact: 'Mary Okello · +256700111298',
-          employmentType: 'Permanent',
-          startDate: '2020-01-15',
-          yearsExperience: 8,
-          qualification: 'B.Sc Education (Science)',
-          bloodGroup: 'A+',
-          medicalAlerts: 'None',
-          bio: 'Primary science teacher with strong practical lessons.',
-        },
-        'Active',
-        'Teaching staff',
-      ),
-      row(
-        'EMP-03',
-        'Ruth Nansubuga',
-        {
-          firstName: 'Ruth',
-          lastName: 'Nansubuga',
-          employeeNumber: 'EMP-03',
-          gender: 'Female',
-          dateOfBirth: '1986-06-21',
-          nationality: 'Ugandan',
-          nationalId: 'CF860621103GHI',
-          maritalStatus: 'Married',
-          languages: 'English, Luganda',
-          address: 'Najjera, Wakiso',
-          department: 'Finance',
-          jobTitle: 'Bursar',
-          phone: '+256700111003',
-          email: 'accounts@littleroyals.ug',
-          emergencyContact: 'Paul Nansubuga · +256700111297',
-          employmentType: 'Permanent',
-          startDate: '2018-03-01',
-          yearsExperience: 14,
-          qualification: 'B.Com Accounting · CPA (U)',
-          bloodGroup: 'B+',
-          medicalAlerts: 'None',
-          bio: 'Leads fee invoicing, receipts and payroll preparation.',
-        },
-        'Active',
-        'Non-teaching · Finance',
-      ),
-      row(
-        'EMP-04',
-        'Joseph Mugisha',
-        {
-          firstName: 'Joseph',
-          lastName: 'Mugisha',
-          employeeNumber: 'EMP-04',
-          gender: 'Male',
-          dateOfBirth: '1993-11-08',
-          nationality: 'Ugandan',
-          nationalId: 'CM931108104JKL',
-          maritalStatus: 'Married',
-          languages: 'English, Runyankore',
-          address: 'Kira, Wakiso',
-          department: 'Administration',
-          jobTitle: 'School Administrator',
-          phone: '+256700111004',
-          email: 'admin@littleroyals.ug',
-          emergencyContact: 'Alice Mugisha · +256700111296',
-          employmentType: 'Permanent',
-          startDate: '2021-08-01',
-          yearsExperience: 7,
-          qualification: 'BA Office Management',
-          bloodGroup: 'O+',
-          medicalAlerts: 'None',
-          bio: 'Coordinates admissions desk, visitor logs and office records.',
-        },
-        'Active',
-        'Non-teaching · Admin',
-      ),
-      row(
-        'EMP-05',
-        'Agnes Namuli',
-        {
-          firstName: 'Agnes',
-          lastName: 'Namuli',
-          employeeNumber: 'EMP-05',
-          gender: 'Female',
-          dateOfBirth: '1995-02-14',
-          nationality: 'Ugandan',
-          nationalId: 'CF950214105MNO',
-          maritalStatus: 'Single',
-          languages: 'English, Luganda',
-          address: 'Ntinda, Kampala',
-          department: 'Nursery',
-          jobTitle: 'School Nurse',
-          phone: '+256700111005',
-          email: 'nurse@littleroyals.ug',
-          emergencyContact: 'Grace Namuli · +256700111001',
-          employmentType: 'Contract',
-          startDate: '2023-01-10',
-          yearsExperience: 5,
-          qualification: 'Diploma in Nursing',
-          bloodGroup: 'A+',
-          medicalAlerts: 'None',
-          bio: 'Runs the sick bay and learner health screening.',
-        },
-        'Active',
-        'Non-teaching · Health',
-      ),
-    ],
+    [],
   ),
 
   departments: mod(
@@ -256,12 +62,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'name', label: 'Department', primary: true },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row('DEP-01', 'Nursery', {}, 'Active'),
-      row('DEP-02', 'Primary', {}, 'Active'),
-      row('DEP-03', 'Finance', {}, 'Active'),
-      row('DEP-04', 'Administration', {}, 'Active'),
-    ],
+    [],
   ),
 
   'nursery-activities': mod(
@@ -278,11 +79,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'className', label: 'Class' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row('NA-01', 'Letter sounds circle', { learningArea: 'Language', className: 'Baby Class', duration: 20 }, 'Planned'),
-      row('NA-02', 'Counting stones', { learningArea: 'Numeracy', className: 'Middle Class', duration: 25 }, 'Completed'),
-      row('NA-03', 'Outdoor free play', { learningArea: 'Physical', className: 'Top Class', duration: 30 }, 'Planned'),
-    ],
+    [],
   ),
 
   'nursery-observations': mod(
@@ -300,20 +97,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'progressLevel', label: 'Level' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row(
-        'NO-01',
-        'Joins songs with peers',
-        { learner: 'Amina Namukasa', learningArea: 'Language', progressLevel: 'Developing', observationDate: '2026-03-10' },
-        'Recorded',
-      ),
-      row(
-        'NO-02',
-        'Counts to 10 with objects',
-        { learner: 'James Okello', learningArea: 'Numeracy', progressLevel: 'Achieved', observationDate: '2026-03-12' },
-        'Reviewed',
-      ),
-    ],
+    [],
   ),
 
   'meals-menus': mod(
@@ -331,10 +115,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'program', label: 'Section' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row('MENU-01', 'Monday lunch — beans & posho', { day: 'Monday', mealType: 'Lunch', program: 'All', weekStarting: '2026-03-16' }, 'Active'),
-      row('MENU-02', 'Wednesday snack — fruit', { day: 'Wednesday', mealType: 'Snack', program: 'Nursery', weekStarting: '2026-03-16' }, 'Active'),
-    ],
+    [],
   ),
 
   'meal-attendance': mod(
@@ -352,9 +133,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'date', label: 'Date' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row('MA-01', 'P.5 Blue lunch', { className: 'P.5', mealType: 'Lunch', date: '2026-03-16' }, 'Submitted'),
-    ],
+    [],
   ),
 
   invoices: mod(
@@ -372,10 +151,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'dueDate', label: 'Due' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row('INV-1001', 'Term 1 tuition — Amina', { learner: 'Amina Namukasa', amount: 450000, dueDate: '2026-02-28', feeStructure: 'Primary Term Fees' }, 'Unpaid'),
-      row('INV-1002', 'Term 1 tuition — James', { learner: 'James Okello', amount: 450000, dueDate: '2026-02-28', feeStructure: 'Primary Term Fees' }, 'Partial'),
-    ],
+    [],
   ),
 
   refunds: mod(
@@ -391,7 +167,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'amount', label: 'Amount' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [row('RF-01', 'Overpayment — Nabukeera', { amount: 50000, reason: 'Duplicate MoMo' }, 'Pending')],
+    [],
   ),
 
   'fee-offsets': mod(
@@ -412,23 +188,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'offsetDate', label: 'Date' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row(
-        'FO-01',
-        'Offset · sample cleared',
-        {
-          learner: 'Sample Learner',
-          className: 'P.4',
-          invoice: 'INV-2500',
-          amount: 'UGX 200,000',
-          exitReason: 'Completed',
-          offsetDate: '2025-12-01',
-          feeRef: 'FEE-SAMPLE',
-        },
-        'Posted',
-        'Demo history row',
-      ),
-    ],
+    [],
   ),
 
   scholarships: mod(
@@ -444,7 +204,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'learner', label: 'Learner' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [row('SCH-01', 'Staff child discount', { learner: 'Sarah Nabukeera', amount: '50%' }, 'Active')],
+    [],
   ),
 
   alumni: mod(
@@ -460,10 +220,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'exitYear', label: 'Exit year' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row('AL-01', 'David Ssekandi', { exitYear: '2025', className: 'P.5', exitReason: 'Transferred' }, 'Transferred'),
-      row('AL-02', 'Mercy Atim', { exitYear: '2026', className: 'Top Class', exitReason: 'Withdrawn' }, 'Withdrawn'),
-    ],
+    [],
   ),
 
   'waiting-list': mod(
@@ -479,7 +236,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'className', label: 'Class' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [row('WL-01', 'Joan Akello', { className: 'Baby Class', program: 'Nursery' }, 'Waitlisted')],
+    [],
   ),
 
   periods: mod(
@@ -497,18 +254,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'periodType', label: 'Type' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row('PD-01', 'Lesson 1', { startTime: '07:45', endTime: '08:25', periodType: 'Lesson', sequence: 1 }, 'Active'),
-      row('PD-02', 'Lesson 2', { startTime: '08:30', endTime: '09:10', periodType: 'Lesson', sequence: 2 }, 'Active'),
-      row('PD-03', 'Lesson 3', { startTime: '09:15', endTime: '09:55', periodType: 'Lesson', sequence: 3 }, 'Active'),
-      row('PD-04', 'Break', { startTime: '09:55', endTime: '10:15', periodType: 'Break', sequence: 4 }, 'Active'),
-      row('PD-05', 'Lesson 4', { startTime: '10:15', endTime: '10:55', periodType: 'Lesson', sequence: 5 }, 'Active'),
-      row('PD-06', 'Lesson 5', { startTime: '11:00', endTime: '11:40', periodType: 'Lesson', sequence: 6 }, 'Active'),
-      row('PD-07', 'Lesson 6', { startTime: '11:45', endTime: '12:25', periodType: 'Lesson', sequence: 7 }, 'Active'),
-      row('PD-08', 'Lunch', { startTime: '12:25', endTime: '13:25', periodType: 'Lunch', sequence: 8 }, 'Active'),
-      row('PD-09', 'Lesson 7', { startTime: '13:25', endTime: '14:05', periodType: 'Lesson', sequence: 9 }, 'Active'),
-      row('PD-10', 'Lesson 8', { startTime: '14:10', endTime: '14:50', periodType: 'Lesson', sequence: 10 }, 'Active'),
-    ],
+    [],
   ),
 
   curriculum: mod(
@@ -525,10 +271,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'className', label: 'Class' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row('CU-01', 'NCDC Primary English 2026', { program: 'Primary', className: 'P.5', academicYear: '2026' }, 'Active'),
-      row('CU-02', 'Nursery Learning Framework', { program: 'Nursery', className: 'Top Class', academicYear: '2026' }, 'Active'),
-    ],
+    [],
   ),
 
   'audit-logs': mod(
@@ -548,103 +291,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'ip', label: 'IP' },
       { key: 'status', label: 'Result', badge: true },
     ],
-    [
-      row(
-        'AUD-01',
-        'Login',
-        {
-          user: 'admin@littleroyals.school',
-          module: 'auth',
-          before: '',
-          after: 'Session started',
-          ip: '41.210.15.22',
-          when: '13 Mar 2026, 08:01',
-          changes: 'Session: added “desk”',
-        },
-        'Success',
-        '13 Mar 2026, 08:01',
-      ),
-      row(
-        'AUD-02',
-        'Update fee invoice',
-        {
-          user: 'accountant@littleroyals.school',
-          module: 'invoices',
-          recordId: 'INV-1001',
-          recordName: 'Term 1 tuition — Amina',
-          before: 'Unpaid',
-          after: 'Partial',
-          ip: '41.210.19.4',
-          when: '13 Mar 2026, 09:14',
-          changes: 'Status: “Unpaid” → “Partial”\nAmount paid: “0” → “200000”',
-        },
-        'Success',
-        '13 Mar 2026, 09:14',
-      ),
-      row(
-        'AUD-03',
-        'Permission change · Teacher',
-        {
-          user: 'admin@littleroyals.school',
-          module: 'permissions',
-          recordId: 'Teacher',
-          before: 'Delete on',
-          after: 'Delete off',
-          ip: '41.210.15.22',
-          when: '13 Mar 2026, 10:02',
-          changes: 'Delete: “on” → “off”',
-        },
-        'Success',
-        '13 Mar 2026, 10:02',
-      ),
-      row(
-        'AUD-04',
-        'Failed login attempt',
-        {
-          user: 'unknown@external.com',
-          module: 'auth',
-          before: '',
-          after: 'Denied',
-          ip: '102.89.33.12',
-          when: '13 Mar 2026, 11:40',
-          changes: 'Login: denied',
-        },
-        'Denied',
-        '13 Mar 2026, 11:40',
-      ),
-      row(
-        'AUD-05',
-        'Export students CSV',
-        {
-          user: 'admin@littleroyals.school',
-          module: 'students',
-          before: '',
-          after: 'CSV exported',
-          ip: '41.210.15.22',
-          when: '14 Mar 2026, 07:22',
-          changes: 'Export: added “students.csv”',
-        },
-        'Success',
-        '14 Mar 2026, 07:22',
-      ),
-      row(
-        'AUD-06',
-        'Delete applicant',
-        {
-          user: 'admissions@littleroyals.school',
-          module: 'applicants',
-          recordId: 'APP-04',
-          recordName: 'Draft applicant',
-          before: 'Draft applicant',
-          after: '',
-          ip: '41.210.18.41',
-          when: '14 Mar 2026, 08:05',
-          changes: 'Name: removed “Draft applicant”\nStatus: removed “Draft”',
-        },
-        'Success',
-        '14 Mar 2026, 08:05',
-      ),
-    ],
+    [],
   ),
 
   clubs: mod(
@@ -660,10 +307,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'program', label: 'Section' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row('CL-01', 'Football (Primary)', { program: 'Primary', teacher: 'Peter Okello' }, 'Active'),
-      row('CL-02', 'Music circle (Nursery)', { program: 'Nursery', teacher: 'Joy Akello' }, 'Active'),
-    ],
+    [],
   ),
 
   'schemes-of-work': mod(
@@ -681,14 +325,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'week', label: 'Week' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row(
-        'SOW-01',
-        'P.5 English Week 4 — Paragraphs',
-        { className: 'P.5', course: 'English', week: 4, term: 'Term 1', teacher: 'Grace Namuli' },
-        'Approved',
-      ),
-    ],
+    [],
   ),
 
   'nursery-development': mod(
@@ -705,14 +342,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'period', label: 'Period' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row(
-        'ND-01',
-        'Amina — Term 1 development',
-        { learner: 'Amina Namukasa', period: 'Term 1 2026' },
-        'Draft',
-      ),
-    ],
+    [],
   ),
 
   'clinic-visits': mod(
@@ -728,14 +358,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'learner', label: 'Learner' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row(
-        'CV-01',
-        'Mild fever — rest and fluids',
-        { learner: 'James Okello', concern: 'Fever' },
-        'Recorded',
-      ),
-    ],
+    [],
   ),
 
   'safeguarding-incidents': mod(
@@ -769,14 +392,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'type', label: 'Type' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row(
-        'PR-01',
-        'Helping a classmate',
-        { learner: 'Amina Namukasa', type: 'Kindness', date: '2026-03-10' },
-        'Recorded',
-      ),
-    ],
+    [],
   ),
 
   discounts: mod(
@@ -793,7 +409,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'value', label: 'Value' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [row('DSC-01', 'Sibling discount', { type: 'Percentage', value: 10 }, 'Approved')],
+    [],
   ),
 
   bursaries: mod(
@@ -810,14 +426,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'amount', label: 'Amount' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row(
-        'BUR-01',
-        'Community bursary — Term 1',
-        { learner: 'Sarah Nabukeera', amount: 200000, fundingSource: 'PTA' },
-        'Active',
-      ),
-    ],
+    [],
   ),
 
   'dietary-requirements': mod(
@@ -833,15 +442,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'learner', label: 'Learner' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row(
-        'DR-01',
-        'Peanut allergy',
-        { learner: 'Amina Namukasa' },
-        'Active',
-        'No peanut products',
-      ),
-    ],
+    [],
   ),
 
   'early-departures': mod(
@@ -858,14 +459,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'departureTime', label: 'Time' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row(
-        'ED-01',
-        'Medical appointment',
-        { learner: 'James Okello', departureTime: '11:30' },
-        'Recorded',
-      ),
-    ],
+    [],
   ),
 
   campuses: mod(
@@ -881,14 +475,7 @@ export const catalogExtra: Record<string, CatalogModule> = {
       { key: 'phone', label: 'Phone' },
       { key: 'status', label: 'Status', badge: true },
     ],
-    [
-      row(
-        'CAM-01',
-        'Main Campus',
-        { phone: '+256414000111', address: 'Kampala' },
-        'Active',
-      ),
-    ],
+    [],
   ),
 
 }
