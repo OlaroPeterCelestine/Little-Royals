@@ -101,9 +101,8 @@ async function pullModule(module: FrontendModule, bust = false): Promise<boolean
     const { items } = await catalogServices[module].list({ limit: 500 })
     const mod = schoolStore[module]
     if (!mod) return false
-    if (items.length) {
-      mod.rows = items.map(rowFromApi)
-    }
+    // API is authoritative — even an empty list replaces hardcoded seed rows.
+    mod.rows = items.map(rowFromApi)
     moduleFreshAt.set(module, Date.now())
     return true
   } catch {

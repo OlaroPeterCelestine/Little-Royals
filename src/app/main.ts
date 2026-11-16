@@ -8,6 +8,10 @@ import {
   hydrateCatalogFromApi,
   moduleFromPath,
 } from '@/data/catalog/catalogSync'
+import {
+  hydrateSchoolFromApi,
+  hydrateSchoolPublic,
+} from '@/data/school/schoolSetup'
 import { isApiEnabled } from '@/lib/apiMode'
 import { installNavProgress } from '@/lib/navProgress'
 import { schedulePrefetch } from '@/lib/prefetch'
@@ -45,8 +49,15 @@ async function boot() {
   schedulePrefetch()
 
   if (isApiEnabled()) {
-    const first = moduleFromPath(router.currentRoute.value.path)
-    void hydrateCatalogFromApi(first ? [first] : [])
+    // Branding + catalog come from the Go API — not frontend seed data.
+    if (isAuthenticated.value) {
+      void hydrateSchoolFromApi().then(() => {
+        const first = moduleFromPath(router.currentRoute.value.path)
+        void hydrateCatalogFromApi(first ? [first] : [])
+      })
+    } else {
+      void hydrateSchoolPublic()
+    }
   }
 }
 

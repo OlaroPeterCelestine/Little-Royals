@@ -141,10 +141,11 @@ export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<{ data: T; meta?: ApiMeta }> {
-  const base = getApiBase()
-  if (!isApiEnabled() || !base) {
+  // Empty base = same-origin (VPS nginx proxies /api → Go). Only disable when the flag is off.
+  if (!isApiEnabled()) {
     throw new ApiError(503, 'School API is disabled — desk is running offline')
   }
+  const base = getApiBase()
 
   const { method = 'GET', auth = true, bustCache = false } = options
   const token: string | null = auth

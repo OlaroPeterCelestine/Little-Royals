@@ -1,5 +1,7 @@
 import { reactive, watch } from 'vue'
 import { logActivity } from '@/data/activity/activity'
+import { isApiEnabled } from '@/lib/apiMode'
+import { apiRequest } from '@/services/http'
 
 const STORAGE_KEY = 'little-royals-school-setup'
 
@@ -33,52 +35,150 @@ export interface SchoolSetup {
   /** Radius in metres */
   geoRadiusMeters: string
   geoNotes: string
+  /** Server school code (LRKPS, …) when API-backed */
+  code?: string
 }
 
-const defaults: SchoolSetup = {
-  name: 'Little Royals Kindergarten and Primary School',
-  shortName: 'Little Royals',
-  motto: 'In God We Trust',
-  addressLine1: 'Plot 14, Royal Gardens Road',
-  addressLine2: 'Near Ntinda Trading Centre',
-  city: 'Kampala',
-  district: 'Kampala',
+/** Empty shell — filled from GET /api/v1/school when the API is on. */
+const emptySetup = (): SchoolSetup => ({
+  name: '',
+  shortName: '',
+  motto: '',
+  addressLine1: '',
+  addressLine2: '',
+  city: '',
+  district: '',
+  country: '',
+  phone: '',
+  phoneAlt: '',
+  email: '',
+  website: '',
+  registrationNo: '',
+  unebCentre: '',
+  headTeacher: '',
+  established: '',
+  currentTerm: '',
+  academicYear: '',
+  currency: '',
+  initials: '',
+  about: '',
+  geoEnabled: false,
+  geoLabel: '',
+  geoLatitude: '',
+  geoLongitude: '',
+  geoRadiusMeters: '',
+  geoNotes: '',
+  code: '',
+})
+
+/** Offline-only fallback when VITE_USE_API is off. */
+const offlineDefaults: SchoolSetup = {
+  ...emptySetup(),
+  name: 'School',
+  shortName: 'School',
+  motto: '',
   country: 'Uganda',
-  phone: '+256 414 000 111',
-  phoneAlt: '+256 700 222 333',
-  email: 'info@littleroyals.ug',
-  website: 'https://littleroyals.ug',
-  registrationNo: 'MOES/KLA/PRI/2020/118',
-  unebCentre: 'U1234',
-  headTeacher: 'Sarah Nalwanga',
-  established: '2018',
-  currentTerm: 'Term III',
-  academicYear: '2026',
   currency: 'UGX',
-  initials: 'LR',
-  about:
-    'Little Royals Kindergarten and Primary School serves Baby Class through P.7 under the NCDC curriculum, preparing learners for UNEB PLE.',
-  geoEnabled: true,
-  geoLabel: 'Main campus',
-  // Approximate Ntinda / Kampala campus pin for demo
-  geoLatitude: '0.347596',
-  geoLongitude: '32.582520',
-  geoRadiusMeters: '250',
-  geoNotes:
-    'Used for staff check-in and gated attendance. Learners/staff outside this radius are flagged as off-campus.',
+  initials: 'SC',
+  currentTerm: '',
+  academicYear: String(new Date().getFullYear()),
 }
 
-function load(): SchoolSetup {
+type ApiSchool = Record<string, unknown>
+
+function asStr(v: unknown): string {
+  if (v === null || v === undefined) return ''
+  return String(v).trim()
+}
+
+function asBool(v: unknown): boolean {
+  if (typeof v === 'boolean') return v
+  if (v === 'true' || v === '1') return true
+  if (v === 'false' || v === '0') return false
+  return false
+}
+
+export function schoolFromApi(raw: ApiSchool): SchoolSetup {
+  return {
+    name: asStr(raw.name),
+    shortName: asStr(raw.shortName) || asStr(raw.name),
+    motto: asStr(raw.motto),
+    addressLine1: asStr(raw.address) || asStr(raw.addressLine1),
+    addressLine2: asStr(raw.addressLine2),
+    city: asStr(raw.city),
+    district: asStr(raw.district),
+    country: asStr(raw.country),
+    phone: asStr(raw.phone),
+    phoneAlt: asStr(raw.phoneAlt),
+    email: asStr(raw.email),
+    website: asStr(raw.website),
+    registrationNo: asStr(raw.registrationNo),
+    unebCentre: asStr(raw.unebCentre),
+    headTeacher: asStr(raw.headTeacher),
+    established: asStr(raw.established),
+    currentTerm: asStr(raw.currentTerm),
+    academicYear: asStr(raw.academicYear),
+    currency: asStr(raw.currency) || 'UGX',
+    initials: asStr(raw.initials) || asStr(raw.code).slice(0, 4),
+    about: asStr(raw.about),
+    geoEnabled: asBool(raw.geoEnabled),
+    geoLabel: asStr(raw.geoLabel),
+    geoLatitude: asStr(raw.geoLatitude),
+    geoLongitude: asStr(raw.geoLongitude),
+    geoRadiusMeters: asStr(raw.geoRadiusMeters),
+    geoNotes: asStr(raw.geoNotes),
+    code: asStr(raw.code),
+  }
+}
+
+export function schoolToApiBody(setup: SchoolSetup): Record<string, unknown> {
+  return {
+    name: setup.name,
+    code: setup.code || setup.initials || 'SCHOOL',
+    shortName: setup.shortName,
+    motto: setup.motto,
+    email: setup.email,
+    phone: setup.phone,
+    phoneAlt: setup.phoneAlt,
+    address: setup.addressLine1,
+    addressLine2: setup.addressLine2,
+    city: setup.city,
+    district: setup.district,
+    country: setup.country,
+    website: setup.website,
+    registrationNo: setup.registrationNo,
+    unebCentre: setup.unebCentre,
+    headTeacher: setup.headTeacher,
+    established: setup.established,
+    currentTerm: setup.currentTerm,
+    academicYear: setup.academicYear,
+    currency: setup.currency,
+    initials: setup.initials,
+    about: setup.about,
+    geoEnabled: setup.geoEnabled,
+    geoLabel: setup.geoLabel,
+    geoLatitude: setup.geoLatitude,
+    geoLongitude: setup.geoLongitude,
+    geoRadiusMeters: setup.geoRadiusMeters,
+    geoNotes: setup.geoNotes,
+  }
+}
+
+function loadLocal(): SchoolSetup {
+  if (isApiEnabled()) {
+    // API is source of truth — don't resurrect stale local demo branding.
+    return emptySetup()
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { ...defaults }
+    if (!raw) return { ...offlineDefaults }
     const parsed = JSON.parse(raw) as unknown
-    if (!parsed || typeof parsed !== 'object') return { ...defaults }
+    if (!parsed || typeof parsed !== 'object') return { ...offlineDefaults }
     const incoming = parsed as Record<string, unknown>
-    const next: SchoolSetup = { ...defaults }
-    for (const key of Object.keys(defaults) as (keyof SchoolSetup)[]) {
+    const next: SchoolSetup = { ...offlineDefaults }
+    for (const key of Object.keys(offlineDefaults) as (keyof SchoolSetup)[]) {
       const value = incoming[key]
-      if (typeof defaults[key] === 'boolean') {
+      if (typeof offlineDefaults[key] === 'boolean') {
         if (typeof value === 'boolean') next[key] = value as never
         else if (value === 'true' || value === '1') next[key] = true as never
         else if (value === 'false' || value === '0') next[key] = false as never
@@ -92,15 +192,18 @@ function load(): SchoolSetup {
     }
     return next
   } catch {
-    return { ...defaults }
+    return { ...offlineDefaults }
   }
 }
 
-export const schoolSetup = reactive<SchoolSetup>(load())
+export const schoolSetup = reactive<SchoolSetup>(loadLocal())
+export const schoolProfileLoaded = reactive({ value: !isApiEnabled() })
+export const schoolProfileError = reactive({ value: '' })
 
 watch(
   schoolSetup,
   (value) => {
+    if (isApiEnabled()) return
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...value }))
     } catch {
@@ -110,14 +213,88 @@ watch(
   { deep: true },
 )
 
-export function saveSchoolSetup(next: Partial<SchoolSetup>) {
+/** Public branding for the login screen (no auth). */
+export async function hydrateSchoolPublic(): Promise<boolean> {
+  if (!isApiEnabled()) {
+    schoolProfileLoaded.value = true
+    return false
+  }
+  try {
+    const { data } = await apiRequest<ApiSchool>('/api/v1/school/public', {
+      auth: false,
+    })
+    if (data && typeof data === 'object') {
+      const next = schoolFromApi(data)
+      // Only fill identity fields before login — full profile loads after auth.
+      schoolSetup.name = next.name
+      schoolSetup.shortName = next.shortName
+      schoolSetup.motto = next.motto
+      schoolSetup.code = next.code
+      schoolSetup.initials = next.initials
+      schoolSetup.city = next.city
+      schoolSetup.country = next.country
+      return true
+    }
+  } catch {
+    /* login screen can still render */
+  }
+  return false
+}
+
+/** Pull singleton school profile from the Go API (authenticated). */
+export async function hydrateSchoolFromApi(): Promise<boolean> {
+  if (!isApiEnabled()) {
+    schoolProfileLoaded.value = true
+    return false
+  }
+  schoolProfileError.value = ''
+  try {
+    const { data } = await apiRequest<ApiSchool>('/api/v1/school')
+    if (data && typeof data === 'object') {
+      Object.assign(schoolSetup, schoolFromApi(data))
+      schoolProfileLoaded.value = true
+      try {
+        localStorage.removeItem(STORAGE_KEY)
+      } catch {
+        /* ignore */
+      }
+      return true
+    }
+    schoolProfileError.value = 'School profile empty'
+    schoolProfileLoaded.value = true
+    return false
+  } catch (err) {
+    // Fall back to public branding if the full profile is forbidden/unavailable.
+    await hydrateSchoolPublic()
+    schoolProfileError.value =
+      err instanceof Error ? err.message : 'Could not load school profile'
+    schoolProfileLoaded.value = true
+    return false
+  }
+}
+
+export async function saveSchoolSetup(next: Partial<SchoolSetup>) {
   Object.assign(schoolSetup, next)
+  if (isApiEnabled()) {
+    try {
+      const { data } = await apiRequest<ApiSchool>('/api/v1/school', {
+        method: 'PUT',
+        body: schoolToApiBody(schoolSetup),
+        bustCache: true,
+      })
+      if (data && typeof data === 'object') {
+        Object.assign(schoolSetup, schoolFromApi(data))
+      }
+    } catch (err) {
+      throw err instanceof Error ? err : new Error('School update failed')
+    }
+  }
   logActivity({
     action: 'Updated',
     module: 'school-setup',
     moduleLabel: 'School Setup',
-    recordName: schoolSetup.name,
-    summary: `Updated school setup for ${schoolSetup.shortName}`,
+    recordName: schoolSetup.name || schoolSetup.shortName || 'School',
+    summary: `Updated school setup for ${schoolSetup.shortName || schoolSetup.name || 'school'}`,
     detail: schoolSetup.geoEnabled
       ? `${schoolSetup.city} · geofence ${schoolSetup.geoRadiusMeters}m @ ${schoolSetup.geoLatitude},${schoolSetup.geoLongitude}`
       : `${schoolSetup.city}, ${schoolSetup.country} · ${schoolSetup.phone}`,
@@ -125,8 +302,20 @@ export function saveSchoolSetup(next: Partial<SchoolSetup>) {
   })
 }
 
-export function resetSchoolSetup() {
-  Object.assign(schoolSetup, defaults)
+export async function resetSchoolSetup() {
+  if (isApiEnabled()) {
+    await hydrateSchoolFromApi()
+    logActivity({
+      action: 'Updated',
+      module: 'school-setup',
+      moduleLabel: 'School Setup',
+      recordName: schoolSetup.name || 'School',
+      summary: 'Reloaded school setup from server',
+      severity: 'warning',
+    })
+    return
+  }
+  Object.assign(schoolSetup, offlineDefaults)
   logActivity({
     action: 'Updated',
     module: 'school-setup',

@@ -12,6 +12,7 @@ import {
   type AuthSessionShape,
 } from '@/lib/security'
 import { apiBaseUrl, isApiEnabled } from '@/lib/apiMode'
+import { hydrateSchoolFromApi } from '@/data/school/schoolSetup'
 
 const STORAGE_KEY = 'little-royals-auth'
 const BOOT_KEY = 'little-royals-auth-boot'
@@ -179,6 +180,7 @@ async function loginViaApi(input: {
   state.session = session
   persist(session)
   applyUser({ name: data.name, email: data.email, role })
+  void hydrateSchoolFromApi()
 
   const local = getUserByEmail(data.email)
   if (local) {

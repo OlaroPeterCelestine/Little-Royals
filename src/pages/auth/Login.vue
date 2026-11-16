@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'frappe-ui'
 import {
@@ -8,10 +8,16 @@ import {
   resetPasswordWithCode,
 } from '@/data/auth/auth'
 import { brand } from '@/data/school/brand'
+import { hydrateSchoolPublic, schoolSetup } from '@/data/school/schoolSetup'
 import { isParentRole } from '@/data/auth/permissions'
+import { isApiEnabled } from '@/lib/apiMode'
 import { safeInternalPath } from '@/lib/security'
 import { sanitizeText } from '@/lib/sanitize'
 import SchoolLogo from '@/components/layout/SchoolLogo.vue'
+
+onMounted(() => {
+  void hydrateSchoolPublic()
+})
 
 const router = useRouter()
 const route = useRoute()
@@ -50,22 +56,6 @@ async function submit() {
   } finally {
     loading.value = false
   }
-}
-
-function fillDemo(kind: 'admin' | 'teacher' | 'parent') {
-  // Seeded API users share the bootstrap password from backend/.admin-credentials
-  const demos = {
-    admin: { email: 'admin@littleroyals.school', password: 'BootstrapPass12' },
-    teacher: {
-      email: 'teacher@littleroyals.school',
-      password: 'BootstrapPass12',
-    },
-    parent: { email: 'parent@littleroyals.school', password: 'BootstrapPass12' },
-  }
-  email.value = demos[kind].email
-  password.value = demos[kind].password
-  mode.value = 'login'
-  error.value = ''
 }
 
 function openForgot() {
@@ -162,8 +152,8 @@ function askAdmin() {
           </h1>
           <p>
             <template v-if="mode === 'login'">
-              Use any email and password to open the desk. API users get a live
-              session when the backend is up; otherwise you still get in locally.
+              Sign in with the account your school admin created
+              <template v-if="isApiEnabled()"> on the live desk</template>.
             </template>
             <template v-else-if="mode === 'forgot'">
               Enter your school email. We will issue a reset code (shown here in
@@ -173,18 +163,6 @@ function askAdmin() {
               Enter the reset code and choose a new password (min 8 characters).
             </template>
           </p>
-        </div>
-
-        <div v-if="mode === 'login'" class="login-demos" aria-label="Quick sign-in">
-          <button type="button" class="login-demo" @click="fillDemo('admin')">
-            Admin
-          </button>
-          <button type="button" class="login-demo" @click="fillDemo('teacher')">
-            Teacher
-          </button>
-          <button type="button" class="login-demo" @click="fillDemo('parent')">
-            Parent
-          </button>
         </div>
 
         <form
@@ -210,7 +188,7 @@ function askAdmin() {
                 v-model="password"
                 :type="showPassword ? 'text' : 'password'"
                 autocomplete="current-password"
-                placeholder="Any password works on the desk"
+                placeholder="Your school password"
                 minlength="1"
                 required
               />
@@ -256,7 +234,7 @@ function askAdmin() {
               v-model="email"
               type="email"
               autocomplete="username"
-              placeholder="admin@littleroyals.school"
+              placeholder="you@school.edu"
               required
             />
           </label>
@@ -330,18 +308,22 @@ function askAdmin() {
       </div>
 
       <footer class="login-footer">
-        Copyright © {{ new Date().getFullYear() }} Little Royals Kindergarten
-        and Primary School.
+        Copyright © {{ new Date().getFullYear() }}
+        {{ brand.name || schoolSetup.name || 'School' }}.
       </footer>
     </div>
 
     <aside class="login-right" aria-hidden="true">
       <div class="login-panel">
         <div class="login-panel-copy">
-          <h2>Nursery &amp; primary desk for Baby Class through P.7.</h2>
+          <h2>
+            {{ brand.shortName || 'School' }} desk
+            <template v-if="schoolSetup.city"> · {{ schoolSetup.city }}</template>
+          </h2>
           <p>
-            Attendance, admissions, NCDC assessments, UNEB PLE prep, fees, and
-            parent SMS — built for Little Royals Kindergarten and Primary.
+            Attendance, admissions, assessments, fees, and parent messaging —
+            wired to your school’s live API.
+            <template v-if="brand.motto"> {{ brand.motto }}.</template>
           </p>
         </div>
 

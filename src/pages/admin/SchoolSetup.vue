@@ -273,13 +273,13 @@ async function save() {
   }
   saving.value = true
   try {
-    saveSchoolSetup({
+    await saveSchoolSetup({
       ...form,
       name: sanitizeText(form.name, 'name'),
       shortName:
         sanitizeText(form.shortName, 'name') ||
         sanitizeText(form.name, 'name'),
-      initials: (sanitizeText(form.initials, 'id', 4) || 'LR')
+      initials: (sanitizeText(form.initials, 'id', 4) || 'SC')
         .slice(0, 3)
         .toUpperCase(),
       geoLabel: sanitizeText(form.geoLabel, 'name', 80),
@@ -291,8 +291,11 @@ async function save() {
       phone: sanitizeText(form.phone, 'phone'),
       phoneAlt: sanitizeText(form.phoneAlt, 'phone'),
     })
+    syncFromStore()
     dirty.value = false
     toast.success('School setup saved')
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Could not save school setup')
   } finally {
     saving.value = false
   }
@@ -300,15 +303,15 @@ async function save() {
 
 function resetDefaults() {
   dialog.danger({
-    title: 'Reset school setup?',
+    title: 'Reload school setup?',
     message:
-      'This restores Little Royals default address, phones and registration details. Your current values will be replaced.',
-    confirmLabel: 'Yes, reset',
+      'This reloads the school profile from the server (or offline defaults if the API is off). Unsaved edits will be lost.',
+    confirmLabel: 'Yes, reload',
     cancelLabel: 'Keep current',
     onConfirm: async () => {
-      resetSchoolSetup()
+      await resetSchoolSetup()
       syncFromStore()
-      toast.warning('School setup reset to defaults')
+      toast.warning('School setup reloaded')
     },
   })
 }

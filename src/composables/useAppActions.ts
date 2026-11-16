@@ -9,6 +9,7 @@ import { shortcuts } from '@/data/school/workspace'
 import { logActivity } from '@/data/activity/activity'
 import { getCurrentSystemUser } from '@/data/auth/permissions'
 import { logout } from '@/data/auth/auth'
+import { schoolSetup } from '@/data/school/schoolSetup'
 
 const SHORTCUT_KEY = 'pearl-visible-shortcuts'
 
@@ -66,13 +67,13 @@ export function openNotifications(router: Router) {
 
 export function openDocumentation() {
   dialog.confirm({
-    title: 'Little Royals · Nursery & primary help',
+    title: 'School desk help',
     message:
-      'Little Royals Kindergarten and Primary School desk (NCDC / UNEB).\n\n' +
+      `${schoolSetup.name || schoolSetup.shortName || 'School'} desk.\n\n` +
       '• Create, edit, and delete records from any list\n' +
-      '• Mark attendance, collect fees, and track PLE mocks\n' +
+      '• Mark attendance, collect fees, and track exams\n' +
       '• Use ⌘G (Ctrl+G) to search modules and tools\n' +
-      '• Publish announcements and run attendance SQL reports',
+      '• Publish announcements and run attendance reports',
     icon: 'lucide-book-open',
     theme: 'blue',
     confirmLabel: 'Got it',
@@ -114,7 +115,7 @@ export function exportDashboardCsv() {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `little-royals-dashboard-${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `school-dashboard-${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
   logActivity({
@@ -131,7 +132,7 @@ export function exportDashboardCsv() {
 export function openUserMenu(router: Router) {
   dialog.prompt({
     title: 'Account',
-    message: 'Little Royals Kindergarten and Primary School · Admin session',
+    message: `${schoolSetup.name || schoolSetup.shortName || 'School'} · session`,
     icon: 'lucide-user',
     theme: 'blue',
     confirmLabel: 'Continue',

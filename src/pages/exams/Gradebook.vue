@@ -1566,7 +1566,7 @@ function onScoreSanitized(row: MarkRow, raw: unknown) {
                   </button>
                   <div class="exam-studio__school-text">
                     <p class="exam-studio__school-name">
-                      {{ schoolSetup.name || brand.name || 'Little Royals Kindergarten and Primary School' }}
+                      {{ schoolSetup.name || brand.name || 'School' }}
                     </p>
                     <p class="exam-studio__school-motto">
                       {{ schoolSetup.motto || brand.motto || '' }}
