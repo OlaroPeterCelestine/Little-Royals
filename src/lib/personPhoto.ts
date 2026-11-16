@@ -141,7 +141,8 @@ export function readImageFileAsDataUrl(file: File): Promise<string> {
 }
 
 /**
- * Upload an identification photo to the server Drive (Photos folder).
+ * Upload an identification photo via `/api/v1/files` (Photos folder).
+ * Blobs land in Cloudflare R2 when configured, otherwise local disk.
  * Returns `file:{uuid}` for storage on the person/user record.
  * Falls back to a data URL when the API is offline.
  */
