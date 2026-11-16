@@ -420,14 +420,27 @@ export async function changePassword(input: {
 
 export function logout() {
   const name = state.session?.name
+  const token = state.session?.token
+  // Best-effort server logout — revoke JWT jti + write audit row.
+  if (isApiEnabled() && token) {
+    void fetch(`${apiBaseUrl()}/api/v1/auth/logout`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    }).catch(() => {
+      /* offline / already expired — local clear still proceeds */
+    })
+  }
   state.session = null
   persist(null)
   applyUser(null)
   if (name) {
     logActivity({
-      action: 'Login',
-      module: 'system',
-      moduleLabel: 'System',
+      action: 'Logout',
+      module: 'auth',
+      moduleLabel: 'Auth',
       recordName: name,
       summary: `${name} signed out`,
       severity: 'info',
