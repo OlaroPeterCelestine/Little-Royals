@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ensureModule } from '@/data/catalog/catalogSync'
+import { isApiEnabled } from '@/lib/apiMode'
 import {
   Badge,
   Button,
@@ -90,6 +92,12 @@ function confirmDelete() {
 }
 
 const { goBack } = useAppBack(() => personListPath(moduleKey.value))
+
+onMounted(() => {
+  if (!isApiEnabled()) return
+  const key = moduleKey.value
+  if (key) void ensureModule(key, { force: true })
+})
 
 function printDoc(kind?: DocumentKind) {
   if (!row.value) return

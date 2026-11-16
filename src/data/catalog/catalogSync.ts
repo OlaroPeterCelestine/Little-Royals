@@ -142,6 +142,7 @@ export const DESK_HYDRATE_PRIORITY: FrontendModule[] = [
   'teachers',
   'staff',
   'parents',
+  'guardians',
   'attendance',
   'classes',
   'subjects',
@@ -151,6 +152,9 @@ export const DESK_HYDRATE_PRIORITY: FrontendModule[] = [
   'fees',
   'users',
   'school-events',
+  'disciplinary-cases',
+  'exam-results',
+  'student-log',
 ]
 
 /**
@@ -199,10 +203,12 @@ export async function hydrateCatalogFromApi(
 
   const seen = new Set<string>()
   const order: FrontendModule[] = []
+  const forceKeys = new Set<string>()
   for (const key of priority) {
     if (isFrontendModule(key) && !seen.has(key)) {
       seen.add(key)
       order.push(key)
+      if (force) forceKeys.add(key)
     }
   }
   if (!opts?.priorityOnly) {
@@ -222,8 +228,8 @@ export async function hydrateCatalogFromApi(
         i === 0 ? 'Updating…' : `Updating… ${Math.min(i + batchSize, order.length)}/${order.length}`
       await Promise.all(
         slice.map(async (module) => {
-          // Force only the first priority batch after login; rest soft-revalidate.
-          const forceThis = force && i === 0
+          // Force every priority module after login; background modules soft-revalidate.
+          const forceThis = forceKeys.has(module)
           const ok = await ensureModule(module, { force: forceThis })
           if (ok) loaded += 1
           else failed.push(module)

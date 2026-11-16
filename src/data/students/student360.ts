@@ -69,14 +69,16 @@ export function getStudent360(studentId: string): Student360Bundle | null {
   )
   const attendance = attendanceRowsForStudent(student)
   const attendanceSummary = buildAttendanceSummary(student)
-  const fees = (schoolStore.fees?.rows || []).filter(
-    (r) => r.name === student.name,
+  const fees = (schoolStore.fees?.rows || []).filter((r) =>
+    byStudentNameOrId(r, student),
   )
-  const results = (schoolStore['exam-results']?.rows || []).filter(
-    (r) => r.name === student.name,
+  const results = (schoolStore['exam-results']?.rows || []).filter((r) =>
+    byStudentNameOrId(r, student),
   )
   const classInfo = (schoolStore.classes?.rows || []).find(
-    (r) => r.name === String(student.className || ''),
+    (r) =>
+      r.id === String(student.classId || '') ||
+      r.name === String(student.className || student.class || ''),
   )
   const subjects = subjectsForStudent(student)
   const subjectReports = buildSubjectReports(student)

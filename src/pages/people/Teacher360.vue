@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ensureModule } from '@/data/catalog/catalogSync'
+import { isApiEnabled } from '@/lib/apiMode'
 import {
   Badge,
   Button,
@@ -36,6 +38,20 @@ const teacherId = computed(() => String(route.params.id || ''))
 const bundle = computed(() => getTeacher360(teacherId.value))
 const teacher = computed(() => bundle.value?.teacher)
 const { goBack } = useAppBack(() => personListPath('teachers'))
+
+onMounted(() => {
+  if (!isApiEnabled()) return
+  for (const mod of [
+    'teachers',
+    'classes',
+    'students',
+    'staff-leave',
+    'staff-attendance',
+    'disciplinary-cases',
+  ] as const) {
+    void ensureModule(mod, { force: true })
+  }
+})
 
 const tabs = [
   { label: 'Biodata', value: 'profile' },

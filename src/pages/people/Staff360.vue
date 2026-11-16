@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ensureModule } from '@/data/catalog/catalogSync'
+import { isApiEnabled } from '@/lib/apiMode'
 import {
   Badge,
   Button,
@@ -38,6 +40,18 @@ const staffId = computed(() => String(route.params.id || ''))
 const bundle = computed(() => getStaff360(staffId.value))
 const staff = computed(() => bundle.value?.staff)
 const { goBack } = useAppBack(() => personListPath('staff'))
+
+onMounted(() => {
+  if (!isApiEnabled()) return
+  for (const mod of [
+    'staff',
+    'staff-leave',
+    'staff-attendance',
+    'payroll',
+  ] as const) {
+    void ensureModule(mod, { force: true })
+  }
+})
 
 const tabs = [
   { label: 'Biodata', value: 'biodata' },

@@ -8,7 +8,8 @@ import {
   openEditDialog,
 } from '@/composables/useModuleForms'
 import { personDetailPath, personListPath } from '@/lib/personRoutes'
-import { useAppBack } from '@/composables/useAppBack'
+import { ensureModule } from '@/data/catalog/catalogSync'
+import { isApiEnabled } from '@/lib/apiMode'
 
 /**
  * Legacy /:module/new and /:module/:id/edit routes — bounce into the shared
@@ -30,24 +31,30 @@ const row = computed(() =>
     : undefined,
 )
 
-const { goBack } = useAppBack(() =>
-  recordId.value
-    ? personDetailPath(moduleKey.value, recordId.value)
-    : personListPath(moduleKey.value),
-)
-
-onMounted(() => {
+onMounted(async () => {
   const key = moduleKey.value
   if (!key) {
     void router.replace('/')
     return
   }
+
+  if (isApiEnabled()) {
+    await ensureModule(key, { force: true })
+  }
+
   if (isCreate.value) {
     openCreateDialog(key)
-  } else if (row.value) {
-    openEditDialog(key, row.value)
+  } else {
+    const current = getLiveModule(key)?.rows.find((r) => r.id === recordId.value)
+    if (current) openEditDialog(key, current)
   }
-  goBack()
+
+  // Always land on the list/detail page with the modal open — never history.back(),
+  // which can bounce to login/dashboard when /new was opened cold or after redirect.
+  const target = recordId.value
+    ? personDetailPath(key, recordId.value)
+    : personListPath(key)
+  void router.replace(target)
 })
 </script>
 
