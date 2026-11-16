@@ -1,0 +1,37 @@
+name: Deploy VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: SSH deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            APP_DIR=/opt/little-royals
+            cd "$APP_DIR"
+            git fetch --all --prune
+            git reset --hard origin/main
+            if [[ -d backend/.git ]]; then
+              git -C backend fetch --all --prune
+              git -C backend reset --hard origin/main
+            else
+              git clone https://github.com/OlaroPeterCelestine/Little-Royals-API.git backend
+            fi
+            ./scripts/deploy-vps.sh
