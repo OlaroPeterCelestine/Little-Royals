@@ -182,8 +182,16 @@ async function loginViaApi(input: {
   applyUser({ name: data.name, email: data.email, role })
   void hydrateSchoolFromApi().then(async () => {
     const { hydrateRolesFromApi } = await import('@/data/auth/permissions')
-    const { hydrateCatalogFromApi } = await import('@/data/catalog/catalogSync')
-    await Promise.all([hydrateRolesFromApi(), hydrateCatalogFromApi(['users'])])
+    const { hydrateDeskAfterAuth, moduleFromPath } =
+      await import('@/data/catalog/catalogSync')
+    const routeMod =
+      typeof window !== 'undefined'
+        ? moduleFromPath(window.location.pathname)
+        : null
+    await Promise.all([
+      hydrateRolesFromApi(),
+      hydrateDeskAfterAuth(routeMod ? [routeMod, 'users'] : ['users']),
+    ])
   })
 
   const local = getUserByEmail(data.email)

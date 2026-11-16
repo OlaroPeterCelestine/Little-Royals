@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue'
+import { computed, defineAsyncComponent, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Alert,
@@ -22,11 +22,24 @@ import {
   canAccessModule,
   filterRoutesByPermissions,
 } from '@/lib/accessControl'
+import {
+  DESK_HYDRATE_PRIORITY,
+  ensureModule,
+} from '@/data/catalog/catalogSync'
+import { isApiEnabled } from '@/lib/apiMode'
 import SchoolLogo from '@/components/layout/SchoolLogo.vue'
 import ListStatCards from '@/components/list/ListStatCards.vue'
 
 const route = useRoute()
 const accessDenied = computed(() => String(route.query.denied || '') === '1')
+
+onMounted(() => {
+  if (!isApiEnabled()) return
+  // Force the figures the dashboard paints from — don't wait on the full catalog.
+  for (const mod of DESK_HYDRATE_PRIORITY) {
+    void ensureModule(mod, { force: true })
+  }
+})
 
 const BarChart = defineAsyncComponent(() =>
   import('frappe-ui/charts').then((m) => m.BarChart),

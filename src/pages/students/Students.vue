@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { ensureModule } from '@/data/catalog/catalogSync'
+import { isApiEnabled } from '@/lib/apiMode'
 import {
   Badge,
   Button,
@@ -40,6 +42,10 @@ const selection = ref<string[]>([])
 const active = ref<string>()
 const { canCreate, canWrite, canDelete, requirePerm } =
   useModuleAccess('students')
+
+onMounted(() => {
+  if (isApiEnabled()) void ensureModule('students', { force: true })
+})
 
 const mod = computed(() => getLiveModule('students')!)
 const rows = computed(() => {

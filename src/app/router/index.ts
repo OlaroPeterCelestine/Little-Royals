@@ -132,7 +132,16 @@ const catalogDetailRoutes: RouteRecordRaw[] = catalogKeys
   )
 
 const catalogFormRoutes: RouteRecordRaw[] = catalogKeys
-  .filter((key) => key !== 'programs' && key !== 'waiting-list')
+  // students create/edit are registered earlier (before /students/:id).
+  .filter(
+    (key) =>
+      key !== 'programs' &&
+      key !== 'waiting-list' &&
+      key !== 'students' &&
+      key !== 'teachers' &&
+      key !== 'staff' &&
+      key !== 'classes',
+  )
   .flatMap((key) => [
     {
       path: `/${key}/new`,
@@ -194,6 +203,19 @@ export const router = createRouter({
       name: 'students',
       component: () => import('@/pages/students/Students.vue'),
     },
+    // Static /new before /:id so "new" is never treated as a student id.
+    {
+      path: '/students/new',
+      name: 'students-create',
+      component: () => import('@/pages/shared/RecordForm.vue'),
+      beforeEnter: withModuleParam('students'),
+    },
+    {
+      path: '/students/:id/edit',
+      name: 'students-edit',
+      component: () => import('@/pages/shared/RecordForm.vue'),
+      beforeEnter: withModuleParam('students'),
+    },
     {
       path: '/students/:id',
       name: 'students-detail',
@@ -220,9 +242,33 @@ export const router = createRouter({
       redirect: { path: '/people', query: { tab: 'parents' } },
     },
     {
+      path: '/teachers/new',
+      name: 'teachers-create',
+      component: () => import('@/pages/shared/RecordForm.vue'),
+      beforeEnter: withModuleParam('teachers'),
+    },
+    {
+      path: '/teachers/:id/edit',
+      name: 'teachers-edit',
+      component: () => import('@/pages/shared/RecordForm.vue'),
+      beforeEnter: withModuleParam('teachers'),
+    },
+    {
       path: '/teachers/:id',
       name: 'teachers-detail',
       component: () => import('@/pages/people/Teacher360.vue'),
+    },
+    {
+      path: '/staff/new',
+      name: 'staff-create',
+      component: () => import('@/pages/shared/RecordForm.vue'),
+      beforeEnter: withModuleParam('staff'),
+    },
+    {
+      path: '/staff/:id/edit',
+      name: 'staff-edit',
+      component: () => import('@/pages/shared/RecordForm.vue'),
+      beforeEnter: withModuleParam('staff'),
     },
     {
       path: '/staff/:id',
@@ -233,6 +279,18 @@ export const router = createRouter({
       path: '/classes',
       name: 'classes',
       component: () => import('@/pages/academics/Classes.vue'),
+    },
+    {
+      path: '/classes/new',
+      name: 'classes-create',
+      component: () => import('@/pages/shared/RecordForm.vue'),
+      beforeEnter: withModuleParam('classes'),
+    },
+    {
+      path: '/classes/:id/edit',
+      name: 'classes-edit',
+      component: () => import('@/pages/shared/RecordForm.vue'),
+      beforeEnter: withModuleParam('classes'),
     },
     detailRoute('classes', '/classes/:id', 'classes-detail'),
     // Sections (/programs) removed — send leftover links to Classes
@@ -744,7 +802,11 @@ router.beforeEach((to) => {
 
   const isParent = isParentRole(authSession.value?.role || '')
   if (isAuthenticated.value && to.name === 'login') {
-    return { path: isParent ? '/parent-portal' : '/dashboard' }
+    const fallback = isParent ? '/parent-portal' : '/dashboard'
+    const redirect = isSafeInternalPath(to.query.redirect)
+      ? String(to.query.redirect)
+      : fallback
+    return { path: redirect }
   }
 
   if (isParent && !isParentAllowedPath(to.path)) {

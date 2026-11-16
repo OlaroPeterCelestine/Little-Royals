@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ensureModule } from '@/data/catalog/catalogSync'
+import { isApiEnabled } from '@/lib/apiMode'
 import {
   Alert,
   Button,
@@ -55,6 +57,16 @@ const rows = computed(() => {
 })
 const { canCreate, canWrite, canDelete, canPrint, requirePerm } =
   useModuleAccess(moduleKey)
+
+onMounted(() => {
+  if (!isApiEnabled()) return
+  const key = moduleKey.value
+  if (key) void ensureModule(key, { force: true })
+})
+watch(moduleKey, (key) => {
+  if (!isApiEnabled() || !key) return
+  void ensureModule(key, { force: true })
+})
 
 const extraFilterKey = computed(() => {
   const cols = mod.value?.columns.map((c) => c.key) || []

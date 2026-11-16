@@ -328,52 +328,35 @@ function askAdmin() {
         </div>
 
         <div class="login-widgets">
-          <div class="login-card">
-            <p class="login-card-label">Enrollment</p>
-            <p class="login-card-value">248</p>
-            <p class="login-card-up">+12 this term</p>
-          </div>
-          <div class="login-card">
-            <p class="login-card-label">Attendance today</p>
-            <p class="login-card-value">96%</p>
-            <p class="login-card-up">On track</p>
-          </div>
-          <div class="login-card">
-            <p class="login-card-label">Fee collections</p>
-            <div class="login-bars" aria-hidden="true">
-              <span style="height: 38%" />
-              <span style="height: 58%" />
-              <span style="height: 46%" />
-              <span style="height: 72%" />
-              <span style="height: 64%" />
-              <span style="height: 88%" />
-              <span style="height: 76%" />
-            </div>
-          </div>
-          <div class="login-card login-card-donut">
-            <p class="login-card-label">Class capacity</p>
-            <div class="login-donut-wrap">
-              <div class="login-donut" />
-              <p class="login-donut-value">84%</p>
-            </div>
+          <div class="login-card login-card-wide">
+            <p class="login-card-label">Live school desk</p>
+            <p class="login-card-value login-card-value-sm">
+              {{ brand.shortName || schoolSetup.shortName || 'School' }}
+            </p>
+            <p class="login-card-up">
+              {{ schoolSetup.city || 'Campus' }}
+              <template v-if="schoolSetup.country">
+                · {{ schoolSetup.country }}
+              </template>
+            </p>
           </div>
           <div class="login-card login-card-wide">
-            <p class="login-card-label">Recent activity</p>
+            <p class="login-card-label">What you’ll manage</p>
             <ul>
               <li>
                 <span class="dot blue" />
-                Admissions
-                <strong>3 new applications</strong>
+                Pupils &amp; attendance
+                <strong>from the live register</strong>
               </li>
               <li>
                 <span class="dot green" />
-                Finance
-                <strong>UGX 1.2M collected</strong>
+                Fees &amp; payments
+                <strong>recorded in your books</strong>
               </li>
               <li>
                 <span class="dot amber" />
-                Parents
-                <strong>SMS broadcast sent</strong>
+                Parents &amp; staff
+                <strong>wired to the school API</strong>
               </li>
             </ul>
           </div>
@@ -732,6 +715,10 @@ function askAdmin() {
   font-weight: 700;
   letter-spacing: -0.03em;
   color: #0f172a;
+}
+
+.login-card-value-sm {
+  font-size: 1.35rem;
 }
 
 .login-card-up {

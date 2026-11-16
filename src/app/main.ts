@@ -5,7 +5,7 @@ import { router } from '@/app/router'
 import { isAuthenticated, refreshAuthSession } from '@/data/auth/auth'
 import {
   ensureModule,
-  hydrateCatalogFromApi,
+  hydrateDeskAfterAuth,
   moduleFromPath,
 } from '@/data/catalog/catalogSync'
 import {
@@ -52,11 +52,11 @@ async function boot() {
   if (isApiEnabled()) {
     // Branding + catalog come from the Go API — not frontend seed data.
     if (isAuthenticated.value) {
-      void hydrateSchoolFromApi().then(() => {
+      void hydrateSchoolFromApi().then(async () => {
         const first = moduleFromPath(router.currentRoute.value.path)
-        void Promise.all([
+        await Promise.all([
           hydrateRolesFromApi(),
-          hydrateCatalogFromApi(first ? [first] : []),
+          hydrateDeskAfterAuth(first ? [first] : []),
         ])
       })
     } else {

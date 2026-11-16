@@ -136,6 +136,23 @@ async function pullModule(module: FrontendModule, bust = false): Promise<boolean
   }
 }
 
+/** Modules the dashboard / post-login desk needs first. */
+export const DESK_HYDRATE_PRIORITY: FrontendModule[] = [
+  'students',
+  'teachers',
+  'staff',
+  'parents',
+  'attendance',
+  'classes',
+  'subjects',
+  'admissions',
+  'invoices',
+  'payments',
+  'fees',
+  'users',
+  'school-events',
+]
+
 /**
  * Ensure a single module is warm — shows seed instantly, revalidates in background.
  * Safe to call on route enter / sidebar hover.
@@ -145,8 +162,11 @@ export function ensureModule(module: string, opts?: { force?: boolean }): Promis
   const force = opts?.force === true
   const at = moduleFreshAt.get(module) || 0
   if (!force && Date.now() - at < MODULE_FRESH_MS) return Promise.resolve(true)
-  const existing = moduleInflight.get(module)
-  if (existing) return existing
+  // A forced pull must not reuse a stale in-flight soft pull.
+  if (!force) {
+    const existing = moduleInflight.get(module)
+    if (existing) return existing
+  }
   const p = pullModule(module, force).finally(() => {
     moduleInflight.delete(module)
   })
@@ -156,9 +176,13 @@ export function ensureModule(module: string, opts?: { force?: boolean }): Promis
 
 /**
  * Pull live rows from the Go API into the desk store (when API is enabled).
- * Seed data remains as fallback if a module fails. Prioritizes `priority` modules first.
+ * Prioritizes `priority` modules first. Pass `force` after login so JWT-gated
+ * lists replace empty shells immediately.
  */
-export async function hydrateCatalogFromApi(priority: string[] = []): Promise<{
+export async function hydrateCatalogFromApi(
+  priority: string[] = [],
+  opts?: { force?: boolean; priorityOnly?: boolean },
+): Promise<{
   ok: boolean
   loaded: number
   failed: string[]
@@ -167,6 +191,7 @@ export async function hydrateCatalogFromApi(priority: string[] = []): Promise<{
     return { ok: false, loaded: 0, failed: [] }
   }
 
+  const force = opts?.force === true
   catalogSyncing.value = true
   catalogSyncLabel.value = 'Updating…'
   const failed: string[] = []
@@ -180,10 +205,12 @@ export async function hydrateCatalogFromApi(priority: string[] = []): Promise<{
       order.push(key)
     }
   }
-  for (const key of FRONTEND_MODULES) {
-    if (!seen.has(key)) {
-      seen.add(key)
-      order.push(key)
+  if (!opts?.priorityOnly) {
+    for (const key of FRONTEND_MODULES) {
+      if (!seen.has(key)) {
+        seen.add(key)
+        order.push(key)
+      }
     }
   }
 
@@ -195,7 +222,9 @@ export async function hydrateCatalogFromApi(priority: string[] = []): Promise<{
         i === 0 ? 'Updating…' : `Updating… ${Math.min(i + batchSize, order.length)}/${order.length}`
       await Promise.all(
         slice.map(async (module) => {
-          const ok = await ensureModule(module)
+          // Force only the first priority batch after login; rest soft-revalidate.
+          const forceThis = force && i === 0
+          const ok = await ensureModule(module, { force: forceThis })
           if (ok) loaded += 1
           else failed.push(module)
         }),
@@ -206,7 +235,14 @@ export async function hydrateCatalogFromApi(priority: string[] = []): Promise<{
     catalogSyncLabel.value = ''
   }
 
-  return { ok: failed.length < FRONTEND_MODULES.length, loaded, failed }
+  return { ok: failed.length < order.length, loaded, failed }
+}
+
+/** After login / focus: warm the desk modules users see first. */
+export async function hydrateDeskAfterAuth(extraPriority: string[] = []): Promise<void> {
+  if (!isApiEnabled()) return
+  const priority = [...extraPriority, ...DESK_HYDRATE_PRIORITY]
+  await hydrateCatalogFromApi(priority, { force: true })
 }
 
 export const UUID_RE =
