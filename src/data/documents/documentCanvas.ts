@@ -374,7 +374,16 @@ export function designCssFromConfig(cfg: DocumentCanvasConfig): string {
 `
 }
 
-export function readFileAsDataUrl(file: File): Promise<string> {
+export async function readFileAsDataUrl(file: File): Promise<string> {
+  const { compressImageToWebpDataUrl } = await import('@/lib/imageWebp')
+  if (file.type.startsWith('image/') && file.type !== 'image/svg+xml') {
+    return compressImageToWebpDataUrl(file, {
+      maxEdge: 1400,
+      quality: 0.85,
+      maxInputBytes: 2_500_000,
+      background: 'transparent',
+    })
+  }
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result || ''))

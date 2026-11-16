@@ -28,7 +28,7 @@ const BY_NAME: Record<string, string> = {
   medicalAlerts: 'Allergies, asthma, or conditions teachers/clinic must know.',
   dietaryNotes: 'Food allergies or special diet (boarding / meals).',
   previousSchool: 'Last school attended before joining Little Royals.',
-  photo: 'Clear face photo for ID cards and desk profiles (JPG/PNG).',
+  photo: 'Clear face photo for ID cards and desk profiles — compressed to WebP on upload.',
   documents: 'Supporting files (birth cert, report, transfer letter).',
 
   // Placement / academics

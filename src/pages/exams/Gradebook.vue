@@ -348,20 +348,19 @@ function parseExamQuestions(raw: unknown): ExamQuestion[] {
   }
 }
 
-function readImageFile(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (!file.type.startsWith('image/')) {
-      reject(new Error('Choose an image file (PNG, JPG, WebP)'))
-      return
-    }
-    if (file.size > 4 * 1024 * 1024) {
-      reject(new Error('Image must be under 4 MB'))
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result || ''))
-    reader.onerror = () => reject(new Error('Could not read image'))
-    reader.readAsDataURL(file)
+async function readImageFile(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Choose an image file (PNG, JPG, WebP)')
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    throw new Error('Image must be under 4 MB')
+  }
+  const { compressImageToWebpDataUrl } = await import('@/lib/imageWebp')
+  return compressImageToWebpDataUrl(file, {
+    maxEdge: 1600,
+    quality: 0.84,
+    maxInputBytes: 4 * 1024 * 1024,
+    background: 'white',
   })
 }
 

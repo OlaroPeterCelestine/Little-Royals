@@ -148,6 +148,7 @@ async function clearPhoto() {
       ref="inputEl"
       type="file"
       accept="image/jpeg,image/png,image/webp,image/gif"
+      title="Images are compressed to WebP on upload"
       class="hidden"
       @change="onPick"
     />

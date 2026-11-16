@@ -3,6 +3,10 @@
 import { getApiBase } from '@/services/http'
 import { authToken } from '@/data/auth/auth'
 import { isApiEnabled } from '@/lib/apiMode'
+import {
+  compressImageToWebp,
+  compressImageToWebpDataUrl,
+} from '@/lib/imageWebp'
 
 const PALETTE = [
   ['#1d4f91', '#7eb6e8'],
@@ -123,25 +127,24 @@ export async function resolvePersonPhotoSrc(
   return generatedPortrait(fallbackName, fallbackId || fallbackName)
 }
 
-export function readImageFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (!file.type.startsWith('image/')) {
-      reject(new Error('Choose an image file (JPG, PNG, WebP)'))
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      reject(new Error('Photo must be under 5 MB'))
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result || ''))
-    reader.onerror = () => reject(new Error('Could not read photo'))
-    reader.readAsDataURL(file)
+export async function readImageFileAsDataUrl(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Choose an image file (JPG, PNG, WebP)')
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error('Photo must be under 5 MB')
+  }
+  return compressImageToWebpDataUrl(file, {
+    maxEdge: 1280,
+    quality: 0.82,
+    maxInputBytes: 5 * 1024 * 1024,
+    background: 'white',
   })
 }
 
 /**
  * Upload an identification photo via `/api/v1/files` (Photos folder).
+ * Compresses to WebP client-side before upload (smaller + faster).
  * Blobs land in Cloudflare R2 when configured, otherwise local disk.
  * Returns `file:{uuid}` for storage on the person/user record.
  * Falls back to a data URL when the API is offline.
@@ -157,12 +160,19 @@ export async function uploadPersonPhoto(
     throw new Error('Photo must be under 5 MB')
   }
 
+  const webp = await compressImageToWebp(file, {
+    maxEdge: 1280,
+    quality: 0.82,
+    maxInputBytes: 5 * 1024 * 1024,
+    background: 'white',
+  })
+
   if (!isApiEnabled() || !authToken()) {
     return readImageFileAsDataUrl(file)
   }
 
   const body = new FormData()
-  body.append('file', file)
+  body.append('file', webp)
   body.append('folder', folder)
   const res = await fetch(`${getApiBase()}/api/v1/files`, {
     method: 'POST',
@@ -175,8 +185,8 @@ export async function uploadPersonPhoto(
   }
   const id = String(payload?.data?.id || payload?.id || '').trim()
   if (!id) throw new Error('Photo upload returned no id')
-  // Warm cache with a local preview.
-  const preview = URL.createObjectURL(file)
+  // Warm cache with a local preview of the compressed file.
+  const preview = URL.createObjectURL(webp)
   blobCache.set(id, preview)
   return `file:${id}`
 }

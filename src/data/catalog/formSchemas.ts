@@ -91,7 +91,7 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
             name: 'photo',
             label: 'Photograph (ID)',
             type: 'file',
-            help: 'Face photo for identification — uploaded to school Drive',
+            help: 'Face photo for identification — compressed to WebP and stored on school Drive',
           },
         ],
       },
