@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { FormControl } from 'frappe-ui'
+import { FormControl, toast } from 'frappe-ui'
 import type { FormFieldSpec } from '@/lib/forms/types'
 import { getLiveModule } from '@/data/catalog/store'
 import { compareSchoolClasses } from '@/data/school/grades'
@@ -142,19 +142,27 @@ function onUpdate(v: unknown) {
 async function onPhotoSelected(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
+  const previous = props.modelValue
   if (!file) {
-    emit('update:modelValue', '')
     return
   }
   try {
     const folder =
-      props.field.name === 'photo' ? 'Photos' : 'Drive'
+      props.field.name === 'photo' || props.field.name === 'cover'
+        ? 'Photos'
+        : 'Documents'
     const value = await uploadPersonPhoto(file, folder)
     emit('update:modelValue', value)
-  } catch {
-    emit('update:modelValue', '')
+  } catch (err) {
+    emit('update:modelValue', previous as string | number | boolean | string[])
+    toast.error(err instanceof Error ? err.message : 'Photo upload failed')
+  } finally {
+    input.value = ''
   }
 }
+
+// Upload pipeline compresses images to WebP — only image types are supported.
+const fileAccept = 'image/jpeg,image/png,image/webp,image/gif'
 
 function clearPhoto() {
   emit('update:modelValue', '')
@@ -232,7 +240,7 @@ const fieldPlaceholder = computed(() =>
         <div class="min-w-0 space-y-2">
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            :accept="fileAccept"
             title="Images are compressed to WebP on upload"
             class="block w-full max-w-xs text-sm text-ink-gray-6"
             @change="onPhotoSelected"

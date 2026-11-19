@@ -25,6 +25,11 @@ export function personListPath(module: string): string {
   if (module in LIST) return LIST[module as PersonModule]
   // Calendar desk owns school-events (/school-events redirects to /calendar)
   if (module === 'school-events') return '/calendar'
+  if (module === 'periods') return '/timetable?view=periods'
+  if (module === 'applicants' || module === 'waiting-list') {
+    return '/admissions?tab=applications'
+  }
+  if (module === 'admissions') return '/admissions?tab=admissions'
   return `/${module}`
 }
 

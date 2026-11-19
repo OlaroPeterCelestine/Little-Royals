@@ -302,7 +302,10 @@ export async function updateRecord(
   if (!row) throw new Error('Record not found')
 
   values = sanitizeRecordValues(values as Record<string, unknown>) as RecordValues
-  const name = sanitizeText(asString(values.name), 'name')
+  // Partial patches (status-only, etc.) keep the existing display name.
+  const name =
+    sanitizeText(asString(values.name), 'name') ||
+    sanitizeText(asString(row.name), 'name')
   if (!name) throw new Error('Name is required')
   values.name = name
 
@@ -342,12 +345,26 @@ export async function deleteRecords(key: string, ids: string[]) {
   if (!ids.length) throw new Error('Select at least one record to delete')
   const doomed = mod.rows.filter((r) => ids.includes(r.id))
 
-  await deleteOnServer(key, ids)
+  let deletedIds: string[] = []
+  try {
+    deletedIds = await deleteOnServer(key, ids)
+  } catch (err) {
+    // If some succeeded, drop those locally before rethrowing.
+    // deleteOnServer only returns when all succeed; on partial failure
+    // re-pull so the desk matches the server.
+    try {
+      const { ensureModule } = await import('@/data/catalog/catalogSync')
+      await ensureModule(key)
+    } catch {
+      /* ignore hydrate errors — original delete error matters more */
+    }
+    throw err
+  }
 
-  const countBefore = mod.rows.length
-  mod.rows = mod.rows.filter((r) => !ids.includes(r.id))
-  const removed = countBefore - mod.rows.length
-  for (const row of doomed) {
+  const deletedSet = new Set(deletedIds)
+  const removedRows = doomed.filter((r) => deletedSet.has(r.id))
+  mod.rows = mod.rows.filter((r) => !deletedSet.has(r.id))
+  for (const row of removedRows) {
     applyAudit(
       'Deleted',
       key,
@@ -356,7 +373,7 @@ export async function deleteRecords(key: string, ids: string[]) {
       changesFromDelete(snapshotRecord(row)),
     )
   }
-  return removed
+  return removedRows.length
 }
 
 export const unpaidFeeCount = computed(() =>

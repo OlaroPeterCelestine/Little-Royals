@@ -133,10 +133,13 @@ const catalogDetailRoutes: RouteRecordRaw[] = catalogKeys
 
 const catalogFormRoutes: RouteRecordRaw[] = catalogKeys
   // students create/edit are registered earlier (before /students/:id).
+  // periods / applicants / waiting-list create routes are registered next to their redirects.
   .filter(
     (key) =>
       key !== 'programs' &&
       key !== 'waiting-list' &&
+      key !== 'periods' &&
+      key !== 'applicants' &&
       key !== 'students' &&
       key !== 'teachers' &&
       key !== 'staff' &&
@@ -501,11 +504,15 @@ export const router = createRouter({
     },
     {
       path: '/periods/new',
-      redirect: { path: '/timetable', query: { view: 'periods' } },
+      name: 'periods-create',
+      component: () => import('@/pages/shared/RecordForm.vue'),
+      beforeEnter: withModuleParam('periods'),
     },
     {
       path: '/periods/:id/edit',
-      redirect: { path: '/timetable', query: { view: 'periods' } },
+      name: 'periods-edit',
+      component: () => import('@/pages/shared/RecordForm.vue'),
+      beforeEnter: withModuleParam('periods'),
     },
     {
       path: '/years-and-terms',
@@ -540,7 +547,9 @@ export const router = createRouter({
     },
     {
       path: '/applicants/new',
-      redirect: { path: '/admissions', query: { tab: 'applications' } },
+      name: 'applicants-create',
+      component: () => import('@/pages/shared/RecordForm.vue'),
+      beforeEnter: withModuleParam('applicants'),
     },
     {
       path: '/waiting-list',
@@ -548,7 +557,9 @@ export const router = createRouter({
     },
     {
       path: '/waiting-list/new',
-      redirect: { path: '/admissions', query: { tab: 'applications' } },
+      name: 'waiting-list-create',
+      component: () => import('@/pages/shared/RecordForm.vue'),
+      beforeEnter: withModuleParam('waiting-list'),
     },
     {
       path: '/waiting-list/:id',
@@ -556,7 +567,9 @@ export const router = createRouter({
     },
     {
       path: '/waiting-list/:id/edit',
-      redirect: { path: '/admissions', query: { tab: 'applications' } },
+      name: 'waiting-list-edit',
+      component: () => import('@/pages/shared/RecordForm.vue'),
+      beforeEnter: withModuleParam('waiting-list'),
     },
     {
       path: '/program-enrollments',

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { PageHeader, PageHeaderTitle } from 'frappe-ui'
+import { PageHeader, PageHeaderTitle, toast } from 'frappe-ui'
 import { getLiveModule } from '@/data/catalog/store'
 import {
   openCreateDialog,
@@ -47,6 +47,7 @@ onMounted(async () => {
   } else {
     const current = getLiveModule(key)?.rows.find((r) => r.id === recordId.value)
     if (current) openEditDialog(key, current)
+    else toast.error('Record not found — open it from the list to edit')
   }
 
   // Always land on the list/detail page with the modal open — never history.back(),

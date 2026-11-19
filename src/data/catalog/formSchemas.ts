@@ -2313,6 +2313,209 @@ export const formSchemas: Record<string, ModuleFormSpec> = {
       },
     ],
   },
+  subjects: {
+    module: 'subjects',
+    title: 'Add Subject',
+    singular: 'Subject',
+    sections: [
+      {
+        title: 'Subject',
+        fields: [
+          { name: 'name', label: 'Subject name', type: 'text', required: true },
+          { name: 'code', label: 'Code', type: 'text', required: true },
+          { name: 'program', label: 'Program / section', type: 'select', options: sectionOpts },
+          { name: 'instructor', label: 'Instructor', type: 'select', optionsFrom: 'teachers' },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            options: [
+              { label: 'Active', value: 'Active' },
+              { label: 'Inactive', value: 'Inactive' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  fees: {
+    module: 'fees',
+    title: 'Fee Invoice',
+    singular: 'Fee invoice',
+    sections: [
+      {
+        title: 'Invoice',
+        fields: [
+          {
+            name: 'name',
+            label: 'Learner',
+            type: 'select',
+            required: true,
+            optionsFrom: 'students',
+          },
+          {
+            name: 'className',
+            label: 'Class',
+            type: 'select',
+            required: true,
+            options: classOpts,
+          },
+          { name: 'invoice', label: 'Invoice number', type: 'text', required: true },
+          { name: 'amount', label: 'Amount (UGX)', type: 'text', required: true, placeholder: 'UGX 450,000' },
+          { name: 'paid', label: 'Paid (UGX)', type: 'text', placeholder: 'UGX 0' },
+          { name: 'balance', label: 'Balance (UGX)', type: 'text', placeholder: 'UGX 450,000' },
+          {
+            name: 'leftSchool',
+            label: 'Left school',
+            type: 'select',
+            options: yesNo,
+          },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            required: true,
+            options: [
+              { label: 'Unpaid', value: 'Unpaid' },
+              { label: 'Partial', value: 'Partial' },
+              { label: 'Paid', value: 'Paid' },
+              { label: 'Overdue', value: 'Overdue' },
+              { label: 'Offset', value: 'Offset' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  'fee-categories': {
+    module: 'fee-categories',
+    title: 'Fee Category',
+    singular: 'Fee category',
+    sections: [
+      {
+        title: 'Category',
+        fields: [
+          { name: 'name', label: 'Category name', type: 'text', required: true },
+          {
+            name: 'type',
+            label: 'Type',
+            type: 'select',
+            options: [
+              { label: 'Tuition', value: 'Tuition' },
+              { label: 'Boarding', value: 'Boarding' },
+              { label: 'Transport', value: 'Transport' },
+              { label: 'Meals', value: 'Meals' },
+              { label: 'Other', value: 'Other' },
+            ],
+          },
+          { name: 'defaultAmount', label: 'Default amount (UGX)', type: 'text', placeholder: 'UGX 100,000' },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            options: [
+              { label: 'Active', value: 'Active' },
+              { label: 'Inactive', value: 'Inactive' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  'fee-schedules': {
+    module: 'fee-schedules',
+    title: 'Fee Schedule',
+    singular: 'Fee schedule',
+    sections: [
+      {
+        title: 'Schedule',
+        fields: [
+          { name: 'name', label: 'Schedule name', type: 'text', required: true },
+          {
+            name: 'structure',
+            label: 'Fee structure',
+            type: 'select',
+            optionsFrom: 'fee-structures',
+          },
+          { name: 'dueDate', label: 'Due date', type: 'date', required: true },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            options: [
+              { label: 'Draft', value: 'Draft' },
+              { label: 'Active', value: 'Active' },
+              { label: 'Closed', value: 'Closed' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  hostel: {
+    module: 'hostel',
+    title: 'Boarding Placement',
+    singular: 'Boarder',
+    sections: [
+      {
+        title: 'Boarding',
+        fields: [
+          {
+            name: 'name',
+            label: 'Pupil',
+            type: 'select',
+            required: true,
+            optionsFrom: 'students',
+          },
+          { name: 'dorm', label: 'House / room', type: 'text', required: true },
+          { name: 'bed', label: 'Bed', type: 'text' },
+          {
+            name: 'houseParent',
+            label: 'Matron / patron',
+            type: 'select',
+            optionsFrom: 'staff',
+          },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            options: [
+              { label: 'Active', value: 'Active' },
+              { label: 'Left', value: 'Left' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  'student-categories': {
+    module: 'student-categories',
+    title: 'Student Category',
+    singular: 'Category',
+    sections: [
+      {
+        title: 'Category',
+        fields: [
+          { name: 'name', label: 'Category name', type: 'text', required: true },
+          { name: 'discount', label: 'Discount', type: 'text', placeholder: '10%' },
+          {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            options: [
+              { label: 'Active', value: 'Active' },
+              { label: 'Inactive', value: 'Inactive' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 }
 
 /** Map common FK-like column names → catalog module for dropdown options. */

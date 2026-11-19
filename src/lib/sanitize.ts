@@ -29,7 +29,21 @@ export type SanitizeKind =
   | 'radio'
   | 'multiselect'
 
+function isSafeMediaValue(raw: string): boolean {
+  const v = raw.trim()
+  return (
+    v.startsWith('file:') ||
+    v.startsWith('data:image/') ||
+    v.startsWith('blob:') ||
+    /^https?:\/\//i.test(v)
+  )
+}
+
 function stripDangerous(raw: string): string {
+  // Preserve photo / attachment markers (file:{uuid}, data:image/…, https…).
+  if (isSafeMediaValue(raw)) {
+    return raw.replace(CONTROL_CHARS, '')
+  }
   return raw
     .replace(HTML_TAGS, '')
     .replace(SCRIPTISH, '')
@@ -142,6 +156,19 @@ export function sanitizeFieldValue(
       .join(', ')
   }
 
+  // Keep photo / file markers intact (never run SCRIPTISH / number coerce).
+  if (
+    typeof value === 'string' &&
+    (key === 'photo' ||
+      key === 'cover' ||
+      key === 'attachment' ||
+      key === 'documents' ||
+      key.toLowerCase().includes('photo') ||
+      isSafeMediaValue(value))
+  ) {
+    return sanitizeText(value, 'file', 12000)
+  }
+
   const inferred: SanitizeKind =
     kind ||
     (key === 'email'
@@ -160,11 +187,10 @@ export function sanitizeFieldValue(
               : key === 'score' ||
                   key === 'maxScore' ||
                   key === 'percent' ||
-                  key === 'average' ||
-                  key === 'amount' ||
-                  key === 'paid'
+                  key === 'average'
                 ? 'number'
-                : key === 'address' ||
+                : // amount/paid/balance often stored as "UGX 120,000" display strings
+                  key === 'address' ||
                     key === 'subtitle' ||
                     key === 'medicalAlerts' ||
                     key === 'specialNeeds' ||

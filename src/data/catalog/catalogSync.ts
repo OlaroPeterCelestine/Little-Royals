@@ -78,8 +78,8 @@ export function bodyFromRow(row: StoreRow | RecordValues): Record<string, unknow
   for (const [k, v] of Object.entries(row)) {
     if (v === undefined || v === null) continue
     if (k === 'statusTheme') continue
-    const normalized = apiDateValue(v)
-    body[k] = typeof normalized === 'boolean' ? String(normalized) : normalized
+    // Keep real booleans for Go JSON binding (do not stringify).
+    body[k] = apiDateValue(v)
   }
   // Typed people resources use first/last name — derive from desk "name" when missing.
   if (!body.firstName && typeof body.name === 'string') {
@@ -373,13 +373,23 @@ export async function updateOnServer(
   return rowFromApi(updated)
 }
 
-/** Server-authoritative delete — throws if any id fails. */
-export async function deleteOnServer(key: FrontendModule, ids: string[]) {
+/**
+ * Server-authoritative delete.
+ * Returns ids that were deleted so the desk can drop only those rows.
+ */
+export async function deleteOnServer(
+  key: FrontendModule,
+  ids: string[],
+): Promise<string[]> {
   const results = await Promise.allSettled(
     ids.map((id) => catalogServices[key].remove(id)),
   )
-  const failed = results.filter((r) => r.status === 'rejected').length
+  const deleted: string[] = []
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') deleted.push(ids[i])
+  })
   bumpModule(key)
+  const failed = ids.length - deleted.length
   if (failed) {
     throw new Error(
       failed === ids.length
@@ -387,4 +397,5 @@ export async function deleteOnServer(key: FrontendModule, ids: string[]) {
         : `${failed} of ${ids.length} deletes failed on the server`,
     )
   }
+  return deleted
 }

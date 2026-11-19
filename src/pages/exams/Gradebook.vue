@@ -1039,7 +1039,10 @@ async function saveMarks(submit: boolean) {
     else await addRecord('gradebook', sheetPayload)
 
     if (submit && exam.status !== 'Closed') {
-      await updateRecord('exams', exam.id, { status: 'Open' })
+      await updateRecord('exams', exam.id, {
+        name: String(exam.name || examName),
+        status: 'Open',
+      })
     }
 
     dirty.value = false
@@ -1093,7 +1096,10 @@ function closeExam() {
     theme: 'amber',
     confirmLabel: 'Close exam',
     onConfirm: async () => {
-      await updateRecord('exams', exam.id, { status: 'Closed' })
+      await updateRecord('exams', exam.id, {
+        name: String(exam.name),
+        status: 'Closed',
+      })
       toast.success('Examination closed')
     },
   })

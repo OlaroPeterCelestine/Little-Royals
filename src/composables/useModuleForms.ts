@@ -39,6 +39,11 @@ export function openCreateDialog(
     deny(`create ${mod.singular.toLowerCase()}s`)
     return
   }
+  // Desk users need a password — use Users → Invite, not the generic catalog form.
+  if (moduleKey === 'users') {
+    toast.info('Open Users & roles and use Invite to create a login with a password')
+    return
+  }
 
   recordFormModal.moduleKey = moduleKey
   recordFormModal.recordId = ''

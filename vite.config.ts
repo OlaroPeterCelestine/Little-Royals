@@ -13,6 +13,20 @@ export default defineConfig(({ mode }) => ({
     frappeui({ frappeProxy: false, jinjaBootData: false, buildConfig: false }),
     vue(),
   ],
+  server: {
+    // same-origin desk → Go API (CRUD, files, WebSocket)
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:18080',
+        changeOrigin: true,
+        ws: true,
+      },
+      '/health': {
+        target: 'http://127.0.0.1:18080',
+        changeOrigin: true,
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(rootDir, 'src'),
