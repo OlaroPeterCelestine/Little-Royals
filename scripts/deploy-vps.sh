@@ -51,10 +51,11 @@ fi
 API_REPLICAS="${API_REPLICAS:-2}"
 
 echo "==> Building & starting containers (api×${API_REPLICAS} for load balancing)…"
-docker compose \
-  --env-file "$ENV_DOCKER" \
-  --env-file "$ENV_API" \
-  up -d --build --remove-orphans --scale "api=${API_REPLICAS}"
+# backend/.env first, .env.docker last so SCHOOL_DB_PASSWORD / ports win for compose.
+compose=(docker compose --env-file "$ENV_API" --env-file "$ENV_DOCKER")
+# Host shell must not override compose secrets.
+env -u SCHOOL_DB_PASSWORD -u DATABASE_URL -u POSTGRES_URL \
+  "${compose[@]}" up -d --build --remove-orphans --scale "api=${API_REPLICAS}"
 
 echo "==> Waiting for API health…"
 WEB_PORT="${WEB_HTTP_PORT:-8080}"
@@ -70,7 +71,7 @@ for _ in $(seq 1 40); do
 done
 
 echo
-docker compose --env-file "$ENV_DOCKER" --env-file "$ENV_API" ps
+env -u SCHOOL_DB_PASSWORD -u DATABASE_URL -u POSTGRES_URL "${compose[@]}" ps
 echo
 if [[ "$ok" -eq 1 ]]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

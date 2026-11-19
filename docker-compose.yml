@@ -50,9 +50,15 @@ services:
     environment:
       PORT: "8080"
       APP_ENV: ${APP_ENV:-production}
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-}
       DB_DRIVER: postgres
+      # Clear host-oriented URLs from backend/.env (127.0.0.1 / local users).
+      # Use libpq keyword DSN so passwords with @/# do not break URL parsing.
+      DATABASE_URL: ""
+      POSTGRES_URL: ""
       DB_DSN: host=postgres user=school password=${SCHOOL_DB_PASSWORD} dbname=little_royals port=5432 sslmode=disable
       REDIS_ADDR: redis:6379
+      REDIS_URL: ""
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080}
       SCHOOL_NAME: ${SCHOOL_NAME:-Little Royals Kindergarten and Primary School}
       SCHOOL_CODE: ${SCHOOL_CODE:-LRKPS}
